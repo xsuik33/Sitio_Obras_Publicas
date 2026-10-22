@@ -7,3 +7,4 @@ staticfiles/
 db.sqlite3
 dev.sh
 dev.sh
+portal_obras/
