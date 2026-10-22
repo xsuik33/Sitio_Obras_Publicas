@@ -65,6 +65,8 @@ class Usuario(AbstractBaseUser):
     class Meta:
         managed = False
         db_table = "usuarios"
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
 
     def __str__(self):
         return f"{self.nombre} {self.apellidos}"
@@ -99,6 +101,8 @@ class Rol(models.Model):
     class Meta:
         managed = False
         db_table = "roles"
+        verbose_name = "Rol"
+        verbose_name_plural = "Roles"
 
     def __str__(self):
         return self.nombre
@@ -112,6 +116,8 @@ class CatalogoEstatusValidacion(models.Model):
     class Meta:
         managed = False
         db_table = "catalogo_estatus_validacion"
+        verbose_name = "Estatus de validación"
+        verbose_name_plural = "Estatus de validación"
 
     def __str__(self):
         return self.nombre
@@ -132,6 +138,8 @@ class Obra(models.Model):
     class Meta:
         managed = False
         db_table = "obras"
+        verbose_name = "Obra"
+        verbose_name_plural = "Obras"
 
     def __str__(self):
         return self.nombre
@@ -147,6 +155,8 @@ class UsuarioProyectoRol(models.Model):
     class Meta:
         managed = False
         db_table = "usuarios_proyectos_roles"
+        verbose_name = "Rol en obra"
+        verbose_name_plural = "Roles en obras"
 
 
 class Contrato(models.Model):
@@ -173,6 +183,8 @@ class Contrato(models.Model):
     class Meta:
         managed = False
         db_table = "contratos"
+        verbose_name = "Contrato"
+        verbose_name_plural = "Contratos"
 
     def __str__(self):
         return self.numero_contrato
@@ -195,6 +207,8 @@ class Anticipo(models.Model):
     class Meta:
         managed = False
         db_table = "anticipos"
+        verbose_name = "Anticipo"
+        verbose_name_plural = "Anticipos"
 
 
 class CatalogoConcepto(models.Model):
@@ -215,6 +229,8 @@ class CatalogoConcepto(models.Model):
     class Meta:
         managed = False
         db_table = "catalogo_conceptos"
+        verbose_name = "Concepto de catálogo"
+        verbose_name_plural = "Catálogo de conceptos"
         constraints = [models.UniqueConstraint(fields=["obra", "clave"], name="uq_conceptos_obra_clave")]
 
     def __str__(self):
@@ -255,6 +271,8 @@ class Estimacion(models.Model):
     class Meta:
         managed = False
         db_table = "estimaciones"
+        verbose_name = "Estimación"
+        verbose_name_plural = "Estimaciones"
         constraints = [
             models.UniqueConstraint(fields=["contrato", "numero_estimacion"], name="uq_estimaciones_contrato_numero")
         ]
@@ -300,6 +318,8 @@ class EstimacionDetalle(models.Model):
     class Meta:
         managed = False
         db_table = "estimaciones_detalles"
+        verbose_name = "Renglón de estimación"
+        verbose_name_plural = "Renglones de estimación"
         constraints = [
             models.UniqueConstraint(fields=["estimacion", "concepto"], name="uq_detalle_estimacion_concepto")
         ]
@@ -331,6 +351,8 @@ class ReporteDiario(models.Model):
     class Meta:
         managed = False
         db_table = "reportes_diarios"
+        verbose_name = "Reporte diario"
+        verbose_name_plural = "Reportes diarios"
         constraints = [models.UniqueConstraint(fields=["obra", "fecha_reporte"], name="uq_reporte_obra_fecha")]
 
 
@@ -347,6 +369,8 @@ class ReporteMensual(models.Model):
     class Meta:
         managed = False
         db_table = "reportes_mensuales"
+        verbose_name = "Reporte mensual"
+        verbose_name_plural = "Reportes mensuales"
         constraints = [models.UniqueConstraint(fields=["obra", "anio", "mes"], name="uq_reporte_mensual")]
 
 
@@ -363,6 +387,8 @@ class NotaBitacora(models.Model):
     class Meta:
         managed = False
         db_table = "notas_bitacora"
+        verbose_name = "Nota de bitácora"
+        verbose_name_plural = "Notas de bitácora"
 
 
 class Documento(models.Model):
@@ -378,6 +404,8 @@ class Documento(models.Model):
     class Meta:
         managed = False
         db_table = "documentos"
+        verbose_name = "Documento"
+        verbose_name_plural = "Documentos"
 
 
 class Evidencia(models.Model):
@@ -395,6 +423,8 @@ class Evidencia(models.Model):
     class Meta:
         managed = False
         db_table = "evidencias"
+        verbose_name = "Evidencia"
+        verbose_name_plural = "Evidencias"
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +442,8 @@ class ValidacionEstimacion(models.Model):
     class Meta:
         managed = False
         db_table = "validaciones_estimaciones"
+        verbose_name = "Validación de estimación"
+        verbose_name_plural = "Validaciones de estimaciones"
 
 
 class ValidacionReporteDiario(models.Model):
@@ -425,3 +457,5 @@ class ValidacionReporteDiario(models.Model):
     class Meta:
         managed = False
         db_table = "validaciones_reportes_diarios"
+        verbose_name = "Validación de reporte diario"
+        verbose_name_plural = "Validaciones de reportes diarios"

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Mis obras · Sistema de Obras{% endblock %}
+{% block contenido %}
+<h1>Mis obras</h1>
+{% if filas %}
+<div class="tarjeta">
+  <table>
+    <thead><tr><th>Obra</th><th>Ubicación</th><th>Mis roles</th></tr></thead>
+    <tbody>
+    {% for fila in filas %}
+      <tr>
+        <td><a href="{% url 'obra_detalle' fila.obra.pk %}">{{ fila.obra.nombre }}</a></td>
+        <td class="suave">{{ fila.obra.ubicacion|default:"—" }}</td>
+        <td>{% for rol in fila.roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">Acceso total (administrador del panel)</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="tarjeta">
+  <p>Todavía no tienes obras asignadas.</p>
+  <p class="suave">Pide a un administrador que te asigne un rol en una obra.</p>
+</div>
+{% endif %}
+{% endblock %}

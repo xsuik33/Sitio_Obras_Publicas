@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}{{ obra.nombre }} · Sistema de Obras{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'mis_obras' %}">← Mis obras</a></p>
+<h1>{{ obra.nombre }}</h1>
+<p class="suave">
+  {{ obra.ubicacion|default:"Sin ubicación" }}
+  {% if obra.fecha_inicio_oficial %} · {{ obra.fecha_inicio_oficial|date:"d/m/Y" }} – {{ obra.fecha_fin_oficial|date:"d/m/Y"|default:"?" }}{% endif %}
+</p>
+<p>Mis roles: {% for rol in mis_roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">acceso total (administrador del panel)</span>{% endfor %}</p>
+
+<div class="grid">
+  <div class="tarjeta"><div class="suave">Estimaciones</div><div class="dato">{{ n_estimaciones }}</div></div>
+  <div class="tarjeta"><div class="suave">Reportes diarios</div><div class="dato">{{ n_reportes }}</div></div>
+  <div class="tarjeta"><div class="suave">Notas de bitácora</div><div class="dato">{{ n_notas }}</div></div>
+</div>
+
+<div class="tarjeta">
+  <h2>Contrato</h2>
+  {% if contrato %}
+    <table>
+      <tr><th>Número</th><td>{{ contrato.numero_contrato }}</td></tr>
+      <tr><th>Contratista</th><td>{{ contrato.contratista }}</td></tr>
+      <tr><th>Monto contratado</th><td>$ {{ contrato.monto_total_contratado|floatformat:2 }}</td></tr>
+      <tr><th>Anticipo autorizado</th><td>{{ contrato.porcentaje_anticipo|floatformat:2 }} % · $ {{ contrato.monto_anticipo|floatformat:2 }}</td></tr>
+    </table>
+  {% else %}
+    <p class="suave">Esta obra todavía no tiene contrato registrado.</p>
+  {% endif %}
+</div>
+
+<div class="tarjeta">
+  <h2>Equipo de la obra</h2>
+  <table>
+    <thead><tr><th>Persona</th><th>Rol</th></tr></thead>
+    <tbody>
+    {% for asignacion in equipo %}
+      <tr><td>{{ asignacion.usuario }}</td><td><span class="chip">{{ asignacion.rol }}</span></td></tr>
+    {% empty %}
+      <tr><td colspan="2" class="suave">Aún no hay personas asignadas.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if puede_gestionar %}<p><a href="{% url 'roles_obra' obra.pk %}">Gestionar usuarios y roles →</a></p>{% endif %}
+</div>
+{% endblock %}

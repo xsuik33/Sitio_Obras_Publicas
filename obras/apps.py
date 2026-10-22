@@ -3,6 +3,7 @@ from django.apps import AppConfig
 
 class ObrasConfig(AppConfig):
     name = "obras"
+    verbose_name = "Sistema de obras"
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):

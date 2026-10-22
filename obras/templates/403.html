@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}Sin permiso · Sistema de Obras{% endblock %}
+{% block contenido %}
+<div class="tarjeta">
+  <h1>No tienes permiso</h1>
+  <p class="suave">Tu rol en esta obra no permite ver esta página.</p>
+  <p><a href="{% url 'mis_obras' %}">Volver a mis obras</a></p>
+</div>
+{% endblock %}
