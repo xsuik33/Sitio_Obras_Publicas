@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'reportes_lista' obra.pk %}">← Reportes diarios</a></p>
+<h1>{{ titulo }}</h1>
+<div class="tarjeta">
+  <form method="post" class="formulario">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Guardar</button>
+  </form>
+</div>
+{% endblock %}

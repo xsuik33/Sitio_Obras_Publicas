@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Reporte {{ reporte.fecha_reporte|date:"d/m/Y" }} · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'reportes_lista' obra.pk %}">← Reportes diarios</a></p>
+<h1>Reporte del {{ reporte.fecha_reporte|date:"d/m/Y" }}
+  <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
+<p class="suave">{{ obra.nombre }} · Supervisor: {{ reporte.supervisor }}</p>
+{% if puede_editar %}<p><a href="{% url 'reporte_editar' obra.pk reporte.pk %}">Editar reporte</a></p>{% endif %}
+
+<div class="grid">
+  <div class="tarjeta"><div class="suave">Avance físico real</div><div class="dato">{{ reporte.avance_fisico_real_porcentaje|floatformat:2 }} %</div></div>
+  <div class="tarjeta"><div class="suave">Jornada</div><div class="dato" style="font-size:1.2rem">
+    {% if reporte.jornada_inicio %}{{ reporte.jornada_inicio|time:"H:i" }} – {{ reporte.jornada_fin|time:"H:i"|default:"?" }}{% else %}—{% endif %}</div></div>
+  <div class="tarjeta"><div class="suave">Clima</div><div class="dato" style="font-size:1.2rem">
+    {{ reporte.clima|default:"—" }}{% if reporte.temperatura_c is not None %} · {{ reporte.temperatura_c }} °C{% endif %}</div></div>
+</div>
+
+<div class="tarjeta"><h2>Actividades realizadas</h2><div class="texto">{{ reporte.actividades_realizadas }}</div></div>
+{% if reporte.incidencias %}<div class="tarjeta"><h2>Incidencias</h2><div class="texto">{{ reporte.incidencias }}</div></div>{% endif %}
+{% if reporte.incidentes_seguridad %}<div class="tarjeta"><h2>Incidentes de seguridad</h2><div class="texto">{{ reporte.incidentes_seguridad }}</div></div>{% endif %}
+{% if reporte.observaciones %}<div class="tarjeta"><h2>Observaciones</h2><div class="texto">{{ reporte.observaciones }}</div></div>{% endif %}
+
+{% if evidencias %}
+<div class="tarjeta"><h2>Evidencias</h2>
+  <ul>{% for e in evidencias %}<li>{{ e.descripcion|default:e.ruta }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>Revisión</h2>
+  {% for v in validaciones %}
+    <p><span class="chip" data-e="{{ v.estatus.nombre }}">{{ v.estatus.nombre }}</span>
+       {{ v.usuario_validador }} · <span class="suave">{{ v.fecha_validacion|date:"d/m/Y H:i" }}</span>
+       {% if v.comentarios %}<br><span class="texto">{{ v.comentarios }}</span>{% endif %}</p>
+  {% empty %}
+    <p class="suave">Todavía no ha sido revisado.</p>
+  {% endfor %}
+  {% if puede_validar %}
+    <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
+    <form method="post" action="{% url 'reporte_validar' obra.pk reporte.pk %}" class="formulario">
+      {% csrf_token %}
+      {{ form_validacion.as_p }}
+      <button type="submit">Registrar revisión</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

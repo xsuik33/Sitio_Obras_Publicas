@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Reportes diarios · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'obra_detalle' obra.pk %}">← {{ obra.nombre }}</a></p>
+<h1>Reportes diarios</h1>
+{% if puede_crear %}<p><a href="{% url 'reporte_nuevo' obra.pk %}"><button type="button">+ Nuevo reporte</button></a></p>{% endif %}
+<div class="tarjeta">
+  <table>
+    <thead><tr><th>Fecha</th><th>Supervisor</th><th>Avance</th><th>Estatus</th></tr></thead>
+    <tbody>
+    {% for r in reportes %}
+      <tr>
+        <td><a href="{% url 'reporte_detalle' obra.pk r.pk %}">{{ r.fecha_reporte|date:"d/m/Y" }}</a></td>
+        <td>{{ r.supervisor }}</td>
+        <td>{{ r.avance_fisico_real_porcentaje|floatformat:2 }} %</td>
+        <td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="suave">Todavía no hay reportes diarios en esta obra.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

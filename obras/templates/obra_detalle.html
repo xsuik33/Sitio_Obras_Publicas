@@ -11,7 +11,7 @@
 
 <div class="grid">
   <div class="tarjeta"><div class="suave">Estimaciones</div><div class="dato">{{ n_estimaciones }}</div></div>
-  <div class="tarjeta"><div class="suave">Reportes diarios</div><div class="dato">{{ n_reportes }}</div></div>
+  <a href="{% url 'reportes_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Reportes diarios →</div><div class="dato">{{ n_reportes }}</div></a>
   <div class="tarjeta"><div class="suave">Notas de bitácora</div><div class="dato">{{ n_notas }}</div></div>
 </div>
 
