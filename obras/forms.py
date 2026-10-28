@@ -64,10 +64,16 @@ class ReporteDiarioForm(forms.ModelForm):
 class ValidacionForm(forms.Form):
     estatus = forms.ModelChoiceField(
         label="Resultado de la revisión",
-        queryset=CatalogoEstatusValidacion.objects.exclude(nombre="Pendiente").order_by("id"),
+        queryset=CatalogoEstatusValidacion.objects.none(),
         empty_label="— elegir —",
     )
     comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, es_admin=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        estatus = CatalogoEstatusValidacion.objects.order_by("id")
+        # Solo el administrador puede regresar un reporte a "Pendiente".
+        self.fields["estatus"].queryset = estatus if es_admin else estatus.exclude(nombre="Pendiente")
 
     def clean(self):
         datos = super().clean()

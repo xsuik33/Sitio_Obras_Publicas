@@ -36,11 +36,15 @@
   {% endfor %}
   {% if puede_validar %}
     <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
-    <form method="post" action="{% url 'reporte_validar' obra.pk reporte.pk %}" class="formulario">
+    {% if es_admin and validaciones %}<p class="suave">Como administrador puedes corregir el estatus en cualquier momento.</p>{% endif %}
+    <form method="post" action="{% url 'reporte_validar' obra.pk reporte.pk %}" class="formulario"
+          onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de estatus?{% else %}¿Confirmas esta revisión? Después solo el administrador podrá cambiarla.{% endif %}');">
       {% csrf_token %}
       {{ form_validacion.as_p }}
       <button type="submit">Registrar revisión</button>
     </form>
+  {% elif revision_bloqueada %}
+    <p class="suave">La revisión ya fue registrada. Si hay un error, pide al administrador que la corrija.</p>
   {% endif %}
 </div>
 {% endblock %}

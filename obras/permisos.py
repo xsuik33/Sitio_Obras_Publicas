@@ -2,7 +2,12 @@
 Permisos por rol y por obra.
 
 Un usuario tiene uno o más roles en cada obra (tabla usuarios_proyectos_roles).
-Los correos de ADMIN_EMAILS tienen acceso total a todas las obras.
+
+Administradores:
+  - El rol "Administrador" de una obra tiene todos los permisos en ESA obra (puede haber varios):
+    asigna roles y corrige decisiones ya registradas.
+  - Los correos de ADMIN_EMAILS son administradores de todas las obras y del panel /admin/ (donde se crean usuarios).
+
 Para cambiar lo que puede hacer cada rol, edita PERMISOS_POR_ROL.
 """
 from functools import wraps
@@ -30,7 +35,7 @@ PERMISOS_POR_ROL = {
     "Administrador": set(TODOS),
     "Residente": {VER, VALIDAR_ESTIMACION, VALIDAR_REPORTE, CREAR_NOTA, SUBIR_DOCUMENTO},
     "Supervisor": {VER, CREAR_REPORTE, CREAR_NOTA, SUBIR_DOCUMENTO},
-    "Superintendente Contratista": {VER, CREAR_ESTIMACION, CREAR_NOTA, SUBIR_DOCUMENTO},
+    "Superintendente Contratista": {VER, CREAR_ESTIMACION, VALIDAR_REPORTE, CREAR_NOTA, SUBIR_DOCUMENTO},
     "Directivo": {VER},
 }
 
@@ -48,6 +53,13 @@ def puede(usuario, obra, permiso):
     if usuario.es_admin_panel:
         return True
     return any(permiso in PERMISOS_POR_ROL.get(rol, ()) for rol in roles_en(usuario, obra))
+
+
+def es_administrador(usuario, obra):
+    """Administrador de la obra (rol Administrador) o del sistema (ADMIN_EMAILS)."""
+    if not usuario.is_authenticated or not usuario.is_active:
+        return False
+    return usuario.es_admin_panel or "Administrador" in roles_en(usuario, obra)
 
 
 def obras_de(usuario):

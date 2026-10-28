@@ -11,7 +11,8 @@ from .models import (
     UsuarioProyectoRol, ValidacionReporteDiario,
 )
 from .permisos import (
-    CREAR_REPORTE, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, obras_de, puede, requiere_permiso, roles_en,
+    CREAR_REPORTE, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de, puede,
+    requiere_permiso, roles_en,
 )
 
 
@@ -130,7 +131,10 @@ def reporte_detalle(request, obra, reporte_id):
     reporte = get_object_or_404(
         ReporteDiario.objects.select_related("supervisor", "estatus"), pk=reporte_id, obra=obra
     )
-    puede_validar = puede(request.user, obra, VALIDAR_REPORTE)
+    es_admin = es_administrador(request.user, obra)
+    tiene_permiso = puede(request.user, obra, VALIDAR_REPORTE)
+    # Quien no es administrador decide una sola vez: solo mientras el reporte siga Pendiente.
+    puede_validar = tiene_permiso and (es_admin or reporte.estatus.nombre == "Pendiente")
     contexto = {
         "obra": obra,
         "reporte": reporte,
@@ -138,8 +142,10 @@ def reporte_detalle(request, obra, reporte_id):
         .order_by("-fecha_validacion"),
         "evidencias": reporte.evidencia_set.order_by("fecha_subida"),
         "puede_editar": _puede_editar_reporte(request.user, obra, reporte),
+        "es_admin": es_admin,
         "puede_validar": puede_validar,
-        "form_validacion": ValidacionForm() if puede_validar else None,
+        "revision_bloqueada": tiene_permiso and not puede_validar,
+        "form_validacion": ValidacionForm(es_admin=es_admin) if puede_validar else None,
     }
     return render(request, "reporte_detalle.html", contexto)
 
@@ -164,20 +170,33 @@ def reporte_editar(request, obra, reporte_id):
 
 @requiere_permiso(VALIDAR_REPORTE)
 def reporte_validar(request, obra, reporte_id):
-    reporte = get_object_or_404(ReporteDiario, pk=reporte_id, obra=obra)
+    get_object_or_404(ReporteDiario, pk=reporte_id, obra=obra)
+    es_admin = es_administrador(request.user, obra)
     if request.method == "POST":
-        form = ValidacionForm(request.POST)
+        form = ValidacionForm(request.POST, es_admin=es_admin)
         if form.is_valid():
             with transaction.atomic():
-                ValidacionReporteDiario.objects.create(
-                    reporte_diario=reporte,
-                    usuario_validador=request.user,
-                    estatus=form.cleaned_data["estatus"],
-                    comentarios=form.cleaned_data["comentarios"] or None,
+                # Bloquea la fila para que dos personas no decidan a la vez.
+                reporte = (
+                    ReporteDiario.objects.select_for_update(of=("self",))
+                    .select_related("estatus")
+                    .get(pk=reporte_id, obra=obra)
                 )
-                reporte.estatus = form.cleaned_data["estatus"]
-                reporte.save(update_fields=["estatus"])
-            messages.success(request, f"Reporte marcado como «{reporte.estatus.nombre}».")
+                if not es_admin and reporte.estatus.nombre != "Pendiente":
+                    messages.error(
+                        request,
+                        "Este reporte ya fue revisado. Solo el administrador puede cambiar su estatus.",
+                    )
+                else:
+                    ValidacionReporteDiario.objects.create(
+                        reporte_diario=reporte,
+                        usuario_validador=request.user,
+                        estatus=form.cleaned_data["estatus"],
+                        comentarios=form.cleaned_data["comentarios"] or None,
+                    )
+                    reporte.estatus = form.cleaned_data["estatus"]
+                    reporte.save(update_fields=["estatus"])
+                    messages.success(request, f"Reporte marcado como «{reporte.estatus.nombre}».")
         else:
             messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
-    return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
+    return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte_id)
