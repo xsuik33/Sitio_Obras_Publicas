@@ -16,6 +16,10 @@ urlpatterns = [
     path("obras/<uuid:obra_id>/reportes/<uuid:reporte_id>/", views.reporte_detalle, name="reporte_detalle"),
     path("obras/<uuid:obra_id>/reportes/<uuid:reporte_id>/editar/", views.reporte_editar, name="reporte_editar"),
     path("obras/<uuid:obra_id>/reportes/<uuid:reporte_id>/validar/", views.reporte_validar, name="reporte_validar"),
+    path("usuarios/", views.usuarios_lista, name="usuarios_lista"),
+    path("usuarios/nuevo/", views.usuario_nuevo, name="usuario_nuevo"),
+    path("usuarios/<uuid:usuario_id>/", views.usuario_detalle, name="usuario_detalle"),
+    path("cuenta/password/", views.CambiarPasswordView.as_view(), name="cambiar_password"),
     path("salud/", views.salud, name="salud"),
     path("admin/", admin.site.urls),
 ]

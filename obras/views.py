@@ -1,11 +1,24 @@
+from collections import defaultdict
+from functools import wraps
+
 from django.contrib import messages
+from django.contrib.admin.models import ADDITION, CHANGE
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 
-from .forms import ReporteDiarioForm, ValidacionForm
+from .cuentas import (
+    ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
+)
+from .forms import (
+    AsignacionForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm, ReporteDiarioForm, ValidacionForm,
+)
 from .models import (
     CatalogoEstatusValidacion, Contrato, Estimacion, NotaBitacora, ReporteDiario, Rol, Usuario,
     UsuarioProyectoRol, ValidacionReporteDiario,
@@ -200,3 +213,160 @@ def reporte_validar(request, obra, reporte_id):
         else:
             messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
     return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte_id)
+
+
+# ---------------------------------------------------------------------------
+# Cuentas de usuario (CU-13)
+# ---------------------------------------------------------------------------
+
+def _gestiona_cuentas(vista):
+    @wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        if not puede_administrar_cuentas(request.user):
+            raise PermissionDenied
+        return vista(request, *args, **kwargs)
+    return login_required(envoltura)
+
+
+@_gestiona_cuentas
+def usuarios_lista(request):
+    q = (request.GET.get("q") or "").strip()
+    estado = request.GET.get("estado", "")
+    usuarios = Usuario.objects.all()
+    if q:
+        usuarios = usuarios.filter(Q(nombre__icontains=q) | Q(apellidos__icontains=q) | Q(correo__icontains=q))
+    if estado == "activos":
+        usuarios = usuarios.filter(activo=True)
+    elif estado == "inactivos":
+        usuarios = usuarios.filter(activo=False)
+    usuarios = list(usuarios.order_by("nombre", "apellidos"))
+    roles = defaultdict(list)
+    for a in UsuarioProyectoRol.objects.filter(usuario__in=usuarios).select_related("obra", "rol"):
+        roles[a.usuario_id].append(f"{a.rol.nombre} · {a.obra.nombre}")
+    filas = [{"usuario": u, "roles": sorted(roles[u.pk])} for u in usuarios]
+    return render(request, "usuarios_lista.html", {"filas": filas, "q": q, "estado": estado})
+
+
+@_gestiona_cuentas
+def usuario_nuevo(request):
+    form = CuentaNuevaForm(request.POST or None, obras=obras_administradas(request.user))
+    if request.method == "POST" and form.is_valid():
+        datos = form.cleaned_data
+        with transaction.atomic():
+            usuario = Usuario.objects.create_user(
+                datos["correo"], datos["password1"],
+                nombre=datos["nombre"].strip(), apellidos=datos["apellidos"].strip(),
+            )
+            for obra in datos["obras"]:
+                UsuarioProyectoRol.objects.get_or_create(usuario=usuario, obra=obra, rol=datos["rol"])
+            obras = ", ".join(o.nombre for o in datos["obras"]) or "ninguna"
+            registrar_accion(
+                request.user, usuario, ADDITION, f"Cuenta creada con rol «{datos['rol'].nombre}». Obras: {obras}."
+            )
+        messages.success(request, f"Cuenta creada para {usuario}.")
+        return redirect("usuario_detalle", usuario_id=usuario.pk)
+    contexto = {"titulo": "Nueva cuenta", "form": form, "volver_url": reverse_lazy("usuarios_lista"),
+                "volver_texto": "Usuarios", "boton": "Crear cuenta"}
+    return render(request, "form_generico.html", contexto)
+
+
+@_gestiona_cuentas
+def usuario_detalle(request, usuario_id):
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    if usuario.es_admin_panel and not request.user.es_admin_panel:
+        raise PermissionDenied  # solo un administrador del sistema modifica a otro administrador del sistema
+    obras = obras_administradas(request.user)
+    form_datos = CuentaEdicionForm(
+        initial={"nombre": usuario.nombre, "apellidos": usuario.apellidos, "correo": usuario.correo,
+                 "activo": usuario.activo},
+        usuario=usuario,
+    )
+    form_password = CuentaPasswordForm(usuario=usuario)
+    form_rol = AsignacionForm(obras=obras)
+
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        if accion == "datos":
+            form_datos = CuentaEdicionForm(request.POST, usuario=usuario)
+            if form_datos.is_valid():
+                d = form_datos.cleaned_data
+                if usuario.pk == request.user.pk and not d["activo"]:
+                    form_datos.add_error("activo", "No puedes desactivar tu propia cuenta.")
+                else:
+                    cambios = [
+                        etiqueta
+                        for campo, etiqueta in (("nombre", "nombre"), ("apellidos", "apellidos"),
+                                                ("correo", "correo"), ("activo", "estado"))
+                        if getattr(usuario, campo) != (d[campo].strip() if isinstance(d[campo], str) else d[campo])
+                    ]
+                    activo_antes = usuario.activo
+                    usuario.nombre, usuario.apellidos = d["nombre"].strip(), d["apellidos"].strip()
+                    usuario.correo, usuario.activo = d["correo"], d["activo"]
+                    usuario.save(update_fields=["nombre", "apellidos", "correo", "activo"])
+                    if cambios:
+                        mensaje = "Datos actualizados: " + ", ".join(cambios) + "."
+                        if activo_antes != usuario.activo:
+                            mensaje += " Cuenta " + ("reactivada." if usuario.activo else "desactivada.")
+                        registrar_accion(request.user, usuario, CHANGE, mensaje)
+                    messages.success(request, "Datos guardados.")
+                    return redirect("usuario_detalle", usuario_id=usuario.pk)
+        elif accion == "password":
+            form_password = CuentaPasswordForm(request.POST, usuario=usuario)
+            if form_password.is_valid():
+                usuario.set_password(form_password.cleaned_data["password1"])
+                usuario.save(update_fields=["password"])
+                registrar_accion(request.user, usuario, CHANGE, "Contraseña restablecida.")
+                messages.success(request, "Contraseña restablecida.")
+                return redirect("usuario_detalle", usuario_id=usuario.pk)
+        elif accion == "agregar_rol":
+            form_rol = AsignacionForm(request.POST, obras=obras)
+            if form_rol.is_valid():
+                obra, rol = form_rol.cleaned_data["obra"], form_rol.cleaned_data["rol"]
+                _, creado = UsuarioProyectoRol.objects.get_or_create(usuario=usuario, obra=obra, rol=rol)
+                if creado:
+                    registrar_accion(
+                        request.user, usuario, CHANGE, f"Rol «{rol.nombre}» asignado en la obra «{obra.nombre}»."
+                    )
+                    messages.success(request, f"Se asignó «{rol.nombre}» en «{obra.nombre}».")
+                else:
+                    messages.info(request, "Esa asignación ya existía.")
+                return redirect("usuario_detalle", usuario_id=usuario.pk)
+        elif accion == "quitar_rol":
+            asignacion = (
+                UsuarioProyectoRol.objects.filter(
+                    usuario=usuario, obra__in=obras,
+                    obra_id=request.POST.get("obra_id") or None, rol_id=request.POST.get("rol_id") or None,
+                )
+                .select_related("obra", "rol")
+                .first()
+            )
+            if not asignacion:
+                messages.error(request, "Esa asignación no existe o no la administras.")
+            elif (usuario.pk == request.user.pk and asignacion.rol.nombre == ADMINISTRADOR
+                  and not request.user.es_admin_panel):
+                messages.error(request, "No puedes quitarte tu propio rol de Administrador.")
+            else:
+                UsuarioProyectoRol.objects.filter(usuario=usuario, obra=asignacion.obra, rol=asignacion.rol).delete()
+                registrar_accion(
+                    request.user, usuario, CHANGE,
+                    f"Rol «{asignacion.rol.nombre}» retirado de la obra «{asignacion.obra.nombre}».",
+                )
+                messages.success(request, f"Se retiró «{asignacion.rol.nombre}» de «{asignacion.obra.nombre}».")
+            return redirect("usuario_detalle", usuario_id=usuario.pk)
+
+    contexto = {
+        "usuario": usuario,
+        "form_datos": form_datos,
+        "form_password": form_password,
+        "form_rol": form_rol,
+        "asignaciones": UsuarioProyectoRol.objects.filter(usuario=usuario, obra__in=obras)
+        .select_related("obra", "rol").order_by("obra__nombre", "rol__nombre"),
+        "historial": historial_de(usuario)[:30],
+    }
+    return render(request, "usuario_detalle.html", contexto)
+
+
+class CambiarPasswordView(SuccessMessageMixin, auth_views.PasswordChangeView):
+    template_name = "cuenta_password.html"
+    success_url = reverse_lazy("mis_obras")
+    success_message = "Contraseña actualizada."

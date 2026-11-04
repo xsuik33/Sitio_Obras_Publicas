@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titulo %}{{ usuario }} · Usuarios{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'usuarios_lista' %}">← Usuarios</a></p>
+<h1>{{ usuario }} {% if not usuario.activo %}<span class="chip" data-e="Rechazado">Inactiva</span>{% endif %}</h1>
+<p class="suave">{{ usuario.correo }}</p>
+
+<div class="tarjeta">
+  <h2>Datos de la cuenta</h2>
+  <form method="post" class="formulario">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="datos">
+    {{ form_datos.as_p }}
+    <button type="submit">Guardar datos</button>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <h2>Roles por obra</h2>
+  <p class="suave">Solo se muestran las obras que administras.</p>
+  <table>
+    <thead><tr><th>Obra</th><th>Rol</th><th></th></tr></thead>
+    <tbody>
+    {% for a in asignaciones %}
+      <tr>
+        <td>{{ a.obra.nombre }}</td><td><span class="chip">{{ a.rol.nombre }}</span></td>
+        <td>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="quitar_rol">
+            <input type="hidden" name="obra_id" value="{{ a.obra.pk }}">
+            <input type="hidden" name="rol_id" value="{{ a.rol.pk }}">
+            <button type="submit" class="peligro" onclick="return confirm('¿Quitar este rol?');">Quitar</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="suave">Sin roles en tus obras.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
+  <form method="post" class="fila">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="agregar_rol">
+    {{ form_rol.obra.errors }}{{ form_rol.rol.errors }}
+    <label>Obra {{ form_rol.obra }}</label>
+    <label>Rol {{ form_rol.rol }}</label>
+    <button type="submit">Asignar</button>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <h2>Restablecer contraseña</h2>
+  <form method="post" class="formulario">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="password">
+    {{ form_password.as_p }}
+    <button type="submit">Restablecer contraseña</button>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <h2>Historial</h2>
+  {% for h in historial %}
+    <p>{{ h.get_change_message }}<br><span class="suave">{{ h.user }} · {{ h.action_time|date:"d/m/Y H:i" }}</span></p>
+  {% empty %}
+    <p class="suave">Sin movimientos registrados.</p>
+  {% endfor %}
+</div>
+{% endblock %}

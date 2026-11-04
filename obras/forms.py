@@ -1,8 +1,11 @@
 from django import forms
+from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
-from .models import CatalogoEstatusValidacion, ReporteDiario
+from .cuentas import ROLES_CUENTA
+from .models import CatalogoEstatusValidacion, Obra, ReporteDiario, Rol, Usuario
 
 
 class ReporteDiarioForm(forms.ModelForm):
@@ -82,3 +85,92 @@ class ValidacionForm(forms.Form):
             self.add_error("comentarios", "Explica el motivo del rechazo.")
         datos["comentarios"] = comentarios
         return datos
+
+
+# ---------------------------------------------------------------------------
+# Cuentas de usuario (CU-13)
+# ---------------------------------------------------------------------------
+
+def _validar_passwords(form, usuario=None):
+    p1, p2 = form.cleaned_data.get("password1"), form.cleaned_data.get("password2")
+    if p1 and p2:
+        if p1 != p2:
+            form.add_error("password2", "Las contraseñas no coinciden.")
+        else:
+            try:
+                password_validation.validate_password(p1, usuario)
+            except ValidationError as error:
+                form.add_error("password1", error)
+
+
+class CuentaNuevaForm(forms.Form):
+    nombre = forms.CharField(label="Nombre", max_length=100)
+    apellidos = forms.CharField(label="Apellidos", max_length=100)
+    correo = forms.EmailField(label="Correo", max_length=100)
+    rol = forms.ModelChoiceField(label="Rol", queryset=Rol.objects.none(), empty_label="— elegir —")
+    obras = forms.ModelMultipleChoiceField(
+        label="Obras donde tendrá este rol", queryset=Obra.objects.none(), required=False,
+        widget=forms.CheckboxSelectMultiple, help_text="Puedes asignarle obras después, desde su ficha.",
+    )
+    password1 = forms.CharField(label="Contraseña inicial", strip=False, widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Confirmar contraseña", strip=False, widget=forms.PasswordInput)
+
+    def __init__(self, *args, obras=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["rol"].queryset = Rol.objects.filter(nombre__in=ROLES_CUENTA).order_by("nombre")
+        self.fields["obras"].queryset = (obras if obras is not None else Obra.objects.none()).order_by("nombre")
+
+    def clean_correo(self):
+        correo = self.cleaned_data["correo"].strip().lower()
+        if Usuario.objects.filter(correo__iexact=correo).exists():
+            raise ValidationError("Ya existe una cuenta con ese correo.")
+        return correo
+
+    def clean(self):
+        datos = super().clean()
+        _validar_passwords(self)
+        return datos
+
+
+class CuentaEdicionForm(forms.Form):
+    nombre = forms.CharField(label="Nombre", max_length=100)
+    apellidos = forms.CharField(label="Apellidos", max_length=100)
+    correo = forms.EmailField(label="Correo", max_length=100)
+    activo = forms.BooleanField(
+        label="Cuenta activa", required=False,
+        help_text="Una cuenta desactivada ya no puede iniciar sesión.",
+    )
+
+    def __init__(self, *args, usuario, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario = usuario
+
+    def clean_correo(self):
+        correo = self.cleaned_data["correo"].strip().lower()
+        if Usuario.objects.filter(correo__iexact=correo).exclude(pk=self.usuario.pk).exists():
+            raise ValidationError("Ya existe una cuenta con ese correo.")
+        return correo
+
+
+class CuentaPasswordForm(forms.Form):
+    password1 = forms.CharField(label="Nueva contraseña", strip=False, widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Confirmar contraseña", strip=False, widget=forms.PasswordInput)
+
+    def __init__(self, *args, usuario=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario = usuario
+
+    def clean(self):
+        datos = super().clean()
+        _validar_passwords(self, self.usuario)
+        return datos
+
+
+class AsignacionForm(forms.Form):
+    obra = forms.ModelChoiceField(label="Obra", queryset=Obra.objects.none(), empty_label="— elegir —")
+    rol = forms.ModelChoiceField(label="Rol", queryset=Rol.objects.none(), empty_label="— elegir —")
+
+    def __init__(self, *args, obras=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["obra"].queryset = (obras if obras is not None else Obra.objects.none()).order_by("nombre")
+        self.fields["rol"].queryset = Rol.objects.order_by("nombre")

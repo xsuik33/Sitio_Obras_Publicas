@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios · Sistema de Obras{% endblock %}
+{% block contenido %}
+<h1>Usuarios</h1>
+<p><a href="{% url 'usuario_nuevo' %}"><button type="button">+ Nueva cuenta</button></a></p>
+<div class="tarjeta">
+  <form method="get" class="fila">
+    <label>Buscar<input type="search" name="q" value="{{ q }}" placeholder="Nombre o correo"></label>
+    <label>Estado
+      <select name="estado">
+        <option value="">Todas</option>
+        <option value="activos" {% if estado == "activos" %}selected{% endif %}>Activas</option>
+        <option value="inactivos" {% if estado == "inactivos" %}selected{% endif %}>Inactivas</option>
+      </select>
+    </label>
+    <button type="submit">Filtrar</button>
+  </form>
+</div>
+<div class="tarjeta">
+  <table>
+    <thead><tr><th>Persona</th><th>Correo</th><th>Roles por obra</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for fila in filas %}
+      <tr>
+        <td><a href="{% url 'usuario_detalle' fila.usuario.pk %}">{{ fila.usuario }}</a></td>
+        <td class="suave">{{ fila.usuario.correo }}</td>
+        <td>{% for rol in fila.roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">Sin obras</span>{% endfor %}</td>
+        <td>{% if fila.usuario.activo %}Activa{% else %}<span class="chip" data-e="Rechazado">Inactiva</span>{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="suave">No hay cuentas que coincidan.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

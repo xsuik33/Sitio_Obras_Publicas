@@ -38,6 +38,9 @@
     .chip[data-e="Aprobado"] { border-color:var(--ok); color:var(--ok); }
     .chip[data-e="Rechazado"] { border-color:var(--error); color:var(--error); }
     .texto { white-space:pre-line; }
+    .formulario input[type=checkbox] { width:auto; }
+    .formulario ul { list-style:none; padding:0; margin:0; } .formulario li { display:flex; gap:8px; align-items:center; }
+    .acciones { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .errorlist { color:var(--error); list-style:none; padding:0; margin:0 0 8px; }
   </style>
 </head>
@@ -47,6 +50,7 @@
       <strong><a href="{% url 'mis_obras' %}">Sistema de Obras</a></strong>
       {% if user.is_authenticated %}
         <a href="{% url 'mis_obras' %}">Mis obras</a>
+        {% if puede_cuentas %}<a href="{% url 'usuarios_lista' %}">Usuarios</a>{% endif %}
         {% if user.is_staff %}<a href="{% url 'admin:index' %}">Panel de administración</a>{% endif %}
       {% endif %}
     </nav>
@@ -54,6 +58,7 @@
       <form method="post" action="{% url 'logout' %}" class="fila">
         {% csrf_token %}
         <span class="suave">{{ user.nombre }} {{ user.apellidos }}</span>
+        <a href="{% url 'cambiar_password' %}">Mi contraseña</a>
         <button type="submit" class="enlace">Cerrar sesión</button>
       </form>
     {% endif %}

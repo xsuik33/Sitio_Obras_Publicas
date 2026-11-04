@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · Sistema de Obras{% endblock %}
+{% block contenido %}
+<p><a href="{{ volver_url }}">← {{ volver_texto }}</a></p>
+<h1>{{ titulo }}</h1>
+<div class="tarjeta">
+  <form method="post" class="formulario">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{{ boton|default:"Guardar" }}</button>
+  </form>
+</div>
+{% endblock %}
