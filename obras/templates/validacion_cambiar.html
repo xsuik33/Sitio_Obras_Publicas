@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Cambiar estatus · {{ nombre }} · {{ reporte.obra.nombre }}{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'validaciones' %}?tipo={{ tipo }}">Validaciones</a><span aria-hidden="true">/</span><span>{{ tipo_nombre }}</span></nav>
+    <div class="eyebrow">{{ reporte.obra.nombre }}</div>
+    <h1>{{ nombre }} <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
+    <p class="sub"><span>Supervisor: {{ reporte.supervisor }}</span></p>
+  </div>
+  <div class="acciones"><a class="boton secundario" href="{{ url_reporte }}">Ver el reporte</a></div>
+</div>
+
+<div class="estado" data-e="{{ reporte.estatus.nombre }}"><strong>{{ estado }}</strong></div>
+
+<div class="columnas">
+  <div class="tarjeta">
+    <h2>Cambiar estatus de una validación</h2>
+    <div style="margin-bottom:14px">{% for rol, d in decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente"|lower }}</span>{% endfor %}</div>
+    <form method="post" class="formulario ancho" onsubmit="return confirm('¿Registrar este cambio de estatus? Se avisará al supervisor y a los validadores.');">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="pie-form"><button type="submit">Registrar cambio</button><a class="boton secundario" href="{% url 'validaciones' %}?tipo={{ tipo }}">Cancelar</a></div>
+    </form>
+    <p class="nota-ayuda">El contenido del reporte no cambia. El estatus general se recalcula con las decisiones de los dos roles: con una aprobación queda «En revisión», con las dos «Aprobado» y con un rechazo «Rechazado».</p>
+  </div>
+  <div class="tarjeta">
+    <h2>Historial de validaciones</h2>
+    <ul class="historial">
+    {% for v in historial %}
+      <li><div class="quien"><span class="chip" data-e="{{ v.estatus.nombre }}">{{ v.estatus.nombre }}</span> {{ v.usuario_validador }}{% if v.rol_validador %} <span class="tenue">· {{ v.rol_validador }}</span>{% endif %}</div>
+          <div class="cuando">{{ v.fecha_validacion|date:"d M Y, H:i" }}</div>
+          {% if v.comentarios %}<div class="texto">{{ v.comentarios }}</div>{% endif %}</li>
+    {% empty %}
+      <li class="vacio-sec">Todavía no hay validaciones.</li>
+    {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

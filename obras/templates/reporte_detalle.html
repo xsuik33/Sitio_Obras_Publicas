@@ -16,6 +16,15 @@
 
 <div class="estado" data-e="{{ reporte.estatus.nombre }}"><strong>{{ estado }}</strong></div>
 
+{% if desviacion.critico %}
+<div class="tarjeta alerta-atraso">
+  <div class="titulo-sec"><h2>Atraso crítico · {{ desviacion.dias_atraso }} día{{ desviacion.dias_atraso|pluralize }} detrás del programa</h2>
+    {% if reporte.atraso_solicitud %}<span class="chip" data-e="Rechazado">Solicita: {{ reporte.atraso_solicitud }}</span>{% endif %}</div>
+  {% if reporte.atraso_causa %}<div class="texto lectura">{{ reporte.atraso_causa }}</div>
+  {% else %}<p class="vacio-sec">El supervisor no documentó la causa del atraso.{% if puede_editar %} <a href="{% url 'reporte_editar' obra.pk reporte.pk %}">Documentarla</a>{% endif %}</p>{% endif %}
+</div>
+{% endif %}
+
 <div class="columnas">
   <div>
     <div class="grid">
@@ -30,7 +39,17 @@
     <div class="tarjeta"><h2>Actividades realizadas</h2><div class="texto lectura">{{ reporte.actividades_realizadas }}</div></div>
     {% if reporte.incidencias %}<div class="tarjeta"><h2>Incidencias</h2><div class="texto lectura">{{ reporte.incidencias }}</div></div>{% endif %}
     {% if reporte.incidentes_seguridad %}<div class="tarjeta" style="border-left:4px solid var(--error)"><h2>Incidentes de seguridad</h2><div class="texto lectura">{{ reporte.incidentes_seguridad }}</div></div>{% endif %}
-    {% if reporte.observaciones %}<div class="tarjeta"><h2>Observaciones</h2><div class="texto lectura">{{ reporte.observaciones }}</div></div>{% endif %}
+    {% if reporte.observaciones %}<div class="tarjeta"><h2>Observaciones y acciones correctivas</h2><div class="texto lectura">{{ reporte.observaciones }}</div></div>{% endif %}
+
+    <div class="tarjeta">
+      <div class="titulo-sec"><h2>Notas de bitácora vinculadas</h2>{% if notas %}<span class="tenue">{{ notas|length }}</span>{% endif %}</div>
+      {% if notas %}
+      <ul class="lista">{% for n in notas %}
+        <li><span><a href="{% url 'nota_detalle' obra.pk n.pk %}">Nota {{ n.folio }} · {{ n.tipo.nombre }}</a><br><span class="sub">{{ n.descripcion|truncatechars:100 }}</span></span>
+            <span class="chip" data-e="{{ n.estado_firma }}">{{ n.estado_firma }}</span></li>
+      {% endfor %}</ul>
+      {% else %}<p class="vacio-sec">Ninguna nota vinculada.{% if puede_editar %} Puedes vincularlas al editar el reporte.{% endif %}</p>{% endif %}
+    </div>
 
     {% if desviacion or financiero %}
     <div class="tarjeta">

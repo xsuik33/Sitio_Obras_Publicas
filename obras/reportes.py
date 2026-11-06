@@ -8,10 +8,12 @@ Flujo:  Borrador → (enviar) → Pendiente → En revisión → Aprobado / Rech
   - El estatus guardado en reportes_diarios.estatus_id siempre se deriva de las decisiones.
 """
 import logging
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .correo import notificar
 from .models import (
@@ -103,21 +105,48 @@ def roles_que_decide(usuario, obra, reporte, decs=None, es_admin=False):
     return [r for r in ROLES_VALIDADORES if r in propios and decs[r] is None]
 
 
-def registrar_decision(reporte, usuario, rol, nuevo_estatus, comentarios):
+def registrar_decision(reporte, usuario, rol, nuevo_estatus, comentarios, por_admin=False):
     """
     Guarda la decisión de un rol, recalcula el estatus del reporte y avisa al supervisor si quedó cerrado.
+    Si la registra el administrador en nombre de otro rol (por_admin), avisa del cambio a todos los involucrados.
     Debe llamarse dentro de una transacción con el reporte bloqueado (select_for_update).
     """
     ValidacionReporteDiario.objects.create(
         reporte_diario=reporte, usuario_validador=usuario, rol_validador=rol,
-        estatus=nuevo_estatus, comentarios=comentarios or None,
+        estatus=nuevo_estatus, comentarios=comentarios or None, fecha_validacion=timezone.now(),
     )
     anterior = reporte.estatus.nombre
     reporte.estatus = estatus(estatus_calculado(decisiones(reporte)))
     reporte.save(update_fields=["estatus"])
-    if reporte.estatus.nombre in CERRADOS and reporte.estatus.nombre != anterior:
+    if por_admin:
+        avisar_correccion(reporte, "diario", usuario, rol, nuevo_estatus, comentarios)
+    elif reporte.estatus.nombre in CERRADOS and reporte.estatus.nombre != anterior:
         _avisar_resultado(reporte, usuario, rol, comentarios)
     return reporte
+
+
+def avisar_correccion(reporte, tipo, admin, rol, nuevo_estatus, motivo):
+    """CU-14 / CU-15: el administrador cambió una decisión; se avisa al supervisor y a los validadores."""
+    if tipo == "diario":
+        que, cuando = "reporte diario", reporte.fecha_reporte.strftime("%d/%m/%Y")
+        enlace = _enlace(reporte)
+        legible = estado_legible(reporte)
+    else:
+        from . import mensuales  # import local: mensuales importa este módulo
+        que, cuando = "reporte mensual", mensuales.nombre_mes(reporte)
+        enlace = mensuales._enlace(reporte)
+        legible = mensuales.estado_legible(reporte)
+    destinatarios = set(_correos_de(reporte.obra, ROLES_VALIDADORES))
+    if reporte.supervisor.activo:
+        destinatarios.add(reporte.supervisor.correo)
+    destinatarios.discard(admin.correo)
+    notificar(
+        sorted(destinatarios),
+        f"Cambio de estatus en {que} · {reporte.obra.nombre} · {cuando}",
+        f"{admin} (administrador) cambió la decisión de {ETIQUETA.get(rol, rol)} a «{nuevo_estatus.nombre}» "
+        f"en el {que} de {cuando} de la obra «{reporte.obra.nombre}».\n"
+        f"Estado: {legible}.\n\nMotivo:\n{motivo}{enlace}",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +189,7 @@ def enviar_a_revision(reporte, autor):
             ValidacionReporteDiario.objects.create(
                 reporte_diario=reporte, usuario_validador=autor, rol_validador=rol,
                 estatus=estatus(PENDIENTE), comentarios="Reenviado a revisión tras una corrección.",
+                fecha_validacion=timezone.now(),
             )
     reporte.estatus = estatus(PENDIENTE)
     reporte.save(update_fields=["estatus"])
@@ -236,13 +266,54 @@ def interpolar(puntos, fecha):
             return (Decimal(v0) + (Decimal(v1) - Decimal(v0)) * fraccion).quantize(CENTAVOS, ROUND_HALF_UP)
 
 
-def programado_en(obra, fecha):
+ATRASO_CRITICO_DIAS = 1  # desde cuántos días detrás del programa el atraso es crítico (flujo 4a de CU-03)
+
+
+def puntos_programa(obra):
     puntos = list(
         ProgramaObra.objects.filter(obra=obra).order_by("fecha").values_list("fecha", "avance_programado_porcentaje")
     )
     if puntos and obra.fecha_inicio_oficial and obra.fecha_inicio_oficial < puntos[0][0]:
         puntos.insert(0, (obra.fecha_inicio_oficial, Decimal(0)))  # antes del primer punto, el avance parte de 0
-    return interpolar(puntos, fecha)
+    return puntos
+
+
+def programado_en(obra, fecha):
+    return interpolar(puntos_programa(obra), fecha)
+
+
+def fecha_programada_para(puntos, avance):
+    """Fecha en que el programa alcanza el avance dado (inversa de interpolar). None si el programa nunca lo alcanza."""
+    avance = Decimal(avance)
+    if not puntos:
+        return None
+    if avance <= Decimal(puntos[0][1]):
+        return puntos[0][0]
+    for (f0, v0), (f1, v1) in zip(puntos, puntos[1:]):
+        v0, v1 = Decimal(v0), Decimal(v1)
+        if v0 <= avance <= v1:
+            if v1 == v0:
+                return f0
+            dias = Decimal((f1 - f0).days) * (avance - v0) / (v1 - v0)
+            return f0 + timedelta(days=int(dias.to_integral_value(ROUND_HALF_UP)))
+    return None
+
+
+def dias_atraso(obra, fecha, avance):
+    """Días que el avance real va detrás del programa a esa fecha. 0 si va en tiempo o adelantado; None sin programa."""
+    puntos = puntos_programa(obra)
+    if not puntos or avance is None or fecha is None:
+        return None
+    if Decimal(avance) >= interpolar(puntos, fecha):  # va en tiempo o adelantado respecto a lo programado a esa fecha
+        return 0
+    alcanzado = fecha_programada_para(puntos, avance)
+    if alcanzado is None:  # el avance real supera todo el programa
+        return 0
+    return max(0, (fecha - alcanzado).days)
+
+
+def atraso_critico(dias):
+    return dias is not None and dias >= ATRASO_CRITICO_DIAS
 
 
 def desviacion(reporte):
@@ -258,8 +329,10 @@ def desviacion(reporte):
         texto = f"Adelanto de {dif} puntos porcentuales"
     else:
         texto = "En tiempo"
+    dias = dias_atraso(reporte.obra, reporte.fecha_reporte, real)
     return {"programado": prog, "real": real, "diferencia": dif, "texto": texto,
-            "clase": "atraso" if dif < 0 else "adelanto" if dif > 0 else "tiempo"}
+            "clase": "atraso" if dif < 0 else "adelanto" if dif > 0 else "tiempo",
+            "dias_atraso": dias, "critico": atraso_critico(dias)}
 
 
 def resumen_financiero(reporte):

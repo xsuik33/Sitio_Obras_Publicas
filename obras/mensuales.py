@@ -82,12 +82,14 @@ def _fijar_estatus(reporte, nombre):
     reporte.save(update_fields=["estatus", "consolidado"])
 
 
-def registrar_decision(reporte, usuario, rol, nuevo_estatus, comentarios):
+def registrar_decision(reporte, usuario, rol, nuevo_estatus, comentarios, por_admin=False):
     """Guarda la decisión de un rol y recalcula el estatus. El reporte debe estar bloqueado (select_for_update)."""
     _validar(reporte, usuario, rol, nuevo_estatus, comentarios)
     anterior = reporte.estatus.nombre
     _fijar_estatus(reporte, reportes.estatus_calculado(decisiones(reporte)))
-    if reporte.estatus.nombre in CERRADOS and reporte.estatus.nombre != anterior:
+    if por_admin:
+        reportes.avisar_correccion(reporte, "mensual", usuario, rol, nuevo_estatus, comentarios)
+    elif reporte.estatus.nombre in CERRADOS and reporte.estatus.nombre != anterior:
         _avisar_resultado(reporte, comentarios)
     return reporte
 

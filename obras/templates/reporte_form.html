@@ -10,7 +10,30 @@
 <div class="tarjeta" style="max-width:820px">
   <form method="post" class="formulario ancho">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ form.non_field_errors }}
+    {% for campo in form %}{% if campo.name != "notas" and campo.name != "atraso_causa" and campo.name != "atraso_solicitud" %}
+      <p>{{ campo.as_field_group }}</p>
+    {% endif %}{% endfor %}
+
+    <fieldset class="seccion-form">
+      <legend>Notas de bitácora</legend>
+      {{ form.notas.errors }}
+      {% if form.notas.field.queryset.exists %}
+        <div class="casillas">{{ form.notas }}</div>
+        <p class="helptext">{{ form.notas.help_text }}</p>
+      {% else %}
+        <p class="vacio-sec">No hay notas de bitácora recientes en esta obra. <a href="{% url 'nota_nueva' obra.pk %}">Registrar una nota</a></p>
+      {% endif %}
+    </fieldset>
+
+    <fieldset class="seccion-form atraso{% if form.atraso_causa.errors or form.atraso_solicitud.errors %} activo{% endif %}">
+      <legend>Atraso crítico</legend>
+      <p class="helptext" style="margin:0 0 12px">Se pide cuando el avance real va {{ atraso_critico_dias }} día o más detrás del programa de obra. Documenta la causa y si solicitas reprogramación o retención.
+        {% if dias_atraso is not None %}<br><strong>Con los datos guardados, este reporte va {{ dias_atraso }} día{{ dias_atraso|pluralize }} {% if dias_atraso %}atrasado{% else %}en tiempo{% endif %}.</strong>{% endif %}</p>
+      <p>{{ form.atraso_causa.as_field_group }}</p>
+      <p>{{ form.atraso_solicitud.as_field_group }}</p>
+    </fieldset>
+
     <div class="pie-form">
     {% if nuevo or es_borrador %}
       <button type="submit" name="accion" value="enviar">Enviar a revisión</button>

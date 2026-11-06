@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.admin.models import ADDITION, CHANGE
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, connection, transaction
@@ -18,7 +19,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
 from . import bitacora, evidencias, mensuales, pdf, reportes
@@ -171,13 +172,15 @@ def reporte_nuevo(request, obra):
             reporte.supervisor = request.user
             reporte.estatus = reportes.estatus(reportes.PENDIENTE if enviar else reportes.BORRADOR)
             reporte.save()
+            form.save_m2m()
         if enviar:
             reportes.enviar_a_revision(reporte, request.user)
             messages.success(request, "Reporte enviado a revisión del Superintendente y del Residente.")
         else:
             messages.success(request, "Borrador guardado. Envíalo a revisión cuando esté listo.")
         return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
-    return render(request, "reporte_form.html", {"obra": obra, "form": form, "titulo": "Nuevo reporte diario", "nuevo": True})
+    return render(request, "reporte_form.html", {"obra": obra, "form": form, "titulo": "Nuevo reporte diario", "nuevo": True,
+                                                 "atraso_critico_dias": reportes.ATRASO_CRITICO_DIAS})
 
 
 @requiere_permiso(VER)
@@ -204,6 +207,7 @@ def reporte_detalle(request, obra, reporte_id):
         "form_validacion": ValidacionForm(es_admin=es_admin, roles=roles) if puede_validar else None,
         "desviacion": reportes.desviacion(reporte),
         "financiero": reportes.resumen_financiero(reporte),
+        "notas": reporte.notas.select_related("tipo", "usuario_creador").order_by("folio"),
     }
     return render(request, "reporte_detalle.html", contexto)
 
@@ -232,7 +236,9 @@ def reporte_editar(request, obra, reporte_id):
         return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
     return render(
         request, "reporte_form.html",
-        {"obra": obra, "form": form, "titulo": "Editar reporte diario", "nuevo": False, "es_borrador": era_borrador},
+        {"obra": obra, "form": form, "titulo": "Editar reporte diario", "nuevo": False, "es_borrador": era_borrador,
+         "atraso_critico_dias": reportes.ATRASO_CRITICO_DIAS,
+         "dias_atraso": reportes.dias_atraso(obra, reporte.fecha_reporte, reporte.avance_fisico_real_porcentaje)},
     )
 
 
@@ -274,6 +280,7 @@ def reporte_validar(request, obra, reporte_id):
                 reportes.registrar_decision(
                     reporte, request.user, form.cleaned_data["rol"], form.cleaned_data["estatus"],
                     form.cleaned_data["comentarios"],
+                    por_admin=es_admin and form.cleaned_data["rol"] not in roles_en(request.user, obra),
                 )
                 messages.success(request, f"Decisión registrada. Estado: {reportes.estado_legible(reporte)}.")
             else:
@@ -465,6 +472,7 @@ def mensual_validar(request, obra, reporte_id):
                 mensuales.registrar_decision(
                     reporte, request.user, form.cleaned_data["rol"], form.cleaned_data["estatus"],
                     form.cleaned_data["comentarios"],
+                    por_admin=es_admin and form.cleaned_data["rol"] not in roles_en(request.user, obra),
                 )
                 messages.success(request, f"Decisión registrada. Estado: {mensuales.estado_legible(reporte)}.")
             else:
@@ -735,6 +743,97 @@ def evidencia_borrar(request, obra, evidencia_id):
         texto += " Como ya tenía revisiones, se envió de nuevo a revisión."
     messages.success(request, texto)
     return _volver_a(objeto)
+
+
+# ---------------------------------------------------------------------------
+# Módulo de validaciones del administrador (CU-14 y CU-15)
+# ---------------------------------------------------------------------------
+
+TIPOS_VALIDACION = {
+    "diarios": {"modelo": ReporteDiario, "reglas": reportes, "nombre": "Reportes diarios", "orden": ("-fecha_reporte",)},
+    "mensuales": {"modelo": ReporteMensual, "reglas": mensuales, "nombre": "Reportes mensuales", "orden": ("-anio", "-mes")},
+}
+ESTATUS_FILTRO = (reportes.PENDIENTE, reportes.EN_REVISION, reportes.APROBADO, reportes.RECHAZADO)
+
+
+def _solo_administradores(vista):
+    @wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+        if not obras_administradas(request.user).exists():
+            raise PermissionDenied
+        return vista(request, *args, **kwargs)
+    return envoltura
+
+
+def _nombre_reporte(tipo, reporte):
+    return reporte.fecha_reporte.strftime("%d/%m/%Y") if tipo == "diarios" else mensuales.nombre_mes(reporte)
+
+
+@_solo_administradores
+def validaciones(request):
+    tipo = request.GET.get("tipo") if request.GET.get("tipo") in TIPOS_VALIDACION else "diarios"
+    conf = TIPOS_VALIDACION[tipo]
+    obras = obras_administradas(request.user).order_by("nombre")
+    obra_id = request.GET.get("obra", "")
+    estatus_f = request.GET.get("estatus", "")
+    consulta = conf["modelo"].objects.filter(obra__in=obras).exclude(estatus__nombre=reportes.BORRADOR)
+    if obra_id and _es_uuid(obra_id):
+        consulta = consulta.filter(obra_id=obra_id)
+    else:
+        obra_id = ""
+    if estatus_f in ESTATUS_FILTRO:
+        consulta = consulta.filter(estatus__nombre=estatus_f)
+    else:
+        estatus_f = ""
+    filas = []
+    for r in consulta.select_related("obra", "supervisor", "estatus").order_by(*conf["orden"])[:200]:
+        decs = conf["reglas"].decisiones(r)
+        filas.append({"r": r, "nombre": _nombre_reporte(tipo, r),
+                      "decisiones": [(reportes.ETIQUETA[rol], d) for rol, d in decs.items()]})
+    contexto = {
+        "tipo": tipo, "tipos": [(k, c["nombre"]) for k, c in TIPOS_VALIDACION.items()], "filas": filas,
+        "obras": obras, "obra_id": obra_id, "estatus": estatus_f, "estatus_opciones": ESTATUS_FILTRO,
+    }
+    return render(request, "validaciones.html", contexto)
+
+
+@_solo_administradores
+def validacion_cambiar(request, tipo, reporte_id):
+    if tipo not in TIPOS_VALIDACION:
+        raise Http404
+    conf = TIPOS_VALIDACION[tipo]
+    reporte = get_object_or_404(
+        conf["modelo"].objects.select_related("obra", "supervisor", "estatus"),
+        pk=reporte_id, obra__in=obras_administradas(request.user),
+    )
+    if reporte.estatus.nombre == reportes.BORRADOR:
+        messages.error(request, "Un borrador todavía no tiene validaciones.")
+        return redirect(f"{reverse('validaciones')}?tipo={tipo}")
+    form = ValidacionForm(request.POST or None, es_admin=True, roles=reportes.ROLES_VALIDADORES)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            bloqueado = conf["modelo"].objects.select_for_update(of=("self",)).select_related(
+                "obra", "supervisor", "estatus").get(pk=reporte.pk)
+            rol = form.cleaned_data["rol"]
+            conf["reglas"].registrar_decision(
+                bloqueado, request.user, rol, form.cleaned_data["estatus"], form.cleaned_data["comentarios"],
+                por_admin=rol not in roles_en(request.user, bloqueado.obra),
+            )
+        messages.success(request, f"Estatus actualizado. {bloqueado.obra.nombre} · {_nombre_reporte(tipo, bloqueado)}: "
+                                  f"{conf['reglas'].estado_legible(bloqueado)}.")
+        return redirect(f"{reverse('validaciones')}?tipo={tipo}")
+    historial = (reporte.validacionreportediario_set if tipo == "diarios" else reporte.validaciones)
+    contexto = {
+        "tipo": tipo, "tipo_nombre": conf["nombre"], "reporte": reporte, "nombre": _nombre_reporte(tipo, reporte),
+        "estado": conf["reglas"].estado_legible(reporte),
+        "decisiones": [(reportes.ETIQUETA[r], d) for r, d in conf["reglas"].decisiones(reporte).items()],
+        "historial": historial.select_related("usuario_validador", "estatus").order_by("-fecha_validacion"),
+        "form": form,
+        "url_reporte": reverse("reporte_detalle" if tipo == "diarios" else "mensual_detalle", args=[reporte.obra_id, reporte.pk]),
+    }
+    return render(request, "validacion_cambiar.html", contexto)
 
 
 # ---------------------------------------------------------------------------

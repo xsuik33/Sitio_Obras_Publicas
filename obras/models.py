@@ -347,6 +347,11 @@ class ReporteDiario(models.Model):
     incidentes_seguridad = models.TextField(null=True, blank=True)
     avance_fisico_real_porcentaje = models.DecimalField(max_digits=5, decimal_places=2)
     observaciones = models.TextField(null=True, blank=True)
+    # Atraso crítico (flujo 4a de CU-03): lo documenta el supervisor cuando va 1 día o más detrás del programa.
+    SOLICITUDES_ATRASO = [(c, c) for c in ("Reprogramación", "Retención", "Ninguna")]
+    atraso_causa = models.TextField(null=True, blank=True)
+    atraso_solicitud = models.CharField(max_length=20, choices=SOLICITUDES_ATRASO, null=True, blank=True)
+    notas = models.ManyToManyField("NotaBitacora", through="ReporteDiarioNota", related_name="reportes_diarios", blank=True)
     estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT, db_default=1)
     fecha_registro = fecha_auto()
 
@@ -463,6 +468,18 @@ class FirmaNotaBitacora(models.Model):
         db_table = "firmas_notas_bitacora"
         verbose_name = "Firma de nota de bitácora"
         verbose_name_plural = "Firmas de notas de bitácora"
+
+
+class ReporteDiarioNota(models.Model):
+    """Nota de bitácora vinculada a un reporte diario."""
+    id = pk_uuid()
+    reporte_diario = models.ForeignKey(ReporteDiario, on_delete=models.CASCADE)
+    nota_bitacora = models.ForeignKey(NotaBitacora, on_delete=models.CASCADE)
+
+    class Meta:
+        managed = False
+        db_table = "reportes_diarios_notas"
+        constraints = [models.UniqueConstraint(fields=["reporte_diario", "nota_bitacora"], name="uq_reporte_nota")]
 
 
 class Documento(models.Model):

@@ -195,6 +195,13 @@
     .formulario ul.errorlist { margin:0 0 4px; }
     .pie-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding-top:16px; margin-top:4px; border-top:1px solid var(--borde); }
     .errorlist { color:var(--error); list-style:none; padding:0; margin:0 0 8px; font-size:.88rem; }
+    .seccion-form { border:1px solid var(--borde); border-radius:10px; padding:14px 16px 2px; margin:4px 0 16px; background:var(--tarjeta-2); min-width:0; }
+    .seccion-form legend { font-weight:600; font-size:.92rem; padding:0 6px; }
+    .alerta-atraso { border-left:4px solid var(--error); background:var(--error-suave); }
+    .seccion-form.activo { border-color:var(--error); background:var(--error-suave); }
+    .casillas ul, .casillas > div { list-style:none; margin:0 0 6px; padding:0; display:flex; flex-direction:column; gap:6px; }
+    .casillas label { display:flex; gap:8px; align-items:flex-start; font-weight:400; font-size:.9rem; }
+    .casillas input[type=checkbox] { width:auto; margin-top:4px; }
     .tabla-edicion { overflow-x:auto; } .tabla-edicion table { min-width:860px; }
     .tabla-edicion input, .tabla-edicion textarea { width:100%; min-width:70px; } .tabla-edicion td { vertical-align:top; }
     .tabla-edicion input[type=checkbox] { width:auto; min-width:0; }
@@ -261,6 +268,7 @@
       <nav class="menu" aria-label="Principal">
         <a href="{% url 'mis_obras' %}" class="{% if ruta == 'mis_obras' or request.resolver_match.kwargs.obra_id %}activo{% endif %}">Obras</a>
         <a href="{% url 'pendientes' %}" class="{% if ruta == 'pendientes' %}activo{% endif %}">Pendientes{% if n_pendientes %} <span class="contador">{{ n_pendientes }}</span>{% endif %}</a>
+        {% if puede_cuentas %}<a href="{% url 'validaciones' %}" class="{% if ruta == 'validaciones' or ruta == 'validacion_cambiar' %}activo{% endif %}">Validaciones</a>{% endif %}
         {% if puede_cuentas %}<a href="{% url 'usuarios_lista' %}" class="{% if ruta == 'usuarios_lista' or ruta == 'usuario_detalle' or ruta == 'usuario_nuevo' %}activo{% endif %}">Usuarios</a>{% endif %}
         {% if user.is_staff %}<a href="{% url 'admin:index' %}">Panel</a>{% endif %}
       </nav>

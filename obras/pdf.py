@@ -59,10 +59,24 @@ def reporte_diario_pdf(reporte, estado, desviacion, financiero, validaciones):
 
     for titulo, texto in (
         ("Actividades realizadas", reporte.actividades_realizadas), ("Incidencias", reporte.incidencias),
-        ("Incidentes de seguridad", reporte.incidentes_seguridad), ("Observaciones", reporte.observaciones),
+        ("Incidentes de seguridad", reporte.incidentes_seguridad),
+        ("Observaciones y acciones correctivas", reporte.observaciones),
     ):
         if texto:
             historia += [_p(titulo, h2), _p(texto, normal)]
+
+    if desviacion and desviacion.get("critico"):
+        dias = desviacion["dias_atraso"]
+        historia.append(_p(f"Atraso crítico · {dias} día{'s' if dias != 1 else ''} detrás del programa", h2))
+        if reporte.atraso_solicitud:
+            historia.append(_p(f"Solicitud: {reporte.atraso_solicitud}", normal))
+        historia.append(_p(reporte.atraso_causa or "Sin causa documentada.", normal if reporte.atraso_causa else suave))
+
+    notas = list(reporte.notas.select_related("tipo").order_by("folio"))
+    if notas:
+        historia.append(_p("Notas de bitácora vinculadas", h2))
+        for n in notas:
+            historia.append(_p(f"Nota {n.folio} · {n.tipo.nombre} · {n.estado_firma}: {n.descripcion[:160]}", normal))
 
     if financiero:
         historia.append(_p("Resumen financiero", h2))

@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
+from . import reportes
 from .cuentas import ROLES_CUENTA
 from .mensuales import MESES
 from .models import (
@@ -21,7 +22,7 @@ class ReporteDiarioForm(forms.ModelForm):
         fields = (
             "fecha_reporte", "jornada_inicio", "jornada_fin", "clima", "temperatura_c",
             "actividades_realizadas", "incidencias", "incidentes_seguridad",
-            "avance_fisico_real_porcentaje", "observaciones",
+            "avance_fisico_real_porcentaje", "observaciones", "notas", "atraso_causa", "atraso_solicitud",
         )
         labels = {
             "fecha_reporte": "Fecha del reporte",
@@ -33,7 +34,14 @@ class ReporteDiarioForm(forms.ModelForm):
             "incidencias": "Incidencias",
             "incidentes_seguridad": "Incidentes de seguridad",
             "avance_fisico_real_porcentaje": "Avance físico real (%)",
-            "observaciones": "Observaciones",
+            "observaciones": "Observaciones y acciones correctivas",
+            "notas": "Notas de bitácora del día",
+            "atraso_causa": "Causa del atraso",
+            "atraso_solicitud": "Solicitud",
+        }
+        help_texts = {
+            "notas": "Marca las notas de bitácora relacionadas con este reporte (se muestran las de los últimos 30 días).",
+            "atraso_solicitud": "Si pides reprogramación o retención, explica el motivo en la causa del atraso.",
         }
         widgets = {
             "fecha_reporte": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
@@ -43,6 +51,8 @@ class ReporteDiarioForm(forms.ModelForm):
             "incidencias": forms.Textarea(attrs={"rows": 3}),
             "incidentes_seguridad": forms.Textarea(attrs={"rows": 3}),
             "observaciones": forms.Textarea(attrs={"rows": 3}),
+            "atraso_causa": forms.Textarea(attrs={"rows": 3}),
+            "notas": forms.CheckboxSelectMultiple,
             "avance_fisico_real_porcentaje": forms.NumberInput(attrs={"min": 0, "max": 100, "step": "0.01"}),
         }
 
@@ -53,6 +63,17 @@ class ReporteDiarioForm(forms.ModelForm):
             self.fields["fecha_reporte"].initial = timezone.localdate()
         self.fields["avance_fisico_real_porcentaje"].validators += [MinValueValidator(0), MaxValueValidator(100)]
         self.fields["clima"].required = False
+        self.fields["clima"].choices = [("", "Sin registrar")] + ReporteDiario.CLIMAS
+        self.fields["atraso_solicitud"].choices = [("", "Elige una opción")] + ReporteDiario.SOLICITUDES_ATRASO
+        recientes = NotaBitacora.objects.filter(obra=obra, fecha_nota__date__gte=timezone.localdate() - timedelta(days=30))
+        if self.instance.pk:
+            recientes = recientes | NotaBitacora.objects.filter(pk__in=self.instance.notas.values("pk"))
+        self.fields["notas"].queryset = recientes.select_related("tipo").order_by("-folio").distinct()
+        self.fields["notas"].label_from_instance = (
+            lambda n: f"Nota {n.folio:03d} · {n.tipo.nombre} · {timezone.localtime(n.fecha_nota):%d/%m/%Y} · "
+                      f"{n.descripcion[:70]}{'…' if len(n.descripcion) > 70 else ''}"
+        )
+        self.dias_atraso = None
 
     def clean_fecha_reporte(self):
         fecha = self.cleaned_data["fecha_reporte"]
@@ -68,6 +89,16 @@ class ReporteDiarioForm(forms.ModelForm):
         inicio, fin = datos.get("jornada_inicio"), datos.get("jornada_fin")
         if inicio and fin and fin <= inicio:
             self.add_error("jornada_fin", "El fin de jornada debe ser posterior al inicio.")
+        # Flujo 4a de CU-03: con atraso crítico se documenta la causa y la solicitud (reprogramación o retención).
+        self.dias_atraso = reportes.dias_atraso(self.obra, datos.get("fecha_reporte"), datos.get("avance_fisico_real_porcentaje"))
+        if reportes.atraso_critico(self.dias_atraso):
+            texto = f"El avance va {self.dias_atraso} día{'s' if self.dias_atraso != 1 else ''} detrás del programa"
+            if not (datos.get("atraso_causa") or "").strip():
+                self.add_error("atraso_causa", f"{texto}: documenta la causa del atraso.")
+            if not datos.get("atraso_solicitud"):
+                self.add_error("atraso_solicitud", f"{texto}: indica si solicitas reprogramación o retención.")
+        else:
+            datos["atraso_causa"], datos["atraso_solicitud"] = None, None
         return datos
 
 
@@ -87,11 +118,17 @@ class ValidacionForm(forms.Form):
         self.fields["rol"].choices = [(r, etiquetas.get(r, r)) for r in roles]
         permitidos = ("Pendiente", "Aprobado", "Rechazado") if es_admin else ("Aprobado", "Rechazado")
         self.fields["estatus"].queryset = CatalogoEstatusValidacion.objects.filter(nombre__in=permitidos).order_by("id")
+        self.es_admin = es_admin
+        if es_admin:  # CU-14 a CU-17: el administrador siempre deja el motivo del cambio
+            self.fields["comentarios"].label = "Motivo del cambio"
+            self.fields["comentarios"].required = True
 
     def clean(self):
         datos = super().clean()
         estatus, comentarios = datos.get("estatus"), (datos.get("comentarios") or "").strip()
-        if estatus and estatus.nombre == "Rechazado" and not comentarios:
+        if self.es_admin and not comentarios:
+            self.add_error("comentarios", "Escribe el motivo del cambio; queda en el historial.")
+        elif estatus and estatus.nombre == "Rechazado" and not comentarios:
             self.add_error("comentarios", "Explica el motivo del rechazo.")
         datos["comentarios"] = comentarios
         return datos

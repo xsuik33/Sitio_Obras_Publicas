@@ -178,9 +178,13 @@ CREATE TABLE reportes_diarios (
   avance_fisico_real_porcentaje  NUMERIC(5,2) NOT NULL
                                    CHECK (avance_fisico_real_porcentaje BETWEEN 0 AND 100),
   observaciones                  TEXT,
+  -- Atraso crítico (1 día o más detrás del programa): causa y solicitud del supervisor.
+  atraso_causa                   TEXT,
+  atraso_solicitud               VARCHAR(20),
   estatus_id                     SMALLINT NOT NULL DEFAULT 1 REFERENCES catalogo_estatus_validacion(id),
   fecha_registro                 TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_reporte_obra_fecha UNIQUE (obra_id, fecha_reporte)
+  CONSTRAINT uq_reporte_obra_fecha UNIQUE (obra_id, fecha_reporte),
+  CONSTRAINT ck_reporte_atraso_solicitud CHECK (atraso_solicitud IS NULL OR atraso_solicitud IN ('Reprogramación', 'Retención', 'Ninguna'))
 );
 
 -- Programa de obra: avance físico programado ACUMULADO en fechas clave (se interpola entre ellas).
@@ -234,6 +238,14 @@ CREATE TABLE notas_bitacora (
                          CHECK (estado_firma IN ('Pendiente', 'Firmada', 'Rechazada')),
   CONSTRAINT uq_notas_obra_folio UNIQUE (obra_id, folio),
   CONSTRAINT ck_nota_no_se_relaciona_consigo CHECK (nota_relacionada_id IS NULL OR nota_relacionada_id <> id)
+);
+
+-- Notas de bitácora vinculadas a un reporte diario.
+CREATE TABLE reportes_diarios_notas (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporte_diario_id  UUID NOT NULL REFERENCES reportes_diarios(id) ON DELETE CASCADE,
+  nota_bitacora_id   UUID NOT NULL REFERENCES notas_bitacora(id) ON DELETE CASCADE,
+  CONSTRAINT uq_reporte_nota UNIQUE (reporte_diario_id, nota_bitacora_id)
 );
 
 CREATE TABLE documentos (
@@ -338,6 +350,7 @@ CREATE INDEX ix_evidencias_rd             ON evidencias (reporte_diario_id)  WHE
 CREATE INDEX ix_evidencias_rm             ON evidencias (reporte_mensual_id) WHERE reporte_mensual_id IS NOT NULL;
 CREATE INDEX ix_evidencias_nb             ON evidencias (nota_bitacora_id)   WHERE nota_bitacora_id   IS NOT NULL;
 CREATE INDEX ix_evidencias_usuario        ON evidencias (usuario_subida_id);
+CREATE INDEX ix_rd_notas_nota             ON reportes_diarios_notas (nota_bitacora_id);
 CREATE INDEX ix_val_est_estimacion        ON validaciones_estimaciones (estimacion_id);
 CREATE INDEX ix_val_est_validador         ON validaciones_estimaciones (usuario_validador_id);
 CREATE INDEX ix_val_est_estatus           ON validaciones_estimaciones (estatus_id);

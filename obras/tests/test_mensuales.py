@@ -114,10 +114,16 @@ class ConsolidadoTests(BaseMensual):
         ReporteDiario.objects.filter(fecha_reporte=date(2026, 10, 15)).update(avance_fisico_real_porcentaje=50)
         self.assertEqual(mensuales.datos(reporte)[0]["avance"]["corte"], "25.00")
         self.assertEqual(mensuales.consolidar(reporte)["avance"]["corte"], "50.00")
-        # el administrador lo regresa a Pendiente: se libera el congelado
+        # el administrador lo regresa a Pendiente: sin motivo no procede (CU-15)
         reporte = self.decidir(self.admin, reporte, reportes.PENDIENTE, rol=RES)
+        self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
+        # con motivo sí: se libera el congelado y se avisa a los involucrados
+        mail.outbox.clear()
+        reporte = self.decidir(self.admin, reporte, reportes.PENDIENTE, rol=RES, comentarios="Se corrigió un diario.")
         self.assertEqual(reporte.estatus.nombre, reportes.EN_REVISION)
         self.assertIsNone(reporte.consolidado)
+        self.assertEqual(self.destinatarios(), ["residente@obras.test", "superint@obras.test", "supervisor@obras.test"])
+        self.assertIn("Se corrigió un diario.", mail.outbox[0].body)
 
 
 class FlujoTests(BaseMensual):

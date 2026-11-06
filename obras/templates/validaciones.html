@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Validaciones · Sistema de Obras{% endblock %}
+{% block estilos %}
+    .pestanas { display:flex; gap:4px; border-bottom:1px solid var(--borde); margin-bottom:16px; flex-wrap:wrap; }
+    .pestanas a { padding:8px 14px; color:var(--suave); font-weight:500; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    .pestanas a:hover { color:var(--texto); text-decoration:none; }
+    .pestanas a.activa { color:var(--acento); border-bottom-color:var(--acento); }
+{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <div class="eyebrow">Administración</div>
+    <h1>Validaciones</h1>
+    <p class="sub"><span>Cambia el estatus de una validación sin modificar el reporte. El motivo queda en el historial y se avisa a los involucrados.</span></p>
+  </div>
+</div>
+
+<nav class="pestanas" aria-label="Tipo de reporte">
+  {% for clave, nombre in tipos %}<a href="?tipo={{ clave }}" class="{% if clave == tipo %}activa{% endif %}">{{ nombre }}</a>{% endfor %}
+  <a aria-disabled="true" class="tenue" title="Llega con el módulo de estimaciones" style="cursor:default">Estimaciones · próximamente</a>
+</nav>
+
+<form method="get" class="tarjeta filtros">
+  <input type="hidden" name="tipo" value="{{ tipo }}">
+  <label for="v-obra" class="crece">Obra
+    <select id="v-obra" name="obra">
+      <option value="">Todas mis obras</option>
+      {% for o in obras %}<option value="{{ o.pk }}"{% if o.pk|stringformat:"s" == obra_id %} selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  <label for="v-estatus">Estatus del reporte
+    <select id="v-estatus" name="estatus">
+      <option value="">Todos</option>
+      {% for e in estatus_opciones %}<option value="{{ e }}"{% if e == estatus %} selected{% endif %}>{{ e }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filtrar</button>
+  {% if obra_id or estatus %}<a class="boton secundario" href="?tipo={{ tipo }}">Limpiar</a>{% endif %}
+</form>
+
+<div class="tarjeta tabla-lista"><div class="tabla-scroll">
+  <table style="min-width:720px">
+    <thead><tr><th>Reporte</th><th>Obra</th><th>Estatus</th><th>Decisiones</th><th></th></tr></thead>
+    <tbody>
+    {% for f in filas %}
+      <tr>
+        <td><span class="principal">{{ f.nombre }}</span><br><span class="tenue">{{ f.r.supervisor }}</span></td>
+        <td>{{ f.r.obra.nombre }}</td>
+        <td><span class="chip" data-e="{{ f.r.estatus.nombre }}">{{ f.r.estatus.nombre }}</span></td>
+        <td>{% for rol, d in f.decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente"|lower }}</span>{% endfor %}</td>
+        <td class="num"><a class="boton secundario chico" href="{% url 'validacion_cambiar' tipo f.r.pk %}">Cambiar estatus</a></td>
+      </tr>
+    {% empty %}
+      <tr class="fila-vacia"><td colspan="5">No hay reportes enviados a revisión con esos filtros.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% if filas|length == 200 %}<p class="tenue">Se muestran los 200 más recientes; usa los filtros para acotar.</p>{% endif %}
+{% endblock %}
