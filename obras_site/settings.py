@@ -111,6 +111,15 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Correo: API HTTP de Brevo (Render gratuito bloquea SMTP). Sin BREVO_API_KEY, los correos salen por consola.
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_API_URL = os.environ.get("BREVO_API_URL", "https://api.brevo.com/v3/smtp/email")
+MAIL_FROM_EMAIL = os.environ.get("MAIL_FROM_EMAIL", "")
+MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Sistema de Obras")
+EMAIL_BACKEND = (
+    "obras.correo.BrevoEmailBackend" if BREVO_API_KEY else "django.core.mail.backends.console.EmailBackend"
+)
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True

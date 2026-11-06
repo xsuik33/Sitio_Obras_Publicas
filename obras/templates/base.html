@@ -29,7 +29,7 @@
     button.enlace { background:none; border:none; color:var(--acento); padding:0; }
     button.peligro { background:none; color:var(--error); border-color:var(--error); padding:4px 10px; }
     .mensaje { padding:10px 14px; border-radius:8px; margin-bottom:12px; border:1px solid var(--borde); background:var(--tarjeta); }
-    .mensaje.success { border-color:var(--ok); } .mensaje.error { border-color:var(--error); }
+    .mensaje.success { border-color:var(--ok); } .mensaje.error { border-color:var(--error); } .mensaje.warning { border-color:#d29922; }
     form.fila { display:flex; flex-wrap:wrap; gap:8px; align-items:end; } form.fila label { display:flex; flex-direction:column; gap:4px; font-size:.85rem; color:var(--suave); }
     .login { max-width:380px; margin:48px auto; } .login p { display:flex; flex-direction:column; gap:4px; margin:0 0 12px; }
     .formulario p { display:flex; flex-direction:column; gap:4px; margin:0 0 14px; }
@@ -41,6 +41,10 @@
     .formulario input[type=checkbox] { width:auto; }
     .formulario ul { list-style:none; padding:0; margin:0; } .formulario li { display:flex; gap:8px; align-items:center; }
     .acciones { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .tabla-edicion { overflow-x:auto; } .tabla-edicion table { min-width:860px; }
+    .tabla-edicion input, .tabla-edicion textarea { width:100%; min-width:70px; } .tabla-edicion td { vertical-align:top; }
+    .tabla-edicion input[type=checkbox] { width:auto; min-width:0; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
     .errorlist { color:var(--error); list-style:none; padding:0; margin:0 0 8px; }
   </style>
 </head>

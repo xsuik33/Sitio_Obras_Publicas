@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}Capturar catálogo · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'catalogo_ver' obra.pk %}">← Catálogo de conceptos</a></p>
+<h1>Capturar catálogo de conceptos</h1>
+<p class="suave">Contrato {{ contrato.numero_contrato }} · {{ contrato.contratista }} · Monto $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</p>
+
+<form method="post" id="catalogo-form">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<div class="mensaje error">{{ formset.non_form_errors }}</div>{% endif %}
+  <div class="tarjeta tabla-edicion">
+    <table>
+      <thead><tr><th>Clave</th><th>Capítulo (opcional)</th><th>Descripción</th><th>Unidad</th><th>Cantidad</th><th>Precio unitario</th><th class="num">Importe</th><th></th></tr></thead>
+      <tbody id="filas">
+        {% for form in formset %}{% include "_concepto_fila.html" %}{% endfor %}
+      </tbody>
+    </table>
+    <p class="acciones">
+      <button type="button" id="agregar" style="background:none;color:var(--acento)">+ Agregar fila</button>
+      <span class="suave">Total del catálogo: <strong id="total">$ 0.00</strong> · Monto del contrato: $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</span>
+    </p>
+  </div>
+  <button type="submit" onclick="return confirm('¿Confirmas el registro del catálogo?');">Confirmar y guardar catálogo</button>
+</form>
+
+<template id="fila-vacia">{% with form=formset.empty_form %}{% include "_concepto_fila.html" %}{% endwith %}</template>
+<script>
+(function () {
+  const filas = document.getElementById('filas');
+  const total = document.getElementById('id_form-TOTAL_FORMS');
+  const plantilla = document.getElementById('fila-vacia');
+  const formato = new Intl.NumberFormat('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+  function recalcular() {
+    let suma = 0;
+    filas.querySelectorAll('tr').forEach(function (tr) {
+      const cant = parseFloat((tr.querySelector('[name$="-volumen_total_contratado"]') || {}).value);
+      const precio = parseFloat((tr.querySelector('[name$="-precio_unitario"]') || {}).value);
+      const borrar = tr.querySelector('[name$="-DELETE"]');
+      const celda = tr.querySelector('.importe');
+      if (!isNaN(cant) && !isNaN(precio)) {
+        const imp = Math.round(cant * precio * 100) / 100;
+        celda.textContent = formato.format(imp);
+        if (!(borrar && borrar.checked)) suma += imp;
+      } else { celda.textContent = '—'; }
+    });
+    document.getElementById('total').textContent = '$ ' + formato.format(suma);
+  }
+
+  document.getElementById('agregar').addEventListener('click', function () {
+    const n = parseInt(total.value, 10);
+    filas.insertAdjacentHTML('beforeend', plantilla.innerHTML.replace(/__prefix__/g, n));
+    total.value = n + 1;
+  });
+  document.addEventListener('input', recalcular);
+  document.addEventListener('change', recalcular);
+  recalcular();
+})();
+</script>
+{% endblock %}

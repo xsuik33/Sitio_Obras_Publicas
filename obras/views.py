@@ -1,4 +1,5 @@
 from collections import defaultdict
+from decimal import Decimal
 from functools import wraps
 
 from django.contrib import messages
@@ -7,8 +8,9 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
-from django.db import connection, transaction
-from django.db.models import Q
+from django.db import IntegrityError, connection, transaction
+from django.db.models import ProtectedError, Q, Sum
+from django.forms import formset_factory
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -17,15 +19,16 @@ from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
 )
 from .forms import (
-    AsignacionForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm, ReporteDiarioForm, ValidacionForm,
+    AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
+    ReporteDiarioForm, ValidacionForm,
 )
 from .models import (
-    CatalogoEstatusValidacion, Contrato, Estimacion, NotaBitacora, ReporteDiario, Rol, Usuario,
-    UsuarioProyectoRol, ValidacionReporteDiario,
+    CatalogoConcepto, CatalogoEstatusValidacion, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
+    ReporteDiario, Rol, Usuario, UsuarioProyectoRol, ValidacionReporteDiario,
 )
 from .permisos import (
-    CREAR_REPORTE, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de, puede,
-    requiere_permiso, roles_en,
+    CREAR_REPORTE, GESTIONAR_CATALOGO, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
+    puede, requiere_permiso, roles_en,
 )
 
 
@@ -65,6 +68,7 @@ def obra_detalle(request, obra):
         "n_estimaciones": Estimacion.objects.filter(contrato__obra=obra).count(),
         "n_reportes": ReporteDiario.objects.filter(obra=obra).count(),
         "n_notas": NotaBitacora.objects.filter(obra=obra).count(),
+        "n_conceptos": CatalogoConcepto.objects.filter(obra=obra).count(),
         "puede_gestionar": puede(request.user, obra, GESTIONAR_USUARIOS),
     }
     return render(request, "obra_detalle.html", contexto)
@@ -370,3 +374,111 @@ class CambiarPasswordView(SuccessMessageMixin, auth_views.PasswordChangeView):
     template_name = "cuenta_password.html"
     success_url = reverse_lazy("mis_obras")
     success_message = "Contraseña actualizada."
+
+
+# ---------------------------------------------------------------------------
+# Catálogo de conceptos (CU-01)
+# ---------------------------------------------------------------------------
+
+def catalogo_en_uso(obra):
+    """El catálogo está en uso cuando alguna estimación ya usa sus conceptos."""
+    return EstimacionDetalle.objects.filter(concepto__obra=obra).exists()
+
+
+def _conceptos(obra):
+    return list(CatalogoConcepto.objects.filter(obra=obra).order_by("clave"))
+
+
+@requiere_permiso(VER)
+def catalogo_ver(request, obra):
+    contrato = Contrato.objects.filter(obra=obra).first()
+    conceptos = _conceptos(obra)
+    total = sum((c.importe_contratado for c in conceptos), Decimal("0"))
+    en_uso = catalogo_en_uso(obra)
+    contexto = {
+        "obra": obra,
+        "contrato": contrato,
+        "conceptos": conceptos,
+        "total": total,
+        "diferencia": (contrato.monto_total_contratado - total) if contrato else None,
+        "en_uso": en_uso,
+        "puede_editar": bool(contrato) and not en_uso and puede(request.user, obra, GESTIONAR_CATALOGO),
+    }
+    return render(request, "catalogo.html", contexto)
+
+
+@requiere_permiso(GESTIONAR_CATALOGO)
+def catalogo_editar(request, obra):
+    contrato = Contrato.objects.filter(obra=obra).first()
+    if not contrato:
+        messages.error(request, "La obra todavía no tiene contrato registrado; no se puede capturar el catálogo.")
+        return redirect("catalogo_ver", obra_id=obra.pk)
+    if catalogo_en_uso(obra):
+        messages.error(
+            request,
+            "El catálogo ya está en uso en estimaciones. Los cambios requieren autorización "
+            "(supervisor y residente) y aún no se pueden hacer desde aquí.",
+        )
+        return redirect("catalogo_ver", obra_id=obra.pk)
+
+    existentes = _conceptos(obra)
+    inicial = [
+        {"id": c.pk, "capitulo": c.capitulo or "", "clave": c.clave, "descripcion": c.descripcion,
+         "unidad_medida": c.unidad_medida, "volumen_total_contratado": c.volumen_total_contratado,
+         "precio_unitario": c.precio_unitario}
+        for c in existentes
+    ]
+    CatalogoFormSet = formset_factory(
+        ConceptoForm, formset=BaseConceptoFormSet, extra=3 if existentes else 5, can_delete=True
+    )
+    if request.method == "POST":
+        formset = CatalogoFormSet(request.POST, initial=inicial)
+        if formset.is_valid():
+            finales = [f.cleaned_data for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+            propios = {c.pk: c for c in existentes}
+            if any(d.get("id") and d["id"] not in propios for d in finales):
+                messages.error(request, "El catálogo cambió mientras lo editabas. Vuelve a abrirlo.")
+                return redirect("catalogo_editar", obra_id=obra.pk)
+            try:
+                with transaction.atomic():
+                    if catalogo_en_uso(obra):
+                        raise ProtectedError("en uso", [])
+                    ids_finales = {d["id"] for d in finales if d.get("id")}
+                    CatalogoConcepto.objects.filter(obra=obra).exclude(pk__in=ids_finales).delete()
+                    cambios = [(propios[d["id"]], d) for d in finales if d.get("id")]
+                    # Primero claves provisionales: permite intercambiar o reasignar claves sin chocar.
+                    for concepto, d in cambios:
+                        if concepto.clave != d["clave"]:
+                            CatalogoConcepto.objects.filter(pk=concepto.pk).update(clave=f"~{concepto.pk}")
+                    for concepto, d in cambios:
+                        concepto.capitulo = d["capitulo"] or None
+                        concepto.clave, concepto.descripcion = d["clave"], d["descripcion"]
+                        concepto.unidad_medida = d["unidad_medida"]
+                        concepto.volumen_total_contratado = d["volumen_total_contratado"]
+                        concepto.precio_unitario = d["precio_unitario"]
+                        concepto.save(update_fields=[
+                            "capitulo", "clave", "descripcion", "unidad_medida",
+                            "volumen_total_contratado", "precio_unitario",
+                        ])
+                    for d in (d for d in finales if not d.get("id")):
+                        CatalogoConcepto.objects.create(
+                            obra=obra, capitulo=d["capitulo"] or None, clave=d["clave"], descripcion=d["descripcion"],
+                            unidad_medida=d["unidad_medida"], volumen_total_contratado=d["volumen_total_contratado"],
+                            precio_unitario=d["precio_unitario"],
+                        )
+            except (ProtectedError, IntegrityError):
+                messages.error(request, "No se pudo guardar: el catálogo ya está en uso o una clave se repite.")
+                return redirect("catalogo_ver", obra_id=obra.pk)
+            conceptos = _conceptos(obra)
+            total = CatalogoConcepto.objects.filter(obra=obra).aggregate(t=Sum("importe_contratado"))["t"] or Decimal("0")
+            messages.success(request, f"Catálogo guardado: {len(conceptos)} concepto(s), importe total $ {total:,.2f}.")
+            if total != contrato.monto_total_contratado:
+                messages.warning(
+                    request,
+                    f"El importe del catálogo ($ {total:,.2f}) no coincide con el monto del contrato "
+                    f"($ {contrato.monto_total_contratado:,.2f}). Diferencia: $ {contrato.monto_total_contratado - total:,.2f}.",
+                )
+            return redirect("catalogo_ver", obra_id=obra.pk)
+    else:
+        formset = CatalogoFormSet(initial=inicial)
+    return render(request, "catalogo_editar.html", {"obra": obra, "contrato": contrato, "formset": formset})

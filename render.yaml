@@ -26,3 +26,9 @@ services:
         sync: false
       - key: DB_SSL
         value: require
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Sistema de Obras

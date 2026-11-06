@@ -10,6 +10,7 @@
 <p>Mis roles: {% for rol in mis_roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">acceso total (administrador del panel)</span>{% endfor %}</p>
 
 <div class="grid">
+  <a href="{% url 'catalogo_ver' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Catálogo de conceptos →</div><div class="dato">{{ n_conceptos }}</div></a>
   <div class="tarjeta"><div class="suave">Estimaciones</div><div class="dato">{{ n_estimaciones }}</div></div>
   <a href="{% url 'reportes_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Reportes diarios →</div><div class="dato">{{ n_reportes }}</div></a>
   <div class="tarjeta"><div class="suave">Notas de bitácora</div><div class="dato">{{ n_notas }}</div></div>

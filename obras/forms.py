@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
@@ -174,3 +176,46 @@ class AsignacionForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["obra"].queryset = (obras if obras is not None else Obra.objects.none()).order_by("nombre")
         self.fields["rol"].queryset = Rol.objects.order_by("nombre")
+
+
+# ---------------------------------------------------------------------------
+# Catálogo de conceptos (CU-01)
+# ---------------------------------------------------------------------------
+
+class ConceptoForm(forms.Form):
+    id = forms.UUIDField(required=False, widget=forms.HiddenInput)
+    capitulo = forms.CharField(label="Capítulo", max_length=100, required=False)
+    clave = forms.CharField(label="Clave", max_length=50)
+    descripcion = forms.CharField(label="Descripción", widget=forms.Textarea(attrs={"rows": 2}))
+    unidad_medida = forms.CharField(label="Unidad", max_length=20)
+    volumen_total_contratado = forms.DecimalField(
+        label="Cantidad", max_digits=14, decimal_places=4, min_value=Decimal("0.0001"),
+        widget=forms.NumberInput(attrs={"step": "any", "min": "0"}),
+    )
+    precio_unitario = forms.DecimalField(
+        label="Precio unitario", max_digits=15, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+    )
+
+    def clean_clave(self):
+        return self.cleaned_data["clave"].strip()
+
+    def clean_descripcion(self):
+        return self.cleaned_data["descripcion"].strip()
+
+    def clean_unidad_medida(self):
+        return self.cleaned_data["unidad_medida"].strip()
+
+
+class BaseConceptoFormSet(forms.BaseFormSet):
+    def clean(self):
+        """Flujo alternativo 4b: la clave no puede repetirse dentro del catálogo."""
+        vistas = set()
+        for form in self.forms:
+            datos = getattr(form, "cleaned_data", None)
+            if not datos or datos.get("DELETE") or not datos.get("clave"):
+                continue
+            clave = datos["clave"].upper()
+            if clave in vistas:
+                form.add_error("clave", f"La clave «{datos['clave']}» ya existe en el catálogo. Usa otra.")
+            vistas.add(clave)
