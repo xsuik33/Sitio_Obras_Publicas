@@ -1,65 +1,68 @@
 {% extends "base.html" %}
 {% block titulo %}Nota {{ nota.folio }} · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'bitacora_lista' obra.pk %}">← Bitácora de obra</a></p>
-<h1>Nota {{ nota.folio }} · {{ nota.tipo.nombre }}
-  <span class="chip" data-e="{{ nota.estado_firma }}">{{ nota.estado_firma }}</span></h1>
-<p class="suave">
-  {{ obra.nombre }} · {{ nota.usuario_creador }} · {{ nota.fecha_nota|date:"d/m/Y H:i" }}
-  {% if nota.fecha_modificacion %} · editada el {{ nota.fecha_modificacion|date:"d/m/Y H:i" }}{% endif %}
-</p>
-<p><strong>{{ estado }}</strong></p>
-<p class="acciones">
-  {% if puede_editar %}<a href="{% url 'nota_editar' obra.pk nota.pk %}">{% if nota.estado_firma == "Rechazada" %}Corregir y reenviar{% else %}Editar nota{% endif %}</a>{% endif %}
-  {% if puede_responder %}<a href="{% url 'nota_nueva' obra.pk %}?responde={{ nota.pk }}">Responder con otra nota</a>{% endif %}
-  {% if puede_borrar %}
-    <form method="post" action="{% url 'nota_borrar' obra.pk nota.pk %}" style="display:inline"
-          onsubmit="return confirm('¿Borrar la nota {{ nota.folio }}? Su folio no se volverá a usar.');">
-      {% csrf_token %}<button type="submit" class="peligro">Borrar</button>
-    </form>
-  {% endif %}
-</p>
-
-{% if nota.nota_relacionada %}
-<p>Responde a la <a href="{% url 'nota_detalle' obra.pk nota.nota_relacionada.pk %}">nota {{ nota.nota_relacionada.folio }}</a>
-  <span class="suave">· {{ nota.nota_relacionada.descripcion|truncatechars:80 }}</span></p>
-{% endif %}
-
-<div class="tarjeta"><h2>Contenido</h2><div class="texto">{{ nota.descripcion }}</div></div>
-
-{% if citada_por %}
-<div class="tarjeta"><h2>Notas que responden a esta</h2>
-  <ul>{% for n in citada_por %}<li><a href="{% url 'nota_detalle' obra.pk n.pk %}">Nota {{ n.folio }}</a> · {{ n.tipo.nombre }} · <span class="suave">{{ n.descripcion|truncatechars:80 }}</span></li>{% endfor %}</ul>
-</div>
-{% endif %}
-
-{% include "_evidencias.html" %}
-
-<div class="tarjeta">
-  <h2>Firmas</h2>
-  <p>{% for rol, f in firmas %}<span class="chip" data-e="{{ f.decision|default:'Pendiente' }}">{{ rol }}: {% if f %}{{ f.decision|lower }} por {{ f.usuario_firmante }}{% else %}pendiente{% endif %}</span>{% empty %}<span class="suave">La obra no tiene Residente, Supervisor ni Superintendente asignados.</span>{% endfor %}</p>
-  {% for f in historial %}
-    <p><span class="chip" data-e="{{ f.decision }}">{{ f.decision }}</span>
-       <span class="suave">{{ f.rol_firmante }} ·</span> {{ f.usuario_firmante }} · <span class="suave">{{ f.fecha_firma|date:"d/m/Y H:i" }}</span>
-       {% if f.comentarios %}<br><span class="texto">{{ f.comentarios }}</span>{% endif %}</p>
-  {% empty %}
-    <p class="suave">Todavía nadie ha firmado.</p>
-  {% endfor %}
-  {% if puede_firmar %}
-    <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
-    {% if es_admin %}<p class="suave">Como administrador puedes corregir la firma de cualquier rol o regresarla a Pendiente.</p>{% endif %}
-    <form method="post" action="{% url 'nota_firmar' obra.pk nota.pk %}" class="formulario"
-          onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de firma?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
-      {% csrf_token %}
-      {{ form_firma.as_p }}
-      <button type="submit">Registrar firma</button>
-    </form>
-  {% elif firma_bloqueada %}
-    {% if nota.estado_firma == "Rechazada" %}
-      <p class="suave">La nota fue rechazada; podrás firmar cuando el autor la corrija y la reenvíe.</p>
-    {% else %}
-      <p class="suave">Ya registraste tu firma en esta nota. Si hay un error, pide al administrador que lo corrija.</p>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'bitacora_lista' obra.pk %}">Bitácora</a></nav>
+    <div class="eyebrow">Bitácora · Folio {{ nota.folio|stringformat:"03d" }}</div>
+    <h1>Nota {{ nota.folio }} · {{ nota.tipo.nombre }} <span class="chip" data-e="{{ nota.estado_firma }}">{{ nota.estado_firma }}</span></h1>
+    <p class="sub"><span>{{ nota.usuario_creador }}</span><span>{{ nota.fecha_nota|date:"d M Y, H:i" }}</span>
+      {% if nota.fecha_modificacion %}<span>Editada el {{ nota.fecha_modificacion|date:"d M Y, H:i" }}</span>{% endif %}</p>
+  </div>
+  <div class="acciones">
+    {% if puede_editar %}<a class="boton" href="{% url 'nota_editar' obra.pk nota.pk %}">{% if nota.estado_firma == "Rechazada" %}Corregir y reenviar{% else %}Editar nota{% endif %}</a>{% endif %}
+    {% if puede_responder %}<a class="boton secundario" href="{% url 'nota_nueva' obra.pk %}?responde={{ nota.pk }}">Responder con otra nota</a>{% endif %}
+    {% if puede_borrar %}
+      <form method="post" action="{% url 'nota_borrar' obra.pk nota.pk %}"
+            onsubmit="return confirm('¿Borrar la nota {{ nota.folio }}? Su folio no se volverá a usar.');">
+        {% csrf_token %}<button type="submit" class="peligro">Borrar</button>
+      </form>
     {% endif %}
-  {% endif %}
+  </div>
+</div>
+
+<div class="estado" data-e="{{ nota.estado_firma }}"><strong>{{ estado }}</strong></div>
+
+<div class="columnas">
+  <div>
+    {% if nota.nota_relacionada %}
+    <div class="mensaje info">Responde a la <a href="{% url 'nota_detalle' obra.pk nota.nota_relacionada.pk %}">nota {{ nota.nota_relacionada.folio }}</a>
+      <span class="suave">· {{ nota.nota_relacionada.descripcion|truncatechars:90 }}</span></div>
+    {% endif %}
+    <div class="tarjeta"><h2>Contenido</h2><div class="texto lectura">{{ nota.descripcion }}</div></div>
+    {% if citada_por %}
+    <div class="tarjeta"><h2>Notas que responden a esta</h2>
+      <ul class="lista">{% for n in citada_por %}<li><span><a href="{% url 'nota_detalle' obra.pk n.pk %}">Nota {{ n.folio }}</a> · {{ n.tipo.nombre }}<br><span class="sub">{{ n.descripcion|truncatechars:90 }}</span></span></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% include "_evidencias.html" %}
+  </div>
+  <div>
+    <div class="tarjeta">
+      <h2>Firmas</h2>
+      <div style="margin-bottom:14px">{% for rol, f in firmas %}<span class="chip" data-e="{{ f.decision|default:'Pendiente' }}">{{ rol }}: {% if f %}{{ f.decision|lower }}{% else %}pendiente{% endif %}</span>{% empty %}<span class="vacio-sec">La obra no tiene Residente, Supervisor ni Superintendente asignados.</span>{% endfor %}</div>
+      <ul class="historial">
+      {% for f in historial %}
+        <li><div class="quien"><span class="chip" data-e="{{ f.decision }}">{{ f.decision }}</span> {{ f.usuario_firmante }} <span class="tenue">· {{ f.rol_firmante }}</span></div>
+            <div class="cuando">{{ f.fecha_firma|date:"d M Y, H:i" }}</div>
+            {% if f.comentarios %}<div class="texto">{{ f.comentarios }}</div>{% endif %}</li>
+      {% empty %}
+        <li class="vacio-sec" style="padding-left:0">Todavía nadie ha firmado.</li>
+      {% endfor %}
+      </ul>
+      {% if puede_firmar %}
+        <hr class="separador">
+        {% if es_admin %}<p class="nota-ayuda" style="margin:0 0 12px">Como administrador puedes corregir la firma de cualquier rol o regresarla a Pendiente.</p>{% endif %}
+        <form method="post" action="{% url 'nota_firmar' obra.pk nota.pk %}" class="formulario"
+              onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de firma?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
+          {% csrf_token %}
+          {{ form_firma.as_p }}
+          <button type="submit">Registrar firma</button>
+        </form>
+      {% elif firma_bloqueada %}
+        <p class="nota-ayuda">{% if nota.estado_firma == "Rechazada" %}La nota fue rechazada; podrás firmar cuando el autor la corrija y la reenvíe.{% else %}Ya registraste tu firma en esta nota. Si hay un error, pide al administrador que lo corrija.{% endif %}</p>
+      {% endif %}
+    </div>
+  </div>
 </div>
 {% endblock %}

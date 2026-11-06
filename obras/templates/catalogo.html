@@ -1,45 +1,43 @@
 {% extends "base.html" %}
 {% block titulo %}Catálogo de conceptos · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'obra_detalle' obra.pk %}">← {{ obra.nombre }}</a></p>
-<h1>Catálogo de conceptos</h1>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Catálogo de conceptos</h1>
+    <p class="sub">{% if contrato %}<span class="mono">{{ contrato.numero_contrato }}</span><span>{{ contrato.contratista }}</span>{% endif %}<span>{{ conceptos|length }} concepto{{ conceptos|length|pluralize }}</span></p>
+  </div>
+  {% if puede_editar %}<div class="acciones"><a class="boton" href="{% url 'catalogo_editar' obra.pk %}">{% if conceptos %}Editar catálogo{% else %}Capturar catálogo{% endif %}</a></div>{% endif %}
+</div>
 
-{% if contrato %}
-  <p class="suave">Contrato {{ contrato.numero_contrato }} · {{ contrato.contratista }}</p>
-{% else %}
-  <div class="mensaje warning">Esta obra todavía no tiene contrato registrado.</div>
-{% endif %}
-{% if en_uso %}
-  <div class="mensaje">El catálogo ya está en uso en estimaciones y no se puede modificar. Los cambios requieren autorización del supervisor y del residente.</div>
-{% endif %}
-{% if puede_editar %}
-  <p><a href="{% url 'catalogo_editar' obra.pk %}"><button type="button">{% if conceptos %}Editar catálogo{% else %}Capturar catálogo{% endif %}</button></a></p>
-{% endif %}
+{% if not contrato %}<div class="mensaje warning">Esta obra todavía no tiene contrato registrado.</div>{% endif %}
+{% if en_uso %}<div class="mensaje info">El catálogo ya está en uso en estimaciones y no se puede modificar. Los cambios requieren autorización del Supervisor y del Residente.</div>{% endif %}
 
 <div class="grid">
-  <div class="tarjeta"><div class="suave">Importe del catálogo</div><div class="dato" style="font-size:1.3rem">$ {{ total|floatformat:"2g" }}</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Importe del catálogo</div><div class="dato">$ {{ total|floatformat:"2g" }}</div></div>
   {% if contrato %}
-  <div class="tarjeta"><div class="suave">Monto del contrato</div><div class="dato" style="font-size:1.3rem">$ {{ contrato.monto_total_contratado|floatformat:"2g" }}</div></div>
-  <div class="tarjeta"><div class="suave">Diferencia</div><div class="dato" style="font-size:1.3rem">$ {{ diferencia|floatformat:"2g" }}</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Monto del contrato</div><div class="dato">$ {{ contrato.monto_total_contratado|floatformat:"2g" }}</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Diferencia</div><div class="dato{% if diferencia %} atraso{% endif %}">$ {{ diferencia|floatformat:"2g" }}</div>
+    <div class="nota">{% if diferencia %}El catálogo no cuadra con el contrato{% else %}Cuadra con el contrato{% endif %}</div></div>
   {% endif %}
 </div>
 
-<div class="tarjeta tabla-edicion">
-  <table>
-    <thead><tr><th>Clave</th><th>Capítulo</th><th>Descripción</th><th>Unidad</th><th class="num">Cantidad</th><th class="num">Precio unitario</th><th class="num">Importe</th></tr></thead>
+<div class="tarjeta tabla-lista"><div class="tabla-scroll">
+  <table style="min-width:820px">
+    <thead><tr><th>Clave</th><th>Capítulo</th><th>Descripción</th><th>Unidad</th><th class="num">Cantidad</th><th class="num">P. unitario</th><th class="num">Importe</th></tr></thead>
     <tbody>
     {% for c in conceptos %}
       <tr>
-        <td>{{ c.clave }}</td><td class="suave">{{ c.capitulo|default:"—" }}</td><td>{{ c.descripcion }}</td><td>{{ c.unidad_medida }}</td>
+        <td class="mono principal">{{ c.clave }}</td><td class="tenue">{{ c.capitulo|default:"—" }}</td><td>{{ c.descripcion }}</td><td>{{ c.unidad_medida }}</td>
         <td class="num">{{ c.volumen_total_contratado|floatformat:"-4g" }}</td>
         <td class="num">{{ c.precio_unitario|floatformat:"2g" }}</td>
         <td class="num">{{ c.importe_contratado|floatformat:"2g" }}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="7" class="suave">Todavía no hay conceptos en el catálogo.</td></tr>
+      <tr class="fila-vacia"><td colspan="7">Todavía no hay conceptos en el catálogo.</td></tr>
     {% endfor %}
     </tbody>
-    {% if conceptos %}<tfoot><tr><th colspan="6" class="num">Total</th><th class="num">{{ total|floatformat:"2g" }}</th></tr></tfoot>{% endif %}
+    {% if conceptos %}<tfoot><tr><th colspan="6" class="num">Total</th><th class="num">$ {{ total|floatformat:"2g" }}</th></tr></tfoot>{% endif %}
   </table>
-</div>
+</div></div>
 {% endblock %}

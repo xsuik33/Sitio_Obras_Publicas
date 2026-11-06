@@ -1,25 +1,16 @@
 {% extends "base.html" %}
 {% block titulo %}{{ obra.nombre }} · Sistema de Obras{% endblock %}
 {% block estilos %}
-    .migas { font-size:.88rem; margin:0 0 14px; }
-    .heroe { display:flex; flex-wrap:wrap; gap:16px; justify-content:space-between; align-items:start; margin-bottom:18px; }
-    .heroe .codigo { font:600 .75rem ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--tenue); letter-spacing:.04em; }
-    .heroe h1 { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-    .heroe .meta { display:flex; flex-wrap:wrap; gap:4px 18px; color:var(--suave); font-size:.9rem; }
     .kpis { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
-    .kpi .etiqueta { font-size:.82rem; color:var(--suave); font-weight:500; }
-    .kpi .nota { font-size:.82rem; color:var(--tenue); margin-top:2px; }
     .dos { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; }
     .cols { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
     .cols > .tarjeta, .dos > .tarjeta { margin-bottom:0; }
     .cols { margin-top:16px; }
-    .titulo-sec { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px; }
-    .titulo-sec h2 { margin:0; } .titulo-sec a { font-size:.88rem; white-space:nowrap; }
     .leyenda { display:flex; flex-wrap:wrap; gap:16px; font-size:.85rem; color:var(--suave); margin-bottom:6px; }
     .leyenda b { display:inline-block; width:16px; height:2px; border-radius:2px; vertical-align:middle; margin-right:6px; }
     .grafica { position:relative; width:100%; height:280px; }
     .grafica svg { display:block; width:100%; height:100%; overflow:visible; }
-    .grafica text { font:12px system-ui, sans-serif; fill:var(--suave); }
+    .grafica text { font:12px var(--sans); fill:var(--suave); }
     .grafica .fin { fill:var(--texto); font-weight:600; }
     .tip { position:absolute; pointer-events:none; background:var(--tarjeta); border:1px solid var(--borde-fuerte); border-radius:8px; padding:8px 10px;
            box-shadow:var(--sombra-alta); font-size:.82rem; min-width:150px; opacity:0; transition:opacity .1s; z-index:2; }
@@ -37,32 +28,26 @@
     .modulo .ic svg { width:19px; height:19px; }
     .modulo .n { font-weight:700; font-size:1.15rem; line-height:1.1; color:var(--texto); }
     .modulo .l { font-size:.82rem; color:var(--suave); }
-    .lista { list-style:none; margin:0; padding:0; }
-    .lista li { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--borde); align-items:center; }
-    .lista li:last-child { border-bottom:none; }
-    .lista .sub { font-size:.82rem; color:var(--tenue); }
     .falla { border:1px dashed var(--error); background:var(--error-suave); border-radius:10px; padding:12px 14px; font-size:.9rem; }
     .conteos { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
-    .vacio-sec { color:var(--tenue); font-size:.9rem; padding:6px 0; }
     @media (max-width:900px) { .dos, .cols { grid-template-columns:1fr; } }
     @media (max-width:640px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .kpi { padding:14px; } .modulos { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 {% endblock %}
 {% block contenido %}
 {% with av=x.avance.datos fin=x.avance.datos.financiero %}
-<p class="migas"><a href="{% url 'mis_obras' %}">← Obras</a></p>
-
-<section class="heroe">
+<div class="encabezado">
   <div>
-    <div class="codigo">ID {{ id_obra }}</div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a></nav>
+    <div class="eyebrow">Expediente · ID {{ id_obra }}</div>
     <h1>{{ obra.nombre }} <span class="chip" data-e="{{ estado_obra }}">{{ estado_obra }}</span></h1>
-    <div class="meta">
+    <p class="sub">
       <span>{{ obra.ubicacion|default:"Sin ubicación" }}</span>
       {% if obra.fecha_inicio_oficial %}<span>{{ obra.fecha_inicio_oficial|date:"d M Y" }} – {{ obra.fecha_fin_oficial|date:"d M Y"|default:"sin fecha de fin" }}</span>{% endif %}
       <span>Mis roles: {% for rol in mis_roles %}{{ rol }}{% if not forloop.last %}, {% endif %}{% empty %}acceso total{% endfor %}</span>
-    </div>
+    </p>
   </div>
-  {% if puede_gestionar %}<a class="boton secundario" href="{% url 'roles_obra' obra.pk %}">Gestionar equipo</a>{% endif %}
-</section>
+  {% if puede_gestionar %}<div class="acciones"><a class="boton secundario" href="{% url 'roles_obra' obra.pk %}">Gestionar equipo</a></div>{% endif %}
+</div>
 
 {% if not x.avance.ok %}
 <div class="falla" style="margin-bottom:16px">No se pudo calcular el avance de la obra. <a href="">Reintentar</a></div>
@@ -268,7 +253,7 @@
   <div class="tarjeta">
     <div class="titulo-sec"><h2>Equipo de la obra</h2>{% if puede_gestionar %}<a href="{% url 'roles_obra' obra.pk %}">Gestionar →</a>{% endif %}</div>
     <ul class="lista">{% for a in equipo %}
-      <li><span>{{ a.usuario }}</span><span class="chip">{{ a.rol }}</span></li>
+      <li><span>{{ a.usuario }}</span><span class="chip rol">{{ a.rol }}</span></li>
     {% empty %}<li class="vacio-sec">Aún no hay personas asignadas.</li>{% endfor %}</ul>
   </div>
 </div>
@@ -403,6 +388,7 @@
   let espera;
   window.addEventListener("resize", () => { clearTimeout(espera); espera = setTimeout(dibujar, 120); });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
+  window.addEventListener("tema", dibujar);
 })();
 </script>
 {% endif %}

@@ -1,71 +1,76 @@
 {% extends "base.html" %}
 {% block titulo %}{{ usuario }} · Usuarios{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'usuarios_lista' %}">← Usuarios</a></p>
-<h1>{{ usuario }} {% if not usuario.activo %}<span class="chip" data-e="Rechazado">Inactiva</span>{% endif %}</h1>
-<p class="suave">{{ usuario.correo }}</p>
-
-<div class="tarjeta">
-  <h2>Datos de la cuenta</h2>
-  <form method="post" class="formulario">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="datos">
-    {{ form_datos.as_p }}
-    <button type="submit">Guardar datos</button>
-  </form>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'usuarios_lista' %}">Usuarios</a></nav>
+    <div class="eyebrow">Cuenta de usuario</div>
+    <h1>{{ usuario }} {% if usuario.activo %}<span class="chip" data-e="Activa">Activa</span>{% else %}<span class="chip" data-e="Inactiva">Inactiva</span>{% endif %}</h1>
+    <p class="sub"><span>{{ usuario.correo }}</span></p>
+  </div>
 </div>
 
-<div class="tarjeta">
-  <h2>Roles por obra</h2>
-  <p class="suave">Solo se muestran las obras que administras.</p>
-  <table>
-    <thead><tr><th>Obra</th><th>Rol</th><th></th></tr></thead>
-    <tbody>
-    {% for a in asignaciones %}
-      <tr>
-        <td>{{ a.obra.nombre }}</td><td><span class="chip">{{ a.rol.nombre }}</span></td>
-        <td>
-          <form method="post">
+<div class="columnas">
+  <div>
+    <div class="tarjeta">
+      <h2>Datos de la cuenta</h2>
+      <form method="post" class="formulario">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="datos">
+        {{ form_datos.as_p }}
+        <div class="pie-form"><button type="submit">Guardar datos</button></div>
+      </form>
+    </div>
+
+    <div class="tarjeta">
+      <div class="titulo-sec"><h2>Roles por obra</h2><span class="tenue">Solo se muestran las obras que administras</span></div>
+      <ul class="lista">
+      {% for a in asignaciones %}
+        <li><span>{{ a.obra.nombre }}<br><span class="chip rol">{{ a.rol.nombre }}</span></span>
+          <form method="post" onsubmit="return confirm('¿Quitar el rol {{ a.rol.nombre }} en {{ a.obra.nombre }}?');">
             {% csrf_token %}
             <input type="hidden" name="accion" value="quitar_rol">
             <input type="hidden" name="obra_id" value="{{ a.obra.pk }}">
             <input type="hidden" name="rol_id" value="{{ a.rol.pk }}">
-            <button type="submit" class="peligro" onclick="return confirm('¿Quitar este rol?');">Quitar</button>
-          </form>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="3" class="suave">Sin roles en tus obras.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
-  <form method="post" class="fila">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="agregar_rol">
-    {{ form_rol.obra.errors }}{{ form_rol.rol.errors }}
-    <label>Obra {{ form_rol.obra }}</label>
-    <label>Rol {{ form_rol.rol }}</label>
-    <button type="submit">Asignar</button>
-  </form>
-</div>
+            <button type="submit" class="peligro chico">Quitar</button>
+          </form></li>
+      {% empty %}
+        <li class="vacio-sec">Sin roles en tus obras.</li>
+      {% endfor %}
+      </ul>
+      <hr class="separador">
+      <h3>Asignar un rol</h3>
+      <form method="post" class="fila">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="agregar_rol">
+        {{ form_rol.obra.errors }}{{ form_rol.rol.errors }}
+        <label>Obra {{ form_rol.obra }}</label>
+        <label>Rol {{ form_rol.rol }}</label>
+        <button type="submit">Asignar</button>
+      </form>
+    </div>
+  </div>
 
-<div class="tarjeta">
-  <h2>Restablecer contraseña</h2>
-  <form method="post" class="formulario">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="password">
-    {{ form_password.as_p }}
-    <button type="submit">Restablecer contraseña</button>
-  </form>
-</div>
-
-<div class="tarjeta">
-  <h2>Historial</h2>
-  {% for h in historial %}
-    <p>{{ h.get_change_message }}<br><span class="suave">{{ h.user }} · {{ h.action_time|date:"d/m/Y H:i" }}</span></p>
-  {% empty %}
-    <p class="suave">Sin movimientos registrados.</p>
-  {% endfor %}
+  <div>
+    <div class="tarjeta">
+      <h2>Restablecer contraseña</h2>
+      <form method="post" class="formulario">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="password">
+        {{ form_password.as_p }}
+        <div class="pie-form"><button type="submit" class="secundario">Restablecer contraseña</button></div>
+      </form>
+    </div>
+    <div class="tarjeta">
+      <h2>Historial</h2>
+      <ul class="historial">
+      {% for h in historial %}
+        <li><div class="quien">{{ h.get_change_message }}</div><div class="cuando">{{ h.user }} · {{ h.action_time|date:"d M Y, H:i" }}</div></li>
+      {% empty %}
+        <li class="vacio-sec" style="padding-left:0">Sin movimientos registrados.</li>
+      {% endfor %}
+      </ul>
+    </div>
+  </div>
 </div>
 {% endblock %}

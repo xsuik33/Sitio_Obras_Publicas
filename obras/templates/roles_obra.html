@@ -1,53 +1,58 @@
 {% extends "base.html" %}
-{% block titulo %}Roles · {{ obra.nombre }}{% endblock %}
+{% block titulo %}Equipo · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'obra_detalle' obra.pk %}">← {{ obra.nombre }}</a></p>
-<h1>Usuarios y roles</h1>
-
-<div class="tarjeta">
-  <h2>Asignar un rol</h2>
-  <form method="post" class="fila">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="agregar">
-    <label>Usuario
-      <select name="usuario_id" required>
-        <option value="">— elegir —</option>
-        {% for u in usuarios %}<option value="{{ u.pk }}">{{ u.nombre }} {{ u.apellidos }} ({{ u.correo }})</option>{% endfor %}
-      </select>
-    </label>
-    <label>Rol
-      <select name="rol_id" required>
-        <option value="">— elegir —</option>
-        {% for r in roles %}<option value="{{ r.pk }}">{{ r.nombre }}</option>{% endfor %}
-      </select>
-    </label>
-    <button type="submit">Asignar</button>
-  </form>
-  <p class="suave">Para crear usuarios nuevos usa el panel de administración → Usuarios.</p>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Equipo de la obra</h1>
+    <p class="sub"><span>Quién participa en esta obra y con qué rol</span></p>
+  </div>
 </div>
 
-<div class="tarjeta">
-  <h2>Asignaciones actuales</h2>
-  <table>
-    <thead><tr><th>Persona</th><th>Correo</th><th>Rol</th><th></th></tr></thead>
-    <tbody>
-    {% for a in equipo %}
-      <tr>
-        <td>{{ a.usuario }}</td><td class="suave">{{ a.usuario.correo }}</td><td><span class="chip">{{ a.rol }}</span></td>
-        <td>
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="quitar">
-            <input type="hidden" name="usuario_id" value="{{ a.usuario.pk }}">
-            <input type="hidden" name="rol_id" value="{{ a.rol.pk }}">
-            <button type="submit" class="peligro">Quitar</button>
-          </form>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="4" class="suave">Aún no hay asignaciones.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="columnas">
+  <div class="tarjeta tabla-lista"><div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Persona</th><th>Rol</th><th></th></tr></thead>
+      <tbody>
+      {% for a in equipo %}
+        <tr>
+          <td><span class="principal">{{ a.usuario }}</span><br><span class="tenue">{{ a.usuario.correo }}</span></td>
+          <td><span class="chip rol">{{ a.rol }}</span></td>
+          <td class="num">
+            <form method="post" onsubmit="return confirm('¿Quitar el rol {{ a.rol }} a {{ a.usuario }}?');">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="quitar">
+              <input type="hidden" name="usuario_id" value="{{ a.usuario.pk }}">
+              <input type="hidden" name="rol_id" value="{{ a.rol.pk }}">
+              <button type="submit" class="peligro chico">Quitar</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="fila-vacia"><td colspan="3">Aún no hay personas asignadas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="tarjeta">
+    <h2>Asignar un rol</h2>
+    <form method="post" class="formulario">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="agregar">
+      <p><label for="r-usuario">Persona</label>
+        <select id="r-usuario" name="usuario_id" required>
+          <option value="">Elige una cuenta</option>
+          {% for u in usuarios %}<option value="{{ u.pk }}">{{ u.nombre }} {{ u.apellidos }} ({{ u.correo }})</option>{% endfor %}
+        </select></p>
+      <p><label for="r-rol">Rol</label>
+        <select id="r-rol" name="rol_id" required>
+          <option value="">Elige un rol</option>
+          {% for r in roles %}<option value="{{ r.pk }}">{{ r.nombre }}</option>{% endfor %}
+        </select></p>
+      <div class="pie-form"><button type="submit">Asignar rol</button></div>
+    </form>
+    <p class="nota-ayuda">¿La persona no aparece? Primero crea su cuenta en <a href="{% url 'usuarios_lista' %}">Usuarios</a>.</p>
+  </div>
 </div>
 {% endblock %}

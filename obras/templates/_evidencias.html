@@ -1,5 +1,5 @@
 <div class="tarjeta" id="evidencias">
-  <h2>Evidencias</h2>
+  <div class="titulo-sec"><h2>Evidencias</h2>{% if ev.lista %}<span class="tenue">{{ ev.lista|length }} archivo{{ ev.lista|length|pluralize }}</span>{% endif %}</div>
   {% if ev.lista %}
   <div class="galeria">
     {% for e in ev.lista %}
@@ -15,7 +15,7 @@
           {% if ev.puede %}
           <form method="post" action="{% url 'evidencia_borrar' obra.pk e.pk %}" style="display:inline"
                 onsubmit="return confirm('¿Quitar esta evidencia?{% if ev.registro.estatus.nombre == 'Rechazado' or ev.registro.estatus.nombre == 'En revisión' or ev.registro.estado_firma == 'Rechazada' %} El registro se enviará de nuevo a revisión.{% endif %}');">
-            {% csrf_token %}<button type="submit" class="enlace">Quitar</button>
+            {% csrf_token %}<button type="submit" class="enlace" style="color:var(--error)">Quitar</button>
           </form>
           {% endif %}
         </span>
@@ -24,11 +24,12 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="suave">Sin evidencias.</p>
+  <p class="vacio-sec">Sin evidencias.{% if ev.puede %} Agrega fotos o PDF del trabajo realizado.{% endif %}</p>
   {% endif %}
 
   {% if ev.puede %}
-  <form method="post" enctype="multipart/form-data" class="formulario" style="margin-top:14px"
+  <hr class="separador">
+  <form method="post" enctype="multipart/form-data" class="formulario ancho"
         action="{% url 'evidencia_subir' obra.pk ev.tipo ev.registro.pk %}"
         {% if ev.registro.estatus.nombre == 'Rechazado' or ev.registro.estatus.nombre == 'En revisión' or ev.registro.estado_firma == 'Rechazada' %}onsubmit="return confirm('Agregar evidencias cuenta como corrección: el registro se enviará de nuevo a revisión. ¿Continuar?');"{% endif %}>
     {% csrf_token %}
@@ -37,7 +38,7 @@
       <span class="helptext">JPG, PNG, WEBP o PDF; hasta {{ ev.max_mb }} MB cada uno y {{ ev.max_archivos }} por envío.</span></p>
     <p><label for="ev-descripcion">Descripción (opcional)</label>
       <input type="text" id="ev-descripcion" name="descripcion" maxlength="500" placeholder="Si la dejas vacía se usa el nombre del archivo"></p>
-    <button type="submit">Subir evidencias</button>
+    <div class="pie-form" style="border:none;padding-top:0"><button type="submit">Subir evidencias</button></div>
   </form>
   {% endif %}
 </div>

@@ -1,47 +1,49 @@
 {% extends "base.html" %}
 {% block titulo %}Bitácora · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'obra_detalle' obra.pk %}">← {{ obra.nombre }}</a></p>
-<h1>Bitácora de obra</h1>
-{% if puede_crear %}<p><a href="{% url 'nota_nueva' obra.pk %}"><button type="button">+ Nueva nota</button></a></p>{% endif %}
-
-<div class="tarjeta">
-  <form method="get" class="fila">
-    <label>Buscar<input type="search" name="q" value="{{ q }}" placeholder="Texto o número de folio"></label>
-    <label>Estado
-      <select name="estado">
-        <option value="">Todos</option>
-        {% for e in estados %}<option value="{{ e }}"{% if e == estado %} selected{% endif %}>{{ e }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Tipo
-      <select name="tipo">
-        <option value="">Todos</option>
-        {% for t in tipos %}<option value="{{ t.id }}"{% if t.id|stringformat:"s" == tipo %} selected{% endif %}>{{ t.nombre }}</option>{% endfor %}
-      </select>
-    </label>
-    <button type="submit">Filtrar</button>
-    {% if q or estado or tipo %}<a href="{% url 'bitacora_lista' obra.pk %}">Limpiar</a>{% endif %}
-  </form>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Bitácora de obra</h1>
+    <p class="sub"><span>Notas con folio consecutivo, firmadas por Residente, Supervisor y Superintendente</span></p>
+  </div>
+  {% if puede_crear %}<div class="acciones"><a class="boton" href="{% url 'nota_nueva' obra.pk %}">+ Nueva nota</a></div>{% endif %}
 </div>
 
-<div class="tarjeta">
+<form method="get" class="tarjeta filtros" role="search">
+  <label class="crece" for="f-q">Buscar<input type="search" id="f-q" name="q" value="{{ q }}" placeholder="Texto o número de folio"></label>
+  <label for="f-estado">Firma
+    <select id="f-estado" name="estado">
+      <option value="">Todas</option>
+      {% for e in estados %}<option value="{{ e }}"{% if e == estado %} selected{% endif %}>{{ e }}</option>{% endfor %}
+    </select>
+  </label>
+  <label for="f-tipo">Tipo
+    <select id="f-tipo" name="tipo">
+      <option value="">Todos</option>
+      {% for t in tipos %}<option value="{{ t.id }}"{% if t.id|stringformat:"s" == tipo %} selected{% endif %}>{{ t.nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filtrar</button>
+  {% if q or estado or tipo %}<a class="boton secundario" href="{% url 'bitacora_lista' obra.pk %}">Limpiar</a>{% endif %}
+</form>
+
+<div class="tarjeta tabla-lista"><div class="tabla-scroll">
   <table>
-    <thead><tr><th>Folio</th><th>Fecha</th><th>Tipo</th><th>Autor</th><th>Nota</th><th>Firma</th></tr></thead>
+    <thead><tr><th>Folio</th><th>Fecha</th><th>Tipo</th><th>Nota</th><th>Firma</th></tr></thead>
     <tbody>
     {% for n, estado_n in filas %}
       <tr>
-        <td><a href="{% url 'nota_detalle' obra.pk n.pk %}"><strong>{{ n.folio }}</strong></a></td>
-        <td>{{ n.fecha_nota|date:"d/m/Y H:i" }}</td>
+        <td><a class="principal mono" href="{% url 'nota_detalle' obra.pk n.pk %}">{{ n.folio|stringformat:"03d" }}</a></td>
+        <td style="white-space:nowrap">{{ n.fecha_nota|date:"d M Y" }}<br><span class="tenue">{{ n.fecha_nota|date:"H:i" }}</span></td>
         <td>{{ n.tipo.nombre }}</td>
-        <td>{{ n.usuario_creador }}</td>
-        <td><a href="{% url 'nota_detalle' obra.pk n.pk %}" style="color:inherit">{{ n.descripcion|truncatechars:80 }}</a></td>
-        <td><span class="chip" data-e="{{ n.estado_firma }}">{{ n.estado_firma }}</span> <span class="suave">{{ estado_n }}</span></td>
+        <td><a href="{% url 'nota_detalle' obra.pk n.pk %}" style="color:inherit">{{ n.descripcion|truncatechars:90 }}</a><br><span class="tenue">{{ n.usuario_creador }}</span></td>
+        <td><span class="chip" data-e="{{ n.estado_firma }}">{{ n.estado_firma }}</span><br><span class="tenue">{{ estado_n }}</span></td>
       </tr>
     {% empty %}
-      <tr><td colspan="6" class="suave">{% if q or estado or tipo %}Ninguna nota coincide con el filtro.{% else %}Todavía no hay notas en la bitácora de esta obra.{% endif %}</td></tr>
+      <tr class="fila-vacia"><td colspan="5">{% if q or estado or tipo %}Ninguna nota coincide con el filtro.{% else %}Todavía no hay notas en la bitácora de esta obra.{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
-</div>
+</div></div>
 {% endblock %}

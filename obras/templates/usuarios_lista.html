@@ -1,36 +1,40 @@
 {% extends "base.html" %}
 {% block titulo %}Usuarios · Sistema de Obras{% endblock %}
 {% block contenido %}
-<h1>Usuarios</h1>
-<p><a href="{% url 'usuario_nuevo' %}"><button type="button">+ Nueva cuenta</button></a></p>
-<div class="tarjeta">
-  <form method="get" class="fila">
-    <label>Buscar<input type="search" name="q" value="{{ q }}" placeholder="Nombre o correo"></label>
-    <label>Estado
-      <select name="estado">
-        <option value="">Todas</option>
-        <option value="activos" {% if estado == "activos" %}selected{% endif %}>Activas</option>
-        <option value="inactivos" {% if estado == "inactivos" %}selected{% endif %}>Inactivas</option>
-      </select>
-    </label>
-    <button type="submit">Filtrar</button>
-  </form>
+<div class="encabezado">
+  <div>
+    <div class="eyebrow">Administración</div>
+    <h1>Cuentas de usuario</h1>
+    <p class="sub"><span>{{ filas|length }} cuenta{{ filas|length|pluralize }}</span><span>Crea cuentas y asigna su rol en cada obra</span></p>
+  </div>
+  <div class="acciones"><a class="boton" href="{% url 'usuario_nuevo' %}">+ Nueva cuenta</a></div>
 </div>
-<div class="tarjeta">
+<form method="get" class="tarjeta filtros" role="search">
+  <label class="crece" for="u-q">Buscar<input type="search" id="u-q" name="q" value="{{ q }}" placeholder="Nombre o correo"></label>
+  <label for="u-estado">Estado
+    <select id="u-estado" name="estado">
+      <option value="">Todas</option>
+      <option value="activos" {% if estado == "activos" %}selected{% endif %}>Activas</option>
+      <option value="inactivos" {% if estado == "inactivos" %}selected{% endif %}>Inactivas</option>
+    </select>
+  </label>
+  <button type="submit">Filtrar</button>
+  {% if q or estado %}<a class="boton secundario" href="{% url 'usuarios_lista' %}">Limpiar</a>{% endif %}
+</form>
+<div class="tarjeta tabla-lista"><div class="tabla-scroll">
   <table>
-    <thead><tr><th>Persona</th><th>Correo</th><th>Roles por obra</th><th>Estado</th></tr></thead>
+    <thead><tr><th>Persona</th><th>Roles por obra</th><th>Estado</th></tr></thead>
     <tbody>
     {% for fila in filas %}
       <tr>
-        <td><a href="{% url 'usuario_detalle' fila.usuario.pk %}">{{ fila.usuario }}</a></td>
-        <td class="suave">{{ fila.usuario.correo }}</td>
-        <td>{% for rol in fila.roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">Sin obras</span>{% endfor %}</td>
-        <td>{% if fila.usuario.activo %}Activa{% else %}<span class="chip" data-e="Rechazado">Inactiva</span>{% endif %}</td>
+        <td><a class="principal" href="{% url 'usuario_detalle' fila.usuario.pk %}">{{ fila.usuario }}</a><br><span class="tenue">{{ fila.usuario.correo }}</span></td>
+        <td>{% for rol in fila.roles %}<span class="chip rol">{{ rol }}</span>{% empty %}<span class="tenue">Sin obras asignadas</span>{% endfor %}</td>
+        <td>{% if fila.usuario.activo %}<span class="chip" data-e="Activa">Activa</span>{% else %}<span class="chip" data-e="Inactiva">Inactiva</span>{% endif %}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="4" class="suave">No hay cuentas que coincidan.</td></tr>
+      <tr class="fila-vacia"><td colspan="3">No hay cuentas que coincidan.</td></tr>
     {% endfor %}
     </tbody>
   </table>
-</div>
+</div></div>
 {% endblock %}

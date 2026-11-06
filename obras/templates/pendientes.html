@@ -1,83 +1,121 @@
 {% extends "base.html" %}
 {% block titulo %}Pendientes · Sistema de Obras{% endblock %}
+{% block estilos %}
+    .resumen { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+    .resumen a.tarjeta { padding:14px 16px; }
+    .resumen .dato { font-size:1.5rem; }
+    .resumen .cero .dato { color:var(--tenue); }
+    .grupo h2 { display:flex; gap:10px; align-items:center; }
+    .grupo h2 .chip { margin:0; }
+{% endblock %}
 {% block contenido %}
-<h1>Pendientes</h1>
-<div class="tarjeta">
-  <h2>Reportes diarios por revisar</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Fecha</th><th>Supervisor</th><th>Estado</th></tr></thead>
-    <tbody>
-    {% for r, estado in revisar %}
-      <tr><td>{{ r.obra.nombre }}</td>
-          <td><a href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d/m/Y" }}</a></td>
-          <td>{{ r.supervisor }}</td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="4" class="suave">No tienes reportes por revisar.</td></tr>{% endfor %}
-    </tbody>
-  </table>
+<div class="encabezado">
+  <div>
+    <div class="eyebrow">Mi bandeja</div>
+    <h1>Pendientes</h1>
+    <p class="sub"><span>Lo que espera tu revisión, tu firma o una corrección tuya</span></p>
+  </div>
 </div>
-<div class="tarjeta">
-  <h2>Mis reportes por enviar o corregir</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Fecha</th><th>Estatus</th><th>Detalle</th></tr></thead>
-    <tbody>
-    {% for r, estado in corregir %}
-      <tr><td>{{ r.obra.nombre }}</td>
-          <td><a href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d/m/Y" }}</a></td>
-          <td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="4" class="suave">No tienes borradores ni reportes rechazados.</td></tr>{% endfor %}
-    </tbody>
-  </table>
+
+{% with n1=revisar|length n2=corregir|length n3=mens_revisar|length n4=mens_corregir|length n5=notas_firmar|length n6=notas_corregir|length %}
+<div class="grid resumen">
+  <a class="tarjeta kpi{% if not n1 and not n3 %} cero{% endif %}" href="#revisar"><div class="etiqueta">Reportes por revisar</div><div class="dato">{{ n1|add:n3 }}</div><div class="nota">{{ n1 }} diario{{ n1|pluralize }} · {{ n3 }} mensual{{ n3|pluralize:"es" }}</div></a>
+  <a class="tarjeta kpi{% if not n5 %} cero{% endif %}" href="#firmar"><div class="etiqueta">Notas por firmar</div><div class="dato">{{ n5 }}</div><div class="nota">Bitácora de obra</div></a>
+  <a class="tarjeta kpi{% if not n2 and not n4 and not n6 %} cero{% endif %}" href="#corregir"><div class="etiqueta">Por enviar o corregir</div><div class="dato">{{ n2|add:n4|add:n6 }}</div><div class="nota">Borradores y rechazados tuyos</div></a>
 </div>
-<div class="tarjeta">
-  <h2>Reportes mensuales por revisar</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Mes</th><th>Supervisor</th><th>Estado</th></tr></thead>
-    <tbody>
-    {% for r, estado in mens_revisar %}
-      <tr><td>{{ r.obra.nombre }}</td>
-          <td><a href="{% url 'mensual_detalle' r.obra_id r.pk %}">{{ r.mes|stringformat:"02d" }}/{{ r.anio }}</a></td>
-          <td>{{ r.supervisor }}</td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="4" class="suave">No tienes reportes mensuales por revisar.</td></tr>{% endfor %}
-    </tbody>
-  </table>
+
+{% if not n1 and not n2 and not n3 and not n4 and not n5 and not n6 %}
+<div class="tarjeta vacio">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+  <h2>Todo al día</h2>
+  <p class="suave">No tienes reportes por revisar, notas por firmar ni correcciones pendientes.</p>
+  <a class="boton secundario" href="{% url 'mis_obras' %}">Ir a mis obras</a>
 </div>
-<div class="tarjeta">
-  <h2>Mis reportes mensuales por enviar o corregir</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Mes</th><th>Estatus</th><th>Detalle</th></tr></thead>
-    <tbody>
-    {% for r, estado in mens_corregir %}
-      <tr><td>{{ r.obra.nombre }}</td>
-          <td><a href="{% url 'mensual_detalle' r.obra_id r.pk %}">{{ r.mes|stringformat:"02d" }}/{{ r.anio }}</a></td>
-          <td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="4" class="suave">No tienes reportes mensuales en borrador ni rechazados.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
-<div class="tarjeta">
-  <h2>Notas de bitácora por firmar</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Folio</th><th>Tipo</th><th>Autor</th><th>Estado</th></tr></thead>
-    <tbody>
-    {% for n, estado in notas_firmar %}
-      <tr><td>{{ n.obra.nombre }}</td>
-          <td><a href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio }}</a></td>
-          <td>{{ n.tipo.nombre }}</td><td>{{ n.usuario_creador }}</td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="5" class="suave">No tienes notas por firmar.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
-<div class="tarjeta">
-  <h2>Mis notas rechazadas por corregir</h2>
-  <table>
-    <thead><tr><th>Obra</th><th>Folio</th><th>Tipo</th><th>Estado</th></tr></thead>
-    <tbody>
-    {% for n, estado in notas_corregir %}
-      <tr><td>{{ n.obra.nombre }}</td>
-          <td><a href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio }}</a></td>
-          <td>{{ n.tipo.nombre }}</td><td>{{ estado }}</td></tr>
-    {% empty %}<tr><td colspan="4" class="suave">No tienes notas rechazadas.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</div>
+{% endif %}
+
+{% if n1 or n3 %}
+<section class="grupo" id="revisar">
+  {% if n1 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Reportes diarios por revisar <span class="chip" data-e="Pendiente">{{ n1 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Obra</th><th>Supervisor</th><th>Revisión</th></tr></thead>
+      <tbody>{% for r, estado in revisar %}
+        <tr><td><a class="principal" href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d M Y" }}</a></td>
+            <td>{{ r.obra.nombre }}</td><td>{{ r.supervisor }}</td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+  {% if n3 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Reportes mensuales por revisar <span class="chip" data-e="Pendiente">{{ n3 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Mes</th><th>Obra</th><th>Supervisor</th><th>Revisión</th></tr></thead>
+      <tbody>{% for r, estado in mens_revisar %}
+        <tr><td><a class="principal" href="{% url 'mensual_detalle' r.obra_id r.pk %}">{{ r.mes|stringformat:"02d" }}/{{ r.anio }}</a></td>
+            <td>{{ r.obra.nombre }}</td><td>{{ r.supervisor }}</td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if n5 %}
+<section class="grupo" id="firmar">
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Notas de bitácora por firmar <span class="chip" data-e="Pendiente">{{ n5 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Folio</th><th>Obra</th><th>Tipo</th><th>Autor</th><th>Firma</th></tr></thead>
+      <tbody>{% for n, estado in notas_firmar %}
+        <tr><td><a class="principal mono" href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio|stringformat:"03d" }}</a></td>
+            <td>{{ n.obra.nombre }}</td><td>{{ n.tipo.nombre }}</td><td>{{ n.usuario_creador }}</td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+</section>
+{% endif %}
+
+{% if n2 or n4 or n6 %}
+<section class="grupo" id="corregir">
+  {% if n2 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Mis reportes diarios por enviar o corregir <span class="chip">{{ n2 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Obra</th><th>Estatus</th><th>Detalle</th></tr></thead>
+      <tbody>{% for r, estado in corregir %}
+        <tr><td><a class="principal" href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d M Y" }}</a></td>
+            <td>{{ r.obra.nombre }}</td><td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+  {% if n4 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Mis reportes mensuales por enviar o corregir <span class="chip">{{ n4 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Mes</th><th>Obra</th><th>Estatus</th><th>Detalle</th></tr></thead>
+      <tbody>{% for r, estado in mens_corregir %}
+        <tr><td><a class="principal" href="{% url 'mensual_detalle' r.obra_id r.pk %}">{{ r.mes|stringformat:"02d" }}/{{ r.anio }}</a></td>
+            <td>{{ r.obra.nombre }}</td><td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+  {% if n6 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Mis notas rechazadas por corregir <span class="chip" data-e="Rechazada">{{ n6 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Folio</th><th>Obra</th><th>Tipo</th><th>Detalle</th></tr></thead>
+      <tbody>{% for n, estado in notas_corregir %}
+        <tr><td><a class="principal mono" href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio|stringformat:"03d" }}</a></td>
+            <td>{{ n.obra.nombre }}</td><td>{{ n.tipo.nombre }}</td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endwith %}
 {% endblock %}

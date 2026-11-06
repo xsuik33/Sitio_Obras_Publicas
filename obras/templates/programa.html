@@ -1,18 +1,22 @@
 {% extends "base.html" %}
 {% block titulo %}Programa de obra · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'obra_detalle' obra.pk %}">← {{ obra.nombre }}</a></p>
-<h1>Programa de obra</h1>
-<p class="suave">Avance físico programado acumulado. Entre dos fechas el sistema interpola linealmente; con esto calcula el atraso o adelanto de cada reporte diario.</p>
-{% if puede_editar %}<p><a href="{% url 'programa_editar' obra.pk %}"><button type="button">{% if puntos %}Editar programa{% else %}Capturar programa{% endif %}</button></a></p>{% endif %}
-<div class="tarjeta">
-  <table>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Programa de obra</h1>
+    <p class="sub lectura"><span>Avance físico programado acumulado. Entre dos fechas se interpola en línea recta; con esto se calcula el atraso o adelanto de cada reporte.</span></p>
+  </div>
+  {% if puede_editar %}<div class="acciones"><a class="boton" href="{% url 'programa_editar' obra.pk %}">{% if puntos %}Editar programa{% else %}Capturar programa{% endif %}</a></div>{% endif %}
+</div>
+<div class="tarjeta tabla-lista" style="max-width:640px"><div class="tabla-scroll">
+  <table style="min-width:0">
     <thead><tr><th>Fecha</th><th class="num">Avance programado acumulado</th></tr></thead>
     <tbody>
     {% for p in puntos %}
-      <tr><td>{{ p.fecha|date:"d/m/Y" }}</td><td class="num">{{ p.avance_programado_porcentaje|floatformat:2 }} %</td></tr>
-    {% empty %}<tr><td colspan="2" class="suave">La obra todavía no tiene programa capturado.</td></tr>{% endfor %}
+      <tr><td>{{ p.fecha|date:"d M Y" }}</td><td class="num">{{ p.avance_programado_porcentaje|floatformat:2 }} %</td></tr>
+    {% empty %}<tr class="fila-vacia"><td colspan="2">La obra todavía no tiene programa capturado.</td></tr>{% endfor %}
     </tbody>
   </table>
-</div>
+</div></div>
 {% endblock %}

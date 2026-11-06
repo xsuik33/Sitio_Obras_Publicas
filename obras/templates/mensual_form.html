@@ -1,28 +1,31 @@
 {% extends "base.html" %}
 {% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p>{% if reporte %}<a href="{% url 'mensual_detalle' obra.pk reporte.pk %}">← Reporte mensual</a>{% else %}<a href="{% url 'mensuales_lista' obra.pk %}">← Reportes mensuales</a>{% endif %}</p>
-<h1>{{ titulo }}</h1>
-<div class="tarjeta">
-  <form method="post" class="formulario">
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'mensuales_lista' obra.pk %}">Reportes mensuales</a>{% if reporte %}<span aria-hidden="true">/</span><a href="{% url 'mensual_detalle' obra.pk reporte.pk %}">Reporte</a>{% endif %}</nav>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+<div class="tarjeta" style="max-width:820px">
+  <form method="post" class="formulario ancho">
     {% csrf_token %}
     {{ form.as_p }}
+    <div class="pie-form">
     {% if nuevo or es_borrador %}
-      <div class="acciones">
-        <button type="submit" name="accion" value="enviar">Enviar a revisión</button>
-        <button type="submit" name="accion" value="borrador" style="background:none;color:var(--acento)">Guardar borrador</button>
-      </div>
-      <p class="suave">Al enviarlo se avisa por correo al Superintendente y al Residente. Un borrador solo lo ves tú.</p>
+      <button type="submit" name="accion" value="enviar">Enviar a revisión</button>
+      <button type="submit" name="accion" value="borrador" class="secundario">Guardar borrador</button>
     {% else %}
       <button type="submit">Guardar cambios</button>
-      <p class="suave">Si el reporte ya tenía decisiones, al guardar vuelve a revisión.</p>
     {% endif %}
+    </div>
+    <p class="nota-ayuda">{% if nuevo or es_borrador %}Al enviarlo se avisa por correo al Superintendente y al Residente. Un borrador solo lo ves tú.{% else %}Si el reporte ya tenía decisiones, al guardar vuelve a revisión.{% endif %}</p>
   </form>
 </div>
 
 {% if previa %}
-<h2>Vista previa del consolidado</h2>
-<p class="suave">Así quedan hoy las cifras del periodo {{ previa.periodo.inicio }} – {{ previa.periodo.corte }}. Las advertencias no impiden enviar el reporte.</p>
+<div class="titulo-sec" style="margin-top:28px"><h2>Vista previa del consolidado</h2></div>
+<p class="suave lectura" style="margin:-6px 0 14px">Así quedan hoy las cifras del periodo {{ previa.periodo.inicio }} – {{ previa.periodo.corte }}. Las advertencias no impiden enviar el reporte.</p>
 {% with c=previa %}{% include "_mensual_consolidado.html" %}{% endwith %}
 {% endif %}
 {% endblock %}

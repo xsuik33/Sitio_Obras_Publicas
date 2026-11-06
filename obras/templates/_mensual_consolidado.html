@@ -2,19 +2,19 @@
 {% if c.advertencias %}
 <div class="mensaje warning">
   <strong>Advertencias</strong>
-  <ul style="margin:6px 0 0">{% for a in c.advertencias %}<li>{{ a }}</li>{% endfor %}</ul>
+  <ul>{% for a in c.advertencias %}<li>{{ a }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
 <div class="grid">
-  <div class="tarjeta"><div class="suave">Avance real al corte</div><div class="dato">{% if c.avance.corte %}{{ c.avance.corte }} %{% else %}—{% endif %}</div>
-    {% if c.avance.fecha_corte_real %}<div class="suave">según el diario del {{ c.avance.fecha_corte_real }}{% if c.avance.fuente == "sin aprobar" %} (sin aprobar){% endif %}</div>{% endif %}</div>
-  <div class="tarjeta"><div class="suave">Avance en el mes</div><div class="dato">{% if c.avance.mes %}{{ c.avance.mes }} %{% else %}—{% endif %}</div>
-    <div class="suave">desde {{ c.avance.inicio }} %</div></div>
-  <div class="tarjeta"><div class="suave">Programado al corte</div><div class="dato">{% if c.avance.programado %}{{ c.avance.programado }} %{% else %}—{% endif %}</div>
+  <div class="tarjeta kpi"><div class="etiqueta">Avance real al corte</div><div class="dato">{% if c.avance.corte %}{{ c.avance.corte }} %{% else %}—{% endif %}</div>
+    {% if c.avance.fecha_corte_real %}<div class="nota">según el diario del {{ c.avance.fecha_corte_real }}{% if c.avance.fuente == "sin aprobar" %} (sin aprobar){% endif %}</div>{% endif %}</div>
+  <div class="tarjeta kpi"><div class="etiqueta">Avance en el mes</div><div class="dato">{% if c.avance.mes %}{{ c.avance.mes }} %{% else %}—{% endif %}</div>
+    <div class="nota">desde {{ c.avance.inicio }} %</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Programado al corte</div><div class="dato">{% if c.avance.programado %}{{ c.avance.programado }} %{% else %}—{% endif %}</div>
     {% if c.avance.texto %}<div class="{{ c.avance.clase }}">{{ c.avance.texto }}</div>{% endif %}</div>
-  <div class="tarjeta"><div class="suave">Reportes diarios</div><div class="dato">{{ c.diarios.total }} / {{ c.periodo.dias }}</div>
-    <div class="suave">{{ c.diarios.aprobados }} aprobado(s){% if c.diarios.sin_aprobar %} · {{ c.diarios.sin_aprobar }} sin aprobar{% endif %}</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Reportes diarios</div><div class="dato">{{ c.diarios.total }} / {{ c.periodo.dias }}</div>
+    <div class="nota">{{ c.diarios.aprobados }} aprobado(s){% if c.diarios.sin_aprobar %} · {{ c.diarios.sin_aprobar }} sin aprobar{% endif %}</div></div>
 </div>
 
 <div class="tarjeta">
@@ -55,7 +55,8 @@
             <td><span class="chip" data-e="{{ e.estatus }}">{{ e.estatus }}</span></td></tr>{% endfor %}</tbody>
     </table>
     {% else %}<p class="suave">Ninguna estimación con corte en este periodo.</p>{% endif %}
-    <table style="margin-top:10px">
+    <hr class="separador">
+    <table class="kv">
       <tr><th>Aprobado en el mes</th><td class="num">{{ c.estimaciones.aprobado_mes }}</td></tr>
       <tr><th>Acumulado aprobado al corte</th><td class="num">{{ c.estimaciones.acumulado }}</td></tr>
       <tr><th>Monto del contrato</th><td class="num">{{ c.estimaciones.monto }}</td></tr>

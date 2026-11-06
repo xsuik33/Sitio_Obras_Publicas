@@ -2,8 +2,10 @@
 {% block titulo %}Iniciar sesión · Sistema de Obras{% endblock %}
 {% block contenido %}
 <div class="tarjeta login">
-  <h1>Iniciar sesión</h1>
-  <form method="post">
+  <div class="eyebrow">Obra pública</div>
+  <h1 style="margin-bottom:6px">Iniciar sesión</h1>
+  <p class="suave" style="margin:0 0 20px">Entra con el correo y la contraseña de tu cuenta.</p>
+  <form method="post" class="formulario">
     {% csrf_token %}
     {{ form.as_p }}
     <input type="hidden" name="next" value="{{ next }}">

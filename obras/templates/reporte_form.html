@@ -1,22 +1,26 @@
 {% extends "base.html" %}
 {% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'reportes_lista' obra.pk %}">← Reportes diarios</a></p>
-<h1>{{ titulo }}</h1>
-<div class="tarjeta">
-  <form method="post" class="formulario">
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'reportes_lista' obra.pk %}">Reportes diarios</a></nav>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+<div class="tarjeta" style="max-width:820px">
+  <form method="post" class="formulario ancho">
     {% csrf_token %}
     {{ form.as_p }}
+    <div class="pie-form">
     {% if nuevo or es_borrador %}
-      <div class="acciones">
-        <button type="submit" name="accion" value="enviar">Enviar a revisión</button>
-        <button type="submit" name="accion" value="borrador" style="background:none;color:var(--acento)">Guardar borrador</button>
-      </div>
-      <p class="suave">Al enviarlo se avisa por correo al Superintendente y al Residente. Un borrador solo lo ves tú.</p>
+      <button type="submit" name="accion" value="enviar">Enviar a revisión</button>
+      <button type="submit" name="accion" value="borrador" class="secundario">Guardar borrador</button>
     {% else %}
       <button type="submit">Guardar cambios</button>
-      <p class="suave">Si el reporte ya tenía decisiones, al guardar vuelve a revisión.</p>
     {% endif %}
+      <a class="boton secundario" href="{% url 'reportes_lista' obra.pk %}" style="border-color:transparent">Cancelar</a>
+    </div>
+    <p class="nota-ayuda">{% if nuevo or es_borrador %}Al enviarlo se avisa por correo al Superintendente y al Residente. Un borrador solo lo ves tú.{% else %}Si el reporte ya tenía decisiones, al guardar vuelve a revisión.{% endif %}</p>
   </form>
 </div>
 {% endblock %}

@@ -1,27 +1,34 @@
 {% extends "base.html" %}
 {% block titulo %}Capturar catálogo · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'catalogo_ver' obra.pk %}">← Catálogo de conceptos</a></p>
-<h1>Capturar catálogo de conceptos</h1>
-<p class="suave">Contrato {{ contrato.numero_contrato }} · {{ contrato.contratista }} · Monto $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</p>
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'catalogo_ver' obra.pk %}">Catálogo</a></nav>
+    <h1>Capturar catálogo de conceptos</h1>
+    <p class="sub"><span class="mono">{{ contrato.numero_contrato }}</span><span>{{ contrato.contratista }}</span><span>Monto $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</span></p>
+  </div>
+</div>
 
-<form method="post" id="catalogo-form">
+<form method="post" id="catalogo-form" class="tarjeta">
   {% csrf_token %}
   {{ formset.management_form }}
   {% if formset.non_form_errors %}<div class="mensaje error">{{ formset.non_form_errors }}</div>{% endif %}
-  <div class="tarjeta tabla-edicion">
+  <div class="tabla-edicion">
     <table>
       <thead><tr><th>Clave</th><th>Capítulo (opcional)</th><th>Descripción</th><th>Unidad</th><th>Cantidad</th><th>Precio unitario</th><th class="num">Importe</th><th></th></tr></thead>
       <tbody id="filas">
         {% for form in formset %}{% include "_concepto_fila.html" %}{% endfor %}
       </tbody>
     </table>
-    <p class="acciones">
-      <button type="button" id="agregar" style="background:none;color:var(--acento)">+ Agregar fila</button>
-      <span class="suave">Total del catálogo: <strong id="total">$ 0.00</strong> · Monto del contrato: $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</span>
-    </p>
   </div>
-  <button type="submit" onclick="return confirm('¿Confirmas el registro del catálogo?');">Confirmar y guardar catálogo</button>
+  <div class="pie-form" style="justify-content:space-between">
+    <button type="button" id="agregar" class="secundario">+ Agregar fila</button>
+    <span class="suave">Total del catálogo <strong id="total" style="color:var(--texto)">$ 0.00</strong> · Contrato $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</span>
+  </div>
+  <div class="pie-form">
+    <button type="submit" onclick="return confirm('¿Confirmas el registro del catálogo?');">Confirmar y guardar catálogo</button>
+    <a class="boton secundario" href="{% url 'catalogo_ver' obra.pk %}">Cancelar</a>
+  </div>
 </form>
 
 <template id="fila-vacia">{% with form=formset.empty_form %}{% include "_concepto_fila.html" %}{% endwith %}</template>

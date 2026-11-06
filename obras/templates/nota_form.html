@@ -1,18 +1,29 @@
 {% extends "base.html" %}
 {% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
-<p>{% if nota %}<a href="{% url 'nota_detalle' obra.pk nota.pk %}">← Nota {{ nota.folio }}</a>{% else %}<a href="{% url 'bitacora_lista' obra.pk %}">← Bitácora de obra</a>{% endif %}</p>
-<h1>{{ titulo }}</h1>
-<div class="tarjeta">
-  <form method="post" class="formulario">
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'bitacora_lista' obra.pk %}">Bitácora</a>{% if nota %}<span aria-hidden="true">/</span><a href="{% url 'nota_detalle' obra.pk nota.pk %}">Nota {{ nota.folio }}</a>{% endif %}</nav>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+<div class="tarjeta" style="max-width:820px">
+  <form method="post" class="formulario ancho">
     {% csrf_token %}
     {{ form.as_p }}
+    <div class="pie-form">
     {% if nota %}
       <button type="submit">{% if era_rechazada %}Corregir y enviar a firma{% else %}Guardar cambios{% endif %}</button>
-      {% if era_rechazada %}<p class="suave">Al guardar, la nota vuelve a Pendiente: se reinician las firmas y se avisa por correo a los firmantes.</p>{% endif %}
+      <a class="boton secundario" href="{% url 'nota_detalle' obra.pk nota.pk %}">Cancelar</a>
     {% else %}
       <button type="submit">Registrar nota</button>
-      <p class="suave">El folio lo asigna el sistema. La nota queda firmada por ti con tus roles en la obra y se avisa por correo al Residente, al Supervisor y al Superintendente que falten por firmar. Podrás editarla o borrarla mientras nadie más la haya firmado.</p>
+      <a class="boton secundario" href="{% url 'bitacora_lista' obra.pk %}">Cancelar</a>
+    {% endif %}
+    </div>
+    {% if nota %}
+      {% if era_rechazada %}<p class="nota-ayuda">Al guardar, la nota vuelve a Pendiente: se reinician las firmas y se avisa por correo a los firmantes.</p>{% endif %}
+    {% else %}
+      <p class="nota-ayuda">El folio lo asigna el sistema. La nota queda firmada por ti con tus roles en la obra y se avisa por correo al Residente, al Supervisor y al Superintendente que falten por firmar. Podrás editarla o borrarla mientras nadie más la haya firmado.</p>
     {% endif %}
   </form>
 </div>

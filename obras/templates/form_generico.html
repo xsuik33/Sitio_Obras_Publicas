@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block titulo %}{{ titulo }} · Sistema de Obras{% endblock %}
 {% block contenido %}
-<p><a href="{{ volver_url }}">← {{ volver_texto }}</a></p>
-<h1>{{ titulo }}</h1>
-<div class="tarjeta">
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{{ volver_url }}">{{ volver_texto }}</a></nav>
+    <h1>{{ titulo }}</h1>
+  </div>
+</div>
+<div class="tarjeta" style="max-width:760px">
   <form method="post" class="formulario">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">{{ boton|default:"Guardar" }}</button>
+    <div class="pie-form"><button type="submit">{{ boton|default:"Guardar" }}</button><a class="boton secundario" href="{{ volver_url }}">Cancelar</a></div>
   </form>
 </div>
 {% endblock %}
