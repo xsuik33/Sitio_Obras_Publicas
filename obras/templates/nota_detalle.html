@@ -33,6 +33,8 @@
 </div>
 {% endif %}
 
+{% include "_evidencias.html" %}
+
 <div class="tarjeta">
   <h2>Firmas</h2>
   <p>{% for rol, f in firmas %}<span class="chip" data-e="{{ f.decision|default:'Pendiente' }}">{{ rol }}: {% if f %}{{ f.decision|lower }} por {{ f.usuario_firmante }}{% else %}pendiente{% endif %}</span>{% empty %}<span class="suave">La obra no tiene Residente, Supervisor ni Superintendente asignados.</span>{% endfor %}</p>

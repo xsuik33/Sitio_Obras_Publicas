@@ -18,7 +18,7 @@ from .models import (
     CatalogoEstatusValidacion, Contrato, Estimacion, ProgramaObra, ReporteDiario, UsuarioProyectoRol,
     ValidacionReporteDiario,
 )
-from .permisos import CREAR_REPORTE, obras_de, puede, roles_en
+from .permisos import CREAR_REPORTE, GESTIONAR_USUARIOS, es_administrador, obras_de, puede, roles_en
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,20 @@ def _correos_de(obra, roles):
         for a in UsuarioProyectoRol.objects.filter(obra=obra, rol__nombre__in=roles).select_related("usuario")
         if a.usuario.activo
     ]
+
+
+def puede_ver(usuario, obra, reporte):
+    """Un borrador (diario o mensual) solo lo ven su autor y los administradores."""
+    if reporte.estatus.nombre != BORRADOR:
+        return True
+    return reporte.supervisor_id == usuario.pk or es_administrador(usuario, obra)
+
+
+def puede_editar(usuario, obra, reporte):
+    """Edita el autor (o un administrador de la obra) mientras el reporte no esté aprobado."""
+    if reporte.estatus.nombre == APROBADO or not puede(usuario, obra, CREAR_REPORTE):
+        return False
+    return reporte.supervisor_id == usuario.pk or puede(usuario, obra, GESTIONAR_USUARIOS)
 
 
 def enviar_a_revision(reporte, autor):

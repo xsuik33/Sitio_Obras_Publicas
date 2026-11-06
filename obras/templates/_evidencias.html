@@ -1,0 +1,43 @@
+<div class="tarjeta" id="evidencias">
+  <h2>Evidencias</h2>
+  {% if ev.lista %}
+  <div class="galeria">
+    {% for e in ev.lista %}
+    <figure>
+      <a href="{% url 'evidencia_ver' obra.pk e.pk %}" target="_blank" rel="noopener">
+        {% if e.tipo|slice:":6" == "image/" %}<img src="{% url 'evidencia_ver' obra.pk e.pk %}" alt="{{ e.descripcion }}" loading="lazy">
+        {% else %}<span class="doc">PDF</span>{% endif %}
+      </a>
+      <figcaption>{{ e.descripcion|default:"Sin descripción" }}
+        <span class="suave">{{ e.usuario_subida }} · {{ e.fecha_subida|date:"d/m/Y H:i" }}</span>
+        <span class="acciones">
+          <a href="{% url 'evidencia_ver' obra.pk e.pk %}?descargar">Descargar</a>
+          {% if ev.puede %}
+          <form method="post" action="{% url 'evidencia_borrar' obra.pk e.pk %}" style="display:inline"
+                onsubmit="return confirm('¿Quitar esta evidencia?{% if ev.registro.estatus.nombre == 'Rechazado' or ev.registro.estatus.nombre == 'En revisión' or ev.registro.estado_firma == 'Rechazada' %} El registro se enviará de nuevo a revisión.{% endif %}');">
+            {% csrf_token %}<button type="submit" class="enlace">Quitar</button>
+          </form>
+          {% endif %}
+        </span>
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="suave">Sin evidencias.</p>
+  {% endif %}
+
+  {% if ev.puede %}
+  <form method="post" enctype="multipart/form-data" class="formulario" style="margin-top:14px"
+        action="{% url 'evidencia_subir' obra.pk ev.tipo ev.registro.pk %}"
+        {% if ev.registro.estatus.nombre == 'Rechazado' or ev.registro.estatus.nombre == 'En revisión' or ev.registro.estado_firma == 'Rechazada' %}onsubmit="return confirm('Agregar evidencias cuenta como corrección: el registro se enviará de nuevo a revisión. ¿Continuar?');"{% endif %}>
+    {% csrf_token %}
+    <p><label for="ev-archivos">Agregar fotos o PDF</label>
+      <input type="file" id="ev-archivos" name="archivos" accept="{{ ev.acepta }}" multiple required>
+      <span class="helptext">JPG, PNG, WEBP o PDF; hasta {{ ev.max_mb }} MB cada uno y {{ ev.max_archivos }} por envío.</span></p>
+    <p><label for="ev-descripcion">Descripción (opcional)</label>
+      <input type="text" id="ev-descripcion" name="descripcion" maxlength="500" placeholder="Si la dejas vacía se usa el nombre del archivo"></p>
+    <button type="submit">Subir evidencias</button>
+  </form>
+  {% endif %}
+</div>

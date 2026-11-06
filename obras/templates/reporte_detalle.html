@@ -47,10 +47,7 @@
 {% if reporte.incidentes_seguridad %}<div class="tarjeta"><h2>Incidentes de seguridad</h2><div class="texto">{{ reporte.incidentes_seguridad }}</div></div>{% endif %}
 {% if reporte.observaciones %}<div class="tarjeta"><h2>Observaciones</h2><div class="texto">{{ reporte.observaciones }}</div></div>{% endif %}
 
-{% if evidencias %}
-<div class="tarjeta"><h2>Evidencias</h2>
-  <ul>{% for e in evidencias %}<li>{{ e.descripcion|default:e.ruta }}</li>{% endfor %}</ul></div>
-{% endif %}
+{% include "_evidencias.html" %}
 
 <div class="tarjeta">
   <h2>Revisión</h2>

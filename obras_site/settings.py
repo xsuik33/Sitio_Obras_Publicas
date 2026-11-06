@@ -105,10 +105,20 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Evidencias: Supabase Storage (bucket privado) si hay SUPABASE_URL; si no, disco local en media/.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "evidencias")
+SUPABASE_URL_CADUCIDAD = 300  # segundos que dura una URL firmada
+MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {"BACKEND": "obras.almacenamiento.SupabaseStorage" if SUPABASE_URL
+                else "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
+EVIDENCIA_MAX_MB = 10  # tamaño máximo por archivo
+EVIDENCIA_MAX_ARCHIVOS = 10  # por envío
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

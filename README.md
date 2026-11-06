@@ -42,6 +42,9 @@ DB_HOST=aws-0-REGION.pooler.supabase.com DB_NAME=postgres DB_SSL=require \
 DB_USER=postgres.PROJECT_REF DB_PASS='tu_password_postgres' python manage.py migrate
 ```
 Después de eso, la app usa solo `obras_app` (sin permiso para crear tablas).
+4. **Evidencias (Storage)**: Storage → New bucket → nombre `evidencias`, **privado** (sin "Public bucket").
+   Copia la **Secret key** `sb_secret_…` (Project Settings → API Keys) solo a las variables de Render; nunca al repo.
+   Los archivos no son públicos: la app revisa permisos y redirige a una URL firmada que dura 5 minutos.
 
 ## 6. Render
 New + → Web Service → conecta el repositorio (o usa el Blueprint `render.yaml`).
@@ -49,6 +52,8 @@ New + → Web Service → conecta el repositorio (o usa el Blueprint `render.yam
 - Start: `gunicorn obras_site.wsgi:application`
 - Variables: `SECRET_KEY`, `DEBUG=False`, `ADMIN_EMAILS`, `DB_HOST`, `DB_PORT=5432`, `DB_NAME=postgres`,
   `DB_USER=obras_app.PROJECT_REF`, `DB_PASS`, `DB_SSL=require`
+- Evidencias: `SUPABASE_URL=https://PROJECT_REF.supabase.co`, `SUPABASE_SERVICE_KEY` (Secret key `sb_secret_…`),
+  `SUPABASE_BUCKET=evidencias`. Sin ellas se guardan en el disco de Render, que se borra en cada despliegue.
 - Salud: `/salud/`
 Si el build falla por la versión de Python, agrega la variable `PYTHON_VERSION` (por ejemplo `3.12.8`).
 

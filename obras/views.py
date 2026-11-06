@@ -1,8 +1,10 @@
+import logging
 import uuid
 from collections import defaultdict
 from decimal import Decimal
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.models import ADDITION, CHANGE
 from django.contrib.auth import views as auth_views
@@ -12,12 +14,15 @@ from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError, Q, Sum
 from django.forms import formset_factory
-from django.http import HttpResponse, JsonResponse
+from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 
-from . import bitacora, mensuales, pdf, reportes
+from . import bitacora, evidencias, mensuales, pdf, reportes
+from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
 )
@@ -27,7 +32,8 @@ from .forms import (
     ValidacionForm,
 )
 from .models import (
-    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
+    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, EstimacionDetalle, Evidencia,
+    NotaBitacora,
     ProgramaObra, ReporteDiario, ReporteMensual, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
@@ -35,6 +41,8 @@ from .permisos import (
     puede, requiere_permiso, roles_en,
 )
 
+
+logger = logging.getLogger(__name__)
 
 def inicio(request):
     return redirect("mis_obras" if request.user.is_authenticated else "login")
@@ -117,18 +125,8 @@ def roles_obra(request, obra):
 # Reportes diarios (CU-03)
 # ---------------------------------------------------------------------------
 
-def _puede_editar_reporte(usuario, obra, reporte):
-    """Edita el autor (o un administrador de la obra) mientras el reporte no esté aprobado."""
-    if reporte.estatus.nombre == reportes.APROBADO or not puede(usuario, obra, CREAR_REPORTE):
-        return False
-    return reporte.supervisor_id == usuario.pk or puede(usuario, obra, GESTIONAR_USUARIOS)
-
-
-def _puede_ver_reporte(usuario, obra, reporte):
-    """Un borrador solo lo ven su autor y los administradores."""
-    if reporte.estatus.nombre != reportes.BORRADOR:
-        return True
-    return reporte.supervisor_id == usuario.pk or es_administrador(usuario, obra)
+_puede_editar_reporte = reportes.puede_editar
+_puede_ver_reporte = reportes.puede_ver
 
 
 def _reporte_visible(usuario, obra, reporte_id):
@@ -184,7 +182,7 @@ def reporte_detalle(request, obra, reporte_id):
         "decisiones": [(reportes.ETIQUETA[r], d) for r, d in decs.items()],
         "validaciones": reporte.validacionreportediario_set.select_related("usuario_validador", "estatus")
         .order_by("-fecha_validacion"),
-        "evidencias": reporte.evidencia_set.order_by("fecha_subida"),
+        "ev": _contexto_evidencias(request.user, obra, reporte),
         "puede_editar": _puede_editar_reporte(request.user, obra, reporte),
         "es_borrador": reporte.estatus.nombre == reportes.BORRADOR,
         "es_admin": es_admin,
@@ -390,6 +388,7 @@ def mensual_detalle(request, obra, reporte_id):
         "decisiones": [(reportes.ETIQUETA[r], d) for r, d in decs.items()],
         "validaciones": reporte.validaciones.select_related("usuario_validador", "estatus").order_by("-fecha_validacion"),
         "c": consolidado,
+        "ev": _contexto_evidencias(request.user, obra, reporte),
         "congelado": congelado,
         "puede_editar": mensuales.puede_editar(request.user, obra, reporte),
         "es_borrador": reporte.estatus.nombre == reportes.BORRADOR,
@@ -544,6 +543,7 @@ def nota_detalle(request, obra, nota_id):
         "estado": bitacora.estado_legible(nota, vigentes, requeridos),
         "firmas": [(bitacora.ETIQUETA[r], vigentes[r]) for r in requeridos],
         "historial": nota.firmas.select_related("usuario_firmante").order_by("-fecha_firma"),
+        "ev": _contexto_evidencias(request.user, obra, nota),
         "citada_por": nota.notas_que_la_citan.select_related("tipo").order_by("folio"),
         "puede_editar": bitacora.puede_editar(request.user, obra, nota, vigentes),
         "puede_borrar": bitacora.puede_borrar(request.user, obra, nota, vigentes),
@@ -593,7 +593,9 @@ def nota_borrar(request, obra, nota_id):
             messages.error(request, "La nota ya fue firmada o rechazada por alguien más; no se puede borrar.")
             return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
         folio = nota.folio
+        rutas = list(evidencias.de(nota).values_list("ruta", flat=True))
         nota.delete()
+        evidencias.borrar_archivos_al_confirmar(rutas)
     messages.success(request, f"Nota {folio} borrada. Su folio no se volverá a usar.")
     return redirect("bitacora_lista", obra_id=obra.pk)
 
@@ -619,6 +621,108 @@ def nota_firmar(request, obra, nota_id):
             else:
                 messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
     return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+
+
+# ---------------------------------------------------------------------------
+# Evidencias (fotos y PDF) en Supabase Storage
+# ---------------------------------------------------------------------------
+
+def _contexto_evidencias(usuario, obra, objeto):
+    return {
+        "lista": evidencias.de(objeto),
+        "puede": evidencias.puede_modificar(usuario, obra, objeto),
+        "tipo": evidencias.tipo_de(objeto),
+        "registro": objeto,
+        "acepta": evidencias.ACEPTA,
+        "max_mb": settings.EVIDENCIA_MAX_MB,
+        "max_archivos": settings.EVIDENCIA_MAX_ARCHIVOS,
+    }
+
+
+def _volver_a(objeto):
+    destino = {"diario": "reporte_detalle", "mensual": "mensual_detalle", "nota": "nota_detalle"}
+    clave = "nota_id" if isinstance(objeto, NotaBitacora) else "reporte_id"
+    return redirect(destino[evidencias.tipo_de(objeto)], **{"obra_id": objeto.obra_id, clave: objeto.pk})
+
+
+def _evidencia(obra, evidencia_id):
+    return get_object_or_404(
+        Evidencia.objects.select_related("reporte_diario__estatus", "reporte_mensual__estatus", "nota_bitacora"),
+        Q(reporte_diario__obra=obra) | Q(reporte_mensual__obra=obra) | Q(nota_bitacora__obra=obra),
+        pk=evidencia_id,
+    )
+
+
+@requiere_permiso(VER)
+def evidencia_subir(request, obra, tipo, registro_id):
+    if tipo not in evidencias.PADRES:
+        raise Http404
+    objeto = evidencias.registro(obra, tipo, registro_id)
+    if request.method != "POST":
+        return _volver_a(objeto)
+    try:
+        with transaction.atomic():
+            objeto = evidencias.registro(obra, tipo, registro_id, bloquear=True)
+            if not evidencias.puede_ver(request.user, obra, objeto):
+                raise PermissionDenied
+            if not evidencias.puede_modificar(request.user, obra, objeto):
+                messages.error(request, "Este registro ya no se puede modificar; no se agregaron evidencias.")
+                return _volver_a(objeto)
+            nuevas, reenviado = evidencias.agregar(
+                objeto, request.FILES.getlist("archivos"), request.POST.get("descripcion", ""), request.user
+            )
+    except ValidationError as e:
+        messages.error(request, " ".join(e.messages))
+    except ErrorAlmacenamiento:
+        logger.exception("Error al subir evidencias")
+        messages.error(request, "No se pudo guardar el archivo en el almacenamiento. Intenta de nuevo en un momento.")
+    else:
+        texto = f"{len(nuevas)} evidencia(s) agregada(s)."
+        if reenviado:
+            texto += " Como ya tenía revisiones, se envió de nuevo a revisión."
+        messages.success(request, texto)
+    return _volver_a(objeto)
+
+
+@requiere_permiso(VER)
+def evidencia_ver(request, obra, evidencia_id):
+    evidencia = _evidencia(obra, evidencia_id)
+    objeto = evidencias.registro_de(evidencia)
+    if not evidencias.puede_ver(request.user, obra, objeto):
+        raise PermissionDenied
+    descargar = "descargar" in request.GET
+    nombre = evidencias.nombre_descarga(evidencia)
+    try:
+        if hasattr(default_storage, "url_firmada"):
+            return redirect(default_storage.url_firmada(evidencia.ruta, descargar=nombre if descargar else None))
+        return FileResponse(default_storage.open(evidencia.ruta), content_type=evidencia.tipo,
+                            as_attachment=descargar, filename=nombre)
+    except (ErrorAlmacenamiento, FileNotFoundError):
+        logger.exception("Error al abrir la evidencia %s", evidencia.pk)
+        messages.error(request, "No se pudo abrir la evidencia. Intenta de nuevo en un momento.")
+        return _volver_a(objeto)
+
+
+@requiere_permiso(VER)
+def evidencia_borrar(request, obra, evidencia_id):
+    evidencia = _evidencia(obra, evidencia_id)
+    objeto = evidencias.registro_de(evidencia)
+    if request.method != "POST":
+        return _volver_a(objeto)
+    with transaction.atomic():
+        objeto = evidencias.registro(obra, evidencias.tipo_de(objeto), objeto.pk, bloquear=True)
+        if not evidencias.puede_ver(request.user, obra, objeto):
+            raise PermissionDenied
+        if not evidencias.puede_modificar(request.user, obra, objeto):
+            messages.error(request, "Este registro ya no se puede modificar; la evidencia se conserva.")
+            return _volver_a(objeto)
+        evidencia = get_object_or_404(Evidencia, pk=evidencia_id)
+        reenviado = evidencias.quitar(evidencia, request.user)
+    texto = "Evidencia eliminada."
+    if reenviado:
+        texto += " Como ya tenía revisiones, se envió de nuevo a revisión."
+    messages.success(request, texto)
+    return _volver_a(objeto)
 
 
 # ---------------------------------------------------------------------------
