@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Documentos · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Repositorio de documentos</h1>
+    <p class="sub"><span>{{ filas|length }} documento{{ filas|length|pluralize }}</span><span>Contratos, reportes, documentos técnicos, planos, fotografías y soporte de estimaciones</span></p>
+  </div>
+  <div class="acciones"><a class="boton secundario" href="{% url 'obra_historial' obra.pk %}">Historial de la obra</a></div>
+</div>
+
+<div class="columnas">
+  <div>
+    <form method="get" class="tarjeta filtros" role="search">
+      <label class="crece" for="d-q">Buscar<input type="search" id="d-q" name="q" value="{{ q }}" placeholder="Nombre, descripción o folio de estimación"></label>
+      <label for="d-cat">Tipo
+        <select id="d-cat" name="categoria">
+          <option value="">Todos</option>
+          {% for c, n in categorias %}<option value="{{ c }}"{% if c == categoria %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit">Filtrar</button>
+      {% if q or categoria %}<a class="boton secundario" href="{% url 'documentos_lista' obra.pk %}">Limpiar</a>{% endif %}
+    </form>
+    <div class="tarjeta tabla-lista"><div class="tabla-scroll">
+      <table style="min-width:600px">
+        <thead><tr><th>Documento</th><th>Tipo</th><th>Subido</th><th></th></tr></thead>
+        <tbody>
+        {% for f in filas %}{% with d=f.d %}
+          <tr>
+            <td><a class="principal" href="{% url 'documento_ver' obra.pk d.pk %}">{{ d.nombre_archivo }}</a>
+              <br><span class="tenue">{{ d.tipo_archivo }}{% if d.estimacion %} · soporte de <a href="{% url 'estimacion_detalle' obra.pk d.estimacion.pk %}">{{ d.estimacion.folio }}</a>{% endif %}{% if d.descripcion %} · {{ d.descripcion|truncatechars:60 }}{% endif %}</span></td>
+            <td><span class="chip rol">{{ d.categoria }}</span></td>
+            <td style="white-space:nowrap">{{ d.fecha_subida|date:"d M Y" }}<br><span class="tenue">{{ d.usuario_subida }}</span></td>
+            <td class="num">{% if f.borrable %}<form method="post" action="{% url 'documento_borrar' obra.pk d.pk %}" onsubmit="return confirm('¿Borrar «{{ d.nombre_archivo|escapejs }}»? Quedará registrado en el historial.');">{% csrf_token %}<button type="submit" class="peligro chico">Borrar</button></form>{% endif %}</td>
+          </tr>
+        {% endwith %}{% empty %}
+          <tr class="fila-vacia"><td colspan="4">{% if q or categoria %}Ningún documento coincide con el filtro.{% else %}Todavía no hay documentos en el repositorio de esta obra.{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div>
+    {% if form %}
+    <div class="tarjeta">
+      <h2>Subir documento</h2>
+      <form method="post" enctype="multipart/form-data" action="{% url 'documento_subir' obra.pk %}" class="formulario ancho">
+        {% csrf_token %}
+        <div class="campo">{{ form.archivo.as_field_group }}</div>
+        <div class="campo">{{ form.categoria.as_field_group }}</div>
+        <div class="campo">{{ form.nombre.as_field_group }}</div>
+        <div class="campo">{{ form.descripcion.as_field_group }}</div>
+        <button type="submit">Subir documento</button>
+      </form>
+    </div>
+    {% endif %}
+    <div class="tarjeta">
+      <div class="titulo-sec"><h2>Movimientos recientes</h2><a href="{% url 'obra_historial' obra.pk %}">Ver todo →</a></div>
+      <ul class="historial">
+      {% for m in movimientos %}
+        <li><div class="quien">{{ m.change_message }}</div><div class="cuando">{{ m.user }} · {{ m.action_time|date:"d M Y, H:i" }}</div></li>
+      {% empty %}<li class="vacio-sec">Sin movimientos registrados.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

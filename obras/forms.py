@@ -12,8 +12,8 @@ from . import reportes
 from .cuentas import ROLES_CUENTA
 from .mensuales import MESES
 from .models import (
-    CatalogoEstatusValidacion, CatalogoTipoNota, Estimacion, NotaBitacora, Obra, ReporteDiario, ReporteMensual, Rol,
-    Usuario,
+    Anticipo, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, NotaBitacora, Obra, ReporteDiario,
+    ReporteMensual, Rol, Usuario,
 )
 
 
@@ -532,3 +532,117 @@ class DocumentoForm(forms.Form):
         archivo = self.cleaned_data["archivo"]
         validar(archivo)
         return archivo
+
+
+# ---------------------------------------------------------------------------
+# Obras, contratos y anticipos (RF-01, RF-03, RF-04)
+# ---------------------------------------------------------------------------
+
+_FECHA = {"type": "date"}
+
+
+class ObraForm(forms.ModelForm):
+    class Meta:
+        model = Obra
+        fields = ("nombre", "ubicacion", "fecha_inicio_oficial", "fecha_fin_oficial")
+        labels = {"nombre": "Nombre de la obra", "ubicacion": "Ubicación",
+                  "fecha_inicio_oficial": "Fecha de inicio oficial", "fecha_fin_oficial": "Fecha de terminación oficial"}
+        help_texts = {"fecha_inicio_oficial": "Con las fechas oficiales se calcula el estado de la obra y el arranque del programa."}
+        widgets = {"ubicacion": forms.Textarea(attrs={"rows": 2}),
+                   "fecha_inicio_oficial": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d"),
+                   "fecha_fin_oficial": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d")}
+
+    def clean(self):
+        datos = super().clean()
+        inicio, fin = datos.get("fecha_inicio_oficial"), datos.get("fecha_fin_oficial")
+        if inicio and fin and fin < inicio:
+            self.add_error("fecha_fin_oficial", "La terminación no puede ser anterior al inicio.")
+        return datos
+
+
+class ContratoForm(forms.ModelForm):
+    BLOQUEABLES = ("monto_total_contratado", "porcentaje_iva", "porcentaje_retencion", "porcentaje_anticipo",
+                   "porcentaje_retencion_atraso")
+
+    class Meta:
+        model = Contrato
+        fields = ("numero_contrato", "contratista", "fecha_firma", "fecha_inicio", "fecha_fin", "monto_total_contratado",
+                  "porcentaje_anticipo", "porcentaje_iva", "porcentaje_retencion", "porcentaje_retencion_atraso",
+                  "monto_garantia_cumplimiento", "numero_fianza", "afianzadora")
+        labels = {
+            "numero_contrato": "Número de contrato", "contratista": "Contratista", "fecha_firma": "Fecha de firma",
+            "fecha_inicio": "Inicio de los trabajos", "fecha_fin": "Terminación de los trabajos",
+            "monto_total_contratado": "Monto contratado (sin IVA)", "porcentaje_anticipo": "Anticipo (%)",
+            "porcentaje_iva": "IVA (%)", "porcentaje_retencion": "Retención por derechos (%)",
+            "porcentaje_retencion_atraso": "Retención por atraso (%)",
+            "monto_garantia_cumplimiento": "Garantía de cumplimiento ($)", "numero_fianza": "Número de fianza",
+            "afianzadora": "Afianzadora",
+        }
+        help_texts = {
+            "porcentaje_anticipo": "Hasta 30 % (LOPSRM, art. 50). Se amortiza en cada estimación.",
+            "porcentaje_retencion": "Por ejemplo 0.5 (5 al millar de inspección y vigilancia).",
+            "porcentaje_retencion_atraso": "Se aplica sobre el importe atrasado contra el programa (LOPSRM, art. 46 Bis).",
+            "monto_garantia_cumplimiento": "Tope de las penas convencionales (LOPSRM, art. 46 Bis).",
+        }
+        widgets = {c: forms.DateInput(attrs=_FECHA, format="%Y-%m-%d") for c in ("fecha_firma", "fecha_inicio", "fecha_fin")}
+
+    def __init__(self, *args, bloquear_montos=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bloquear_montos = bloquear_montos
+        for campo in ("porcentaje_anticipo", "porcentaje_iva", "porcentaje_retencion", "porcentaje_retencion_atraso"):
+            self.fields[campo].validators += [MinValueValidator(0), MaxValueValidator(100)]
+            self.fields[campo].widget.attrs.update({"min": 0, "max": 100, "step": "0.01"})
+        self.fields["porcentaje_anticipo"].validators.append(MaxValueValidator(30))
+        self.fields["monto_total_contratado"].validators.append(MinValueValidator(Decimal("0.01")))
+        if self.instance._state.adding:
+            self.fields["porcentaje_iva"].initial = 16
+            self.fields["porcentaje_retencion_atraso"].initial = 5
+        if bloquear_montos:
+            for campo in self.BLOQUEABLES:
+                self.fields[campo].disabled = True
+                self.fields[campo].help_text = "Bloqueado: el contrato ya tiene estimaciones y sus montos no se modifican."
+
+    def clean(self):
+        datos = super().clean()
+        inicio, fin = datos.get("fecha_inicio"), datos.get("fecha_fin")
+        if inicio and fin and fin < inicio:
+            self.add_error("fecha_fin", "La terminación no puede ser anterior al inicio.")
+        garantia, monto = datos.get("monto_garantia_cumplimiento"), datos.get("monto_total_contratado")
+        if garantia is not None and garantia < 0:
+            self.add_error("monto_garantia_cumplimiento", "No puede ser negativa.")
+        elif garantia and monto and garantia > monto:
+            self.add_error("monto_garantia_cumplimiento", "No puede ser mayor que el monto contratado.")
+        return datos
+
+
+class AnticipoForm(forms.ModelForm):
+    class Meta:
+        model = Anticipo
+        fields = ("tipo", "monto", "fecha_programada", "fecha_pago", "estatus", "observaciones")
+        labels = {"tipo": "Tipo", "monto": "Monto ($)", "fecha_programada": "Fecha programada",
+                  "fecha_pago": "Fecha de pago", "estatus": "Estatus", "observaciones": "Observaciones"}
+        widgets = {"fecha_programada": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d"),
+                   "fecha_pago": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d"),
+                   "observaciones": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, contrato=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contrato = contrato
+        self.fields["monto"].validators.append(MinValueValidator(Decimal("0.01")))
+        self.fields["tipo"].choices = Anticipo.TIPOS
+        self.fields["estatus"].choices = Anticipo.ESTATUS
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("estatus") == "Pagado" and not datos.get("fecha_pago"):
+            self.add_error("fecha_pago", "Indica la fecha en que se pagó.")
+        monto = datos.get("monto")
+        if monto and self.contrato is not None:
+            otros = self.contrato.anticipo_set.exclude(estatus="Cancelado")
+            if self.instance.pk:
+                otros = otros.exclude(pk=self.instance.pk)
+            total = sum((a.monto for a in otros), Decimal(0)) + (monto if datos.get("estatus") != "Cancelado" else 0)
+            if total > self.contrato.monto_anticipo:
+                self.add_error("monto", f"Las ministraciones suman más que el anticipo autorizado "
+                                        f"($ {self.contrato.monto_anticipo:,.2f}).")
+        return datos

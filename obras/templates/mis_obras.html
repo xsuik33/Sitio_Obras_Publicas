@@ -26,6 +26,7 @@
     <h1>Obras</h1>
     <p class="sub"><span>Busca una obra para consultar su expediente y su avance</span></p>
   </div>
+  {% if puede_crear_obra %}<div class="acciones"><a class="boton" href="{% url 'obra_nueva' %}">+ Registrar obra</a></div>{% endif %}
 </div>
 
 {% if tiene_obras %}
@@ -98,7 +99,8 @@
 <div class="tarjeta vacio">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V10l9-6 9 6v11h-6v-7H9v7z"/></svg>
   <h2>Todavía no tienes obras asignadas</h2>
-  <p class="suave">Pide a un administrador que te asigne un rol en una obra.</p>
+  {% if puede_crear_obra %}<p class="suave">Registra la primera obra del sistema.</p><a class="boton" href="{% url 'obra_nueva' %}">+ Registrar obra</a>
+  {% else %}<p class="suave">Pide a un administrador que te asigne un rol en una obra.</p>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

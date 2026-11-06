@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from . import bitacora, documentos, estimaciones, evidencias, mensuales, pdf, reportes
+from . import bitacora, documentos, estimaciones, evidencias, historial, mensuales, pdf, reportes
 from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
@@ -31,17 +31,18 @@ from .cuentas import (
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
     BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
-    DecisionEstimacionForm, DocumentoForm, EstimacionForm, ValidacionForm,
+    AnticipoForm, ContratoForm, DecisionEstimacionForm, DocumentoForm, EstimacionForm, ObraForm, ValidacionForm,
 )
 from .models import (
-    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Documento, Estimacion, EstimacionDetalle,
+    Anticipo, CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Documento, Estimacion,
+    EstimacionDetalle,
     Evidencia,
     NotaBitacora,
     ProgramaObra, ReporteDiario, ReporteMensual, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
-    CREAR_ESTIMACION, CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS,
-    VALIDAR_ESTIMACION, VALIDAR_REPORTE, VER, es_administrador, obras_de,
+    CREAR_ESTIMACION, CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_CONTRATO, GESTIONAR_PROGRAMA,
+    GESTIONAR_USUARIOS, SUBIR_DOCUMENTO, VALIDAR_ESTIMACION, VALIDAR_REPORTE, VER, es_administrador, obras_de,
     puede, requiere_permiso, roles_en,
 )
 
@@ -76,6 +77,7 @@ def mis_obras(request):
     contexto = {
         "filas": filas, "q": q, "estado": estado, "estados": expedientes.ESTADOS, "filtrando": bool(q or estado),
         "tiene_obras": bool(filas) or obras_de(request.user).exists(),
+        "puede_crear_obra": request.user.es_admin_panel,
     }
     return render(request, "mis_obras.html", contexto)
 
@@ -98,6 +100,8 @@ def obra_detalle(request, obra):
         "x": exp,
         "grafica": exp["avance"]["datos"]["grafica"] if exp["avance"]["ok"] else None,
         "puede_gestionar": puede(request.user, obra, GESTIONAR_USUARIOS),
+        "puede_contrato": puede(request.user, obra, GESTIONAR_CONTRATO),
+        "puede_subir": puede(request.user, obra, SUBIR_DOCUMENTO),
     }
     return render(request, "obra_detalle.html", contexto)
 
@@ -993,8 +997,10 @@ def estimacion_documento_subir(request, obra, estimacion_id):
         elif form.is_valid():
             try:
                 with transaction.atomic():
-                    documentos.guardar(obra, form.cleaned_data["archivo"], request.user, form.cleaned_data["categoria"],
-                                       form.cleaned_data["descripcion"], estimacion=est, nombre=form.cleaned_data["nombre"])
+                    doc = documentos.guardar(obra, form.cleaned_data["archivo"], request.user, form.cleaned_data["categoria"],
+                                             form.cleaned_data["descripcion"], estimacion=est, nombre=form.cleaned_data["nombre"])
+                    historial.registrar(request.user, obra, historial.ALTA,
+                                        f"Subió «{doc.nombre_archivo}» ({doc.categoria}) a la estimación {est.folio}.")
                 messages.success(request, "Documento agregado a la estimación.")
             except ValidationError as e:
                 messages.error(request, " ".join(e.messages))
@@ -1027,14 +1033,14 @@ def documento_ver(request, obra, documento_id):
         messages.error(request, "No se pudo abrir el documento. Intenta de nuevo en un momento.")
         if doc.estimacion_id:
             return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=doc.estimacion_id)
-        return redirect("obra_detalle", obra_id=obra.pk)
+        return redirect("documentos_lista", obra_id=obra.pk)
 
 
 @requiere_permiso(VER)
 def documento_borrar(request, obra, documento_id):
     doc = _documento(obra, documento_id)
     volver = (redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=doc.estimacion_id) if doc.estimacion_id
-              else redirect("obra_detalle", obra_id=obra.pk))
+              else redirect("documentos_lista", obra_id=obra.pk))
     if request.method != "POST":
         return volver
     if not documentos.puede_borrar(request.user, doc) or (
@@ -1042,9 +1048,175 @@ def documento_borrar(request, obra, documento_id):
         messages.error(request, "No puedes borrar este documento.")
         return volver
     with transaction.atomic():
+        donde = f" de la estimación {doc.estimacion.folio}" if doc.estimacion_id else ""
+        historial.registrar(request.user, obra, historial.BAJA, f"Borró «{doc.nombre_archivo}» ({doc.categoria}){donde}.")
         documentos.borrar(doc)
     messages.success(request, "Documento eliminado.")
     return volver
+
+
+# ---------------------------------------------------------------------------
+# Repositorio de documentos de la obra (CU-11) e historial
+# ---------------------------------------------------------------------------
+
+CATEGORIAS_REPOSITORIO = [(c, c) for c in ("Contrato", "Reporte", "Documento técnico", "Plano", "Fotografía", "Factura",
+                                           "Números generadores", "Croquis", "Prueba de laboratorio", "Otro")]
+
+
+@requiere_permiso(VER)
+def documentos_lista(request, obra):
+    categoria = request.GET.get("categoria", "")
+    q = (request.GET.get("q") or "").strip()[:100]
+    consulta = Documento.objects.filter(obra=obra).select_related("usuario_subida", "estimacion__estatus")
+    if not es_administrador(request.user, obra):  # 4a de CU-12: no se ven los borradores de estimación ajenos
+        consulta = consulta.exclude(Q(estimacion__estatus__nombre=estimaciones.BORRADOR) &
+                                    ~Q(estimacion__superintendente=request.user))
+    if categoria in dict(CATEGORIAS_REPOSITORIO):
+        consulta = consulta.filter(categoria=categoria)
+    else:
+        categoria = ""
+    if q:
+        consulta = consulta.filter(Q(nombre_archivo__icontains=q) | Q(descripcion__icontains=q) | Q(estimacion__folio__icontains=q))
+    filas = [{"d": d, "borrable": documentos.puede_borrar(request.user, d) and not d.estimacion_id}
+             for d in consulta.order_by("-fecha_subida")]
+    puede_subir = puede(request.user, obra, SUBIR_DOCUMENTO)
+    contexto = {
+        "obra": obra, "filas": filas, "categoria": categoria, "q": q, "categorias": CATEGORIAS_REPOSITORIO,
+        "form": DocumentoForm(categorias=CATEGORIAS_REPOSITORIO) if puede_subir else None,
+        "movimientos": historial.de_obra(obra, limite=8),
+    }
+    return render(request, "documentos.html", contexto)
+
+
+@requiere_permiso(SUBIR_DOCUMENTO)
+def documento_subir(request, obra):
+    if request.method == "POST":
+        form = DocumentoForm(request.POST, request.FILES, categorias=CATEGORIAS_REPOSITORIO)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    doc = documentos.guardar(obra, form.cleaned_data["archivo"], request.user, form.cleaned_data["categoria"],
+                                             form.cleaned_data["descripcion"], nombre=form.cleaned_data["nombre"])
+                    historial.registrar(request.user, obra, historial.ALTA,
+                                        f"Subió «{doc.nombre_archivo}» ({doc.categoria}) al repositorio.")
+                messages.success(request, f"«{doc.nombre_archivo}» quedó en el repositorio de la obra.")
+            except ValidationError as e:
+                messages.error(request, " ".join(e.messages))
+            except ErrorAlmacenamiento:  # 3b de CU-11: falla de carga, se puede reintentar
+                logger.exception("Error al subir un documento")
+                messages.error(request, "No se pudo guardar el archivo. Intenta de nuevo en un momento.")
+        else:  # 3a de CU-11: archivo no permitido o demasiado grande
+            messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect("documentos_lista", obra_id=obra.pk)
+
+
+@requiere_permiso(VER)
+def obra_historial(request, obra):
+    return render(request, "historial_obra.html", {"obra": obra, "movimientos": historial.de_obra(obra, limite=300)})
+
+
+# ---------------------------------------------------------------------------
+# Obras, contratos y anticipos (RF-01, RF-03, RF-04)
+# ---------------------------------------------------------------------------
+
+def _solo_admin_sistema(vista):
+    @wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+        if not request.user.es_admin_panel:
+            raise PermissionDenied
+        return vista(request, *args, **kwargs)
+    return envoltura
+
+
+@_solo_admin_sistema
+def obra_nueva(request):
+    form = ObraForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            obra = form.save()
+            historial.registrar(request.user, obra, historial.ALTA, f"Registró la obra «{obra.nombre}».")
+        messages.success(request, f"Obra «{obra.nombre}» registrada. Ahora registra su contrato y asigna su equipo.")
+        return redirect("obra_detalle", obra_id=obra.pk)
+    return render(request, "obra_form.html", {"form": form, "titulo": "Registrar obra", "obra": None})
+
+
+@requiere_permiso(GESTIONAR_CONTRATO)
+def obra_editar(request, obra):
+    form = ObraForm(request.POST or None, instance=obra)
+    if request.method == "POST" and form.is_valid():
+        if form.has_changed():
+            with transaction.atomic():
+                form.save()
+                historial.registrar(request.user, obra, historial.CAMBIO, f"Modificó la obra: {historial.cambios(form)}.")
+            messages.success(request, "Datos de la obra actualizados.")
+        return redirect("obra_detalle", obra_id=obra.pk)
+    return render(request, "obra_form.html", {"form": form, "titulo": "Editar obra", "obra": obra})
+
+
+@requiere_permiso(GESTIONAR_CONTRATO)
+def contrato_editar(request, obra):
+    contrato = Contrato.objects.filter(obra=obra).first()
+    bloquear = bool(contrato) and Estimacion.objects.filter(contrato=contrato).exists()
+    form = ContratoForm(request.POST or None, instance=contrato, bloquear_montos=bloquear)
+    if request.method == "POST" and form.is_valid():
+        nuevo = contrato is None
+        if nuevo or form.has_changed():
+            with transaction.atomic():
+                guardado = form.save(commit=False)
+                guardado.obra = obra
+                guardado.save()
+                texto = (f"Registró el contrato {guardado.numero_contrato} por $ {guardado.monto_total_contratado:,.2f}."
+                         if nuevo else f"Modificó el contrato {guardado.numero_contrato}: {historial.cambios(form)}.")
+                historial.registrar(request.user, obra, historial.ALTA if nuevo else historial.CAMBIO, texto)
+            messages.success(request, "Contrato registrado." if nuevo else "Contrato actualizado.")
+        return redirect("contrato_editar", obra_id=obra.pk)
+    if contrato:
+        contrato.refresh_from_db()
+    contexto = {
+        "obra": obra, "contrato": contrato, "form": form, "bloqueado": bloquear,
+        "anticipos": contrato.anticipo_set.order_by("fecha_programada", "fecha_registro") if contrato else [],
+        "form_anticipo": AnticipoForm(contrato=contrato, prefix="ant") if contrato else None,
+    }
+    return render(request, "contrato_form.html", contexto)
+
+
+@requiere_permiso(GESTIONAR_CONTRATO)
+def anticipo_guardar(request, obra, anticipo_id=None):
+    contrato = get_object_or_404(Contrato, obra=obra)
+    anticipo = get_object_or_404(Anticipo, pk=anticipo_id, contrato=contrato) if anticipo_id else None
+    form = AnticipoForm(request.POST or None, instance=anticipo, contrato=contrato, prefix="ant")
+    if request.method == "POST":
+        if form.is_valid():
+            with transaction.atomic():
+                a = form.save(commit=False)
+                a.contrato = contrato
+                a.save()
+                historial.registrar(request.user, obra, historial.CAMBIO if anticipo else historial.ALTA,
+                                    f"{'Modificó' if anticipo else 'Registró'} la ministración de anticipo «{a.tipo}» por "
+                                    f"$ {a.monto:,.2f} ({a.estatus}).")
+            messages.success(request, "Ministración de anticipo guardada.")
+            return redirect("contrato_editar", obra_id=obra.pk)
+        if not anticipo:
+            messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+            return redirect("contrato_editar", obra_id=obra.pk)
+    return render(request, "anticipo_form.html", {"obra": obra, "contrato": contrato, "anticipo": anticipo, "form": form})
+
+
+@requiere_permiso(GESTIONAR_CONTRATO)
+def anticipo_borrar(request, obra, anticipo_id):
+    anticipo = get_object_or_404(Anticipo, pk=anticipo_id, contrato__obra=obra)
+    if request.method == "POST":
+        if anticipo.estatus == "Pagado":
+            messages.error(request, "Una ministración pagada no se borra; si fue un error, márcala como cancelada.")
+        else:
+            with transaction.atomic():
+                historial.registrar(request.user, obra, historial.BAJA,
+                                    f"Borró la ministración de anticipo «{anticipo.tipo}» por $ {anticipo.monto:,.2f}.")
+                anticipo.delete()
+            messages.success(request, "Ministración eliminada.")
+    return redirect("contrato_editar", obra_id=obra.pk)
 
 
 # ---------------------------------------------------------------------------

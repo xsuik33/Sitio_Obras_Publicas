@@ -46,7 +46,11 @@
       <span>Mis roles: {% for rol in mis_roles %}{{ rol }}{% if not forloop.last %}, {% endif %}{% empty %}acceso total{% endfor %}</span>
     </p>
   </div>
-  {% if puede_gestionar %}<div class="acciones"><a class="boton secundario" href="{% url 'roles_obra' obra.pk %}">Gestionar equipo</a></div>{% endif %}
+  <div class="acciones">
+    {% if puede_contrato %}<a class="boton secundario" href="{% url 'obra_editar' obra.pk %}">Editar obra</a>{% endif %}
+    {% if puede_gestionar %}<a class="boton secundario" href="{% url 'roles_obra' obra.pk %}">Gestionar equipo</a>{% endif %}
+    <a class="boton secundario" href="{% url 'obra_historial' obra.pk %}">Historial</a>
+  </div>
 </div>
 
 {% if not x.avance.ok %}
@@ -139,6 +143,9 @@
   <a class="tarjeta modulo" href="{% url 'bitacora_lista' obra.pk %}">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 9h8M8 13h6"/></svg></span>
     <span><span class="n">{{ x.bitacora.datos.n|default:"0" }}</span><br><span class="l">Notas de bitácora</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'documentos_lista' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span>
+    <span><span class="n">{{ x.documentos.datos.lista|length|default:"0" }}</span><br><span class="l">Documentos</span></span></a>
   <a class="tarjeta modulo" href="{% url 'programa_ver' obra.pk %}">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
     <span><span class="n">{{ av.programada|length|default:"0" }}</span><br><span class="l">Puntos del programa</span></span></a>
@@ -147,7 +154,7 @@
 <div class="cols">
   {# Contrato #}
   <div class="tarjeta">
-    <div class="titulo-sec"><h2>Contrato</h2></div>
+    <div class="titulo-sec"><h2>Contrato</h2>{% if puede_contrato %}<a href="{% url 'contrato_editar' obra.pk %}">{% if x.contrato.datos %}Editar contrato →{% else %}Registrar contrato →{% endif %}</a>{% endif %}</div>
     {% if not x.contrato.ok %}<div class="falla">No se pudo cargar el contrato. <a href="">Reintentar</a></div>
     {% elif x.contrato.datos %}{% with c=x.contrato.datos.c %}
       <table>
@@ -242,12 +249,12 @@
 
   {# Documentos #}
   <div class="tarjeta">
-    <div class="titulo-sec"><h2>Documentos</h2></div>
+    <div class="titulo-sec"><h2>Documentos</h2><a href="{% url 'documentos_lista' obra.pk %}">{% if puede_subir %}Ver y subir →{% else %}Ver repositorio →{% endif %}</a></div>
     {% if not x.documentos.ok %}<div class="falla">No se pudieron cargar los documentos. <a href="">Reintentar</a></div>
     {% elif x.documentos.datos.lista %}
       <ul class="lista">{% for d in x.documentos.datos.lista %}
-        <li><span>{{ d.nombre_archivo }}<br><span class="sub">{{ d.usuario_subida }} · {{ d.fecha_subida|date:"d M Y" }}{% if d.descripcion %} · {{ d.descripcion }}{% endif %}</span></span>
-            <span class="chip">{{ d.tipo_archivo|default:"archivo" }}</span></li>
+        <li><span><a href="{% url 'documento_ver' obra.pk d.pk %}">{{ d.nombre_archivo }}</a><br><span class="sub">{{ d.usuario_subida }} · {{ d.fecha_subida|date:"d M Y" }}{% if d.descripcion %} · {{ d.descripcion }}{% endif %}</span></span>
+            <span class="chip rol">{{ d.categoria }}</span></li>
       {% endfor %}</ul>
     {% else %}<p class="vacio-sec">Aún no hay documentos en el repositorio de la obra.</p>{% endif %}
   </div>

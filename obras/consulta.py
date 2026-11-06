@@ -219,8 +219,11 @@ def _bitacora(obra, **_):
     return {"n": consulta.count(), "conteo": _conteo(consulta, "estado_firma"), "recientes": list(recientes)}
 
 
-def _documentos(obra, **_):
-    return {"lista": list(Documento.objects.filter(obra=obra).select_related("usuario_subida").order_by("-fecha_subida"))}
+def _documentos(obra, usuario, **_):
+    consulta = Documento.objects.filter(obra=obra)
+    if not es_administrador(usuario, obra):
+        consulta = consulta.exclude(Q(estimacion__estatus__nombre=reportes.BORRADOR) & ~Q(estimacion__superintendente=usuario))
+    return {"lista": list(consulta.select_related("usuario_subida").order_by("-fecha_subida"))}
 
 
 SECCIONES = {

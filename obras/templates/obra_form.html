@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · Sistema de Obras{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a>{% if obra %}<span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a>{% endif %}</nav>
+    <h1>{{ titulo }}</h1>
+    {% if not obra %}<p class="sub"><span>Después de registrarla podrás capturar su contrato y asignar su equipo.</span></p>{% endif %}
+  </div>
+</div>
+<div class="tarjeta" style="max-width:760px">
+  <form method="post" class="formulario ancho">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="campo">{{ form.nombre.as_field_group }}</div>
+    <div class="campo">{{ form.ubicacion.as_field_group }}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+      <div class="campo">{{ form.fecha_inicio_oficial.as_field_group }}</div>
+      <div class="campo">{{ form.fecha_fin_oficial.as_field_group }}</div>
+    </div>
+    <div class="pie-form"><button type="submit">{% if obra %}Guardar cambios{% else %}Registrar obra{% endif %}</button>
+      <a class="boton secundario" href="{% if obra %}{% url 'obra_detalle' obra.pk %}{% else %}{% url 'mis_obras' %}{% endif %}">Cancelar</a></div>
+  </form>
+</div>
+{% endblock %}

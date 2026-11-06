@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block titulo %}Contrato · {{ obra.nombre }}{% endblock %}
+{% block estilos %}
+    .rejilla { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0 16px; }
+    fieldset.grupo-form { border:none; border-top:1px solid var(--borde); padding:14px 0 0; margin:6px 0 0; }
+    fieldset.grupo-form legend { font-weight:600; font-size:.92rem; padding-right:8px; }
+{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>{% if contrato %}Contrato <span class="mono">{{ contrato.numero_contrato }}</span>{% else %}Registrar contrato{% endif %}</h1>
+    <p class="sub"><span>Un contrato por obra. Sus montos y porcentajes se usan en el catálogo, las estimaciones y el avance financiero.</span></p>
+  </div>
+</div>
+{% if bloqueado %}<div class="mensaje info">El contrato ya tiene estimaciones: el monto y los porcentajes quedan bloqueados. Los cambios de plazo o trabajos adicionales se tramitan como reprogramación.</div>{% endif %}
+
+<div class="columnas">
+  <div class="tarjeta">
+    <form method="post" class="formulario ancho">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="rejilla">
+        <div class="campo">{{ form.numero_contrato.as_field_group }}</div>
+        <div class="campo">{{ form.contratista.as_field_group }}</div>
+      </div>
+      <fieldset class="grupo-form"><legend>Fechas</legend>
+        <div class="rejilla">
+          <div class="campo">{{ form.fecha_firma.as_field_group }}</div>
+          <div class="campo">{{ form.fecha_inicio.as_field_group }}</div>
+          <div class="campo">{{ form.fecha_fin.as_field_group }}</div>
+        </div></fieldset>
+      <fieldset class="grupo-form"><legend>Montos y porcentajes</legend>
+        <div class="rejilla">
+          <div class="campo">{{ form.monto_total_contratado.as_field_group }}</div>
+          <div class="campo">{{ form.porcentaje_anticipo.as_field_group }}</div>
+          <div class="campo">{{ form.porcentaje_iva.as_field_group }}</div>
+          <div class="campo">{{ form.porcentaje_retencion.as_field_group }}</div>
+          <div class="campo">{{ form.porcentaje_retencion_atraso.as_field_group }}</div>
+        </div></fieldset>
+      <fieldset class="grupo-form"><legend>Garantías</legend>
+        <div class="rejilla">
+          <div class="campo">{{ form.monto_garantia_cumplimiento.as_field_group }}</div>
+          <div class="campo">{{ form.numero_fianza.as_field_group }}</div>
+          <div class="campo">{{ form.afianzadora.as_field_group }}</div>
+        </div></fieldset>
+      <div class="pie-form"><button type="submit">{% if contrato %}Guardar cambios{% else %}Registrar contrato{% endif %}</button>
+        <a class="boton secundario" href="{% url 'obra_detalle' obra.pk %}">Volver a la obra</a></div>
+    </form>
+  </div>
+
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Ministraciones de anticipo</h2>{% if contrato %}<span class="tenue">Autorizado $ {{ contrato.monto_anticipo|floatformat:"2g" }}</span>{% endif %}</div>
+    {% if contrato %}
+      <ul class="lista">
+      {% for a in anticipos %}
+        <li><span><a href="{% url 'anticipo_editar' obra.pk a.pk %}">{{ a.tipo }}</a> · $ {{ a.monto|floatformat:"2g" }}<br>
+            <span class="sub">{% if a.fecha_pago %}Pagado el {{ a.fecha_pago|date:"d/m/Y" }}{% else %}Programado {{ a.fecha_programada|date:"d/m/Y"|default:"sin fecha" }}{% endif %}</span></span>
+          <span class="acciones"><span class="chip" data-e="{{ a.estatus }}">{{ a.estatus }}</span>
+            {% if a.estatus != "Pagado" %}<form method="post" action="{% url 'anticipo_borrar' obra.pk a.pk %}" onsubmit="return confirm('¿Borrar esta ministración?');">{% csrf_token %}<button type="submit" class="enlace" style="color:var(--error)">Borrar</button></form>{% endif %}</span></li>
+      {% empty %}<li class="vacio-sec">Sin ministraciones registradas.</li>{% endfor %}
+      </ul>
+      <hr class="separador">
+      <h3>Agregar ministración</h3>
+      <form method="post" action="{% url 'anticipo_nuevo' obra.pk %}" class="formulario ancho">
+        {% csrf_token %}
+        <div class="rejilla">
+          <div class="campo">{{ form_anticipo.tipo.as_field_group }}</div>
+          <div class="campo">{{ form_anticipo.monto.as_field_group }}</div>
+          <div class="campo">{{ form_anticipo.fecha_programada.as_field_group }}</div>
+          <div class="campo">{{ form_anticipo.estatus.as_field_group }}</div>
+          <div class="campo">{{ form_anticipo.fecha_pago.as_field_group }}</div>
+        </div>
+        <button type="submit" class="secundario">Agregar ministración</button>
+      </form>
+    {% else %}<p class="vacio-sec">Primero registra el contrato.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

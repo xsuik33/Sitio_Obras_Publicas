@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Ministración de anticipo · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'contrato_editar' obra.pk %}">Contrato</a></nav>
+    <h1>Ministración de anticipo</h1>
+  </div>
+</div>
+<div class="tarjeta" style="max-width:760px">
+  <form method="post" class="formulario ancho">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+      <div class="campo">{{ form.tipo.as_field_group }}</div>
+      <div class="campo">{{ form.monto.as_field_group }}</div>
+      <div class="campo">{{ form.fecha_programada.as_field_group }}</div>
+      <div class="campo">{{ form.estatus.as_field_group }}</div>
+      <div class="campo">{{ form.fecha_pago.as_field_group }}</div>
+    </div>
+    <div class="campo">{{ form.observaciones.as_field_group }}</div>
+    <div class="pie-form"><button type="submit">Guardar</button><a class="boton secundario" href="{% url 'contrato_editar' obra.pk %}">Cancelar</a></div>
+  </form>
+</div>
+{% endblock %}
