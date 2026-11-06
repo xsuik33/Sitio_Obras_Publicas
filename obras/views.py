@@ -11,23 +11,24 @@ from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError, Q, Sum
 from django.forms import formset_factory
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
+from . import pdf, reportes
 from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
-    ReporteDiarioForm, ValidacionForm,
+    BaseProgramaFormSet, ProgramaForm, ReporteDiarioForm, ValidacionForm,
 )
 from .models import (
     CatalogoConcepto, CatalogoEstatusValidacion, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
-    ReporteDiario, Rol, Usuario, UsuarioProyectoRol, ValidacionReporteDiario,
+    ProgramaObra, ReporteDiario, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
-    CREAR_REPORTE, GESTIONAR_CATALOGO, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
+    CREAR_REPORTE, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
     puede, requiere_permiso, roles_en,
 )
 
@@ -109,24 +110,39 @@ def roles_obra(request, obra):
 
 
 # ---------------------------------------------------------------------------
-# Reportes diarios
+# Reportes diarios (CU-03)
 # ---------------------------------------------------------------------------
 
 def _puede_editar_reporte(usuario, obra, reporte):
     """Edita el autor (o un administrador de la obra) mientras el reporte no esté aprobado."""
-    if reporte.estatus.nombre == "Aprobado" or not puede(usuario, obra, CREAR_REPORTE):
+    if reporte.estatus.nombre == reportes.APROBADO or not puede(usuario, obra, CREAR_REPORTE):
         return False
     return reporte.supervisor_id == usuario.pk or puede(usuario, obra, GESTIONAR_USUARIOS)
 
 
+def _puede_ver_reporte(usuario, obra, reporte):
+    """Un borrador solo lo ven su autor y los administradores."""
+    if reporte.estatus.nombre != reportes.BORRADOR:
+        return True
+    return reporte.supervisor_id == usuario.pk or es_administrador(usuario, obra)
+
+
+def _reporte_visible(usuario, obra, reporte_id):
+    reporte = get_object_or_404(
+        ReporteDiario.objects.select_related("supervisor", "estatus", "obra"), pk=reporte_id, obra=obra
+    )
+    if not _puede_ver_reporte(usuario, obra, reporte):
+        raise PermissionDenied
+    return reporte
+
+
 @requiere_permiso(VER)
 def reportes_lista(request, obra):
-    reportes = (
-        ReporteDiario.objects.filter(obra=obra)
-        .select_related("supervisor", "estatus")
-        .order_by("-fecha_reporte")
-    )
-    contexto = {"obra": obra, "reportes": reportes, "puede_crear": puede(request.user, obra, CREAR_REPORTE)}
+    consulta = ReporteDiario.objects.filter(obra=obra).select_related("supervisor", "estatus", "obra")
+    if not es_administrador(request.user, obra):
+        consulta = consulta.exclude(Q(estatus__nombre=reportes.BORRADOR) & ~Q(supervisor=request.user))
+    filas = [(r, reportes.estado_legible(r)) for r in consulta.order_by("-fecha_reporte")]
+    contexto = {"obra": obra, "filas": filas, "puede_crear": puede(request.user, obra, CREAR_REPORTE)}
     return render(request, "reportes_lista.html", contexto)
 
 
@@ -134,89 +150,161 @@ def reportes_lista(request, obra):
 def reporte_nuevo(request, obra):
     form = ReporteDiarioForm(request.POST or None, obra=obra)
     if request.method == "POST" and form.is_valid():
-        reporte = form.save(commit=False)
-        reporte.obra = obra
-        reporte.supervisor = request.user
-        reporte.save()
-        messages.success(request, "Reporte diario registrado.")
+        enviar = request.POST.get("accion") == "enviar"
+        with transaction.atomic():
+            reporte = form.save(commit=False)
+            reporte.obra = obra
+            reporte.supervisor = request.user
+            reporte.estatus = reportes.estatus(reportes.PENDIENTE if enviar else reportes.BORRADOR)
+            reporte.save()
+        if enviar:
+            reportes.enviar_a_revision(reporte, request.user)
+            messages.success(request, "Reporte enviado a revisión del Superintendente y del Residente.")
+        else:
+            messages.success(request, "Borrador guardado. Envíalo a revisión cuando esté listo.")
         return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
-    return render(request, "reporte_form.html", {"obra": obra, "form": form, "titulo": "Nuevo reporte diario"})
+    return render(request, "reporte_form.html", {"obra": obra, "form": form, "titulo": "Nuevo reporte diario", "nuevo": True})
 
 
 @requiere_permiso(VER)
 def reporte_detalle(request, obra, reporte_id):
-    reporte = get_object_or_404(
-        ReporteDiario.objects.select_related("supervisor", "estatus"), pk=reporte_id, obra=obra
-    )
+    reporte = _reporte_visible(request.user, obra, reporte_id)
     es_admin = es_administrador(request.user, obra)
-    tiene_permiso = puede(request.user, obra, VALIDAR_REPORTE)
-    # Quien no es administrador decide una sola vez: solo mientras el reporte siga Pendiente.
-    puede_validar = tiene_permiso and (es_admin or reporte.estatus.nombre == "Pendiente")
+    decs = reportes.decisiones(reporte)
+    roles = reportes.roles_que_decide(request.user, obra, reporte, decs, es_admin)
+    puede_validar = puede(request.user, obra, VALIDAR_REPORTE) and bool(roles)
     contexto = {
         "obra": obra,
         "reporte": reporte,
+        "estado": reportes.estado_legible(reporte, decs),
+        "decisiones": [(reportes.ETIQUETA[r], d) for r, d in decs.items()],
         "validaciones": reporte.validacionreportediario_set.select_related("usuario_validador", "estatus")
         .order_by("-fecha_validacion"),
         "evidencias": reporte.evidencia_set.order_by("fecha_subida"),
         "puede_editar": _puede_editar_reporte(request.user, obra, reporte),
+        "es_borrador": reporte.estatus.nombre == reportes.BORRADOR,
         "es_admin": es_admin,
         "puede_validar": puede_validar,
-        "revision_bloqueada": tiene_permiso and not puede_validar,
-        "form_validacion": ValidacionForm(es_admin=es_admin) if puede_validar else None,
+        "revision_bloqueada": puede(request.user, obra, VALIDAR_REPORTE) and not puede_validar
+        and reporte.estatus.nombre != reportes.BORRADOR,
+        "form_validacion": ValidacionForm(es_admin=es_admin, roles=roles) if puede_validar else None,
+        "desviacion": reportes.desviacion(reporte),
+        "financiero": reportes.resumen_financiero(reporte),
     }
     return render(request, "reporte_detalle.html", contexto)
 
 
 @requiere_permiso(CREAR_REPORTE)
 def reporte_editar(request, obra, reporte_id):
-    reporte = get_object_or_404(
-        ReporteDiario.objects.select_related("supervisor", "estatus"), pk=reporte_id, obra=obra
-    )
+    reporte = _reporte_visible(request.user, obra, reporte_id)
     if not _puede_editar_reporte(request.user, obra, reporte):
         raise PermissionDenied
+    era_borrador = reporte.estatus.nombre == reportes.BORRADOR
     form = ReporteDiarioForm(request.POST or None, instance=reporte, obra=obra)
     if request.method == "POST" and form.is_valid():
-        reporte = form.save()
-        if reporte.estatus.nombre == "Rechazado":  # al corregirlo, vuelve a revisión
-            reporte.estatus = CatalogoEstatusValidacion.objects.get(nombre="Pendiente")
-            reporte.save(update_fields=["estatus"])
-        messages.success(request, "Reporte actualizado.")
+        with transaction.atomic():
+            reporte = form.save()
+        previo = reporte.estatus.nombre
+        if era_borrador and request.POST.get("accion") != "enviar":
+            messages.success(request, "Borrador actualizado.")
+        elif era_borrador:
+            reportes.enviar_a_revision(reporte, request.user)
+            messages.success(request, "Reporte enviado a revisión del Superintendente y del Residente.")
+        elif previo in (reportes.RECHAZADO, reportes.EN_REVISION):  # cambió después de decisiones: se revisa de nuevo
+            reportes.enviar_a_revision(reporte, request.user)
+            messages.success(request, "Reporte corregido y enviado de nuevo a revisión.")
+        else:
+            messages.success(request, "Reporte actualizado.")
         return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
-    return render(request, "reporte_form.html", {"obra": obra, "form": form, "titulo": "Editar reporte diario"})
+    return render(
+        request, "reporte_form.html",
+        {"obra": obra, "form": form, "titulo": "Editar reporte diario", "nuevo": False, "es_borrador": era_borrador},
+    )
+
+
+@requiere_permiso(VER)
+def reporte_pdf(request, obra, reporte_id):
+    reporte = _reporte_visible(request.user, obra, reporte_id)
+    decs = reportes.decisiones(reporte)
+    contenido = pdf.reporte_diario_pdf(
+        reporte, reportes.estado_legible(reporte, decs), reportes.desviacion(reporte),
+        reportes.resumen_financiero(reporte),
+        list(reporte.validacionreportediario_set.select_related("usuario_validador", "estatus")
+             .order_by("fecha_validacion")),
+    )
+    respuesta = HttpResponse(contenido, content_type="application/pdf")
+    respuesta["Content-Disposition"] = f'inline; filename="reporte-diario-{reporte.fecha_reporte:%Y-%m-%d}.pdf"'
+    return respuesta
 
 
 @requiere_permiso(VALIDAR_REPORTE)
 def reporte_validar(request, obra, reporte_id):
-    get_object_or_404(ReporteDiario, pk=reporte_id, obra=obra)
+    _reporte_visible(request.user, obra, reporte_id)
     es_admin = es_administrador(request.user, obra)
     if request.method == "POST":
-        form = ValidacionForm(request.POST, es_admin=es_admin)
-        if form.is_valid():
-            with transaction.atomic():
-                # Bloquea la fila para que dos personas no decidan a la vez.
-                reporte = (
-                    ReporteDiario.objects.select_for_update(of=("self",))
-                    .select_related("estatus")
-                    .get(pk=reporte_id, obra=obra)
+        with transaction.atomic():
+            # Bloquea la fila para que dos personas no decidan a la vez.
+            reporte = (
+                ReporteDiario.objects.select_for_update(of=("self",))
+                .select_related("estatus", "supervisor", "obra")
+                .get(pk=reporte_id, obra=obra)
+            )
+            roles = reportes.roles_que_decide(request.user, obra, reporte, es_admin=es_admin)
+            form = ValidacionForm(request.POST, es_admin=es_admin, roles=roles)
+            if not roles:
+                messages.error(
+                    request,
+                    "Ya no puedes decidir sobre este reporte. Si hay un error, solo el administrador puede corregirlo.",
                 )
-                if not es_admin and reporte.estatus.nombre != "Pendiente":
-                    messages.error(
-                        request,
-                        "Este reporte ya fue revisado. Solo el administrador puede cambiar su estatus.",
-                    )
-                else:
-                    ValidacionReporteDiario.objects.create(
-                        reporte_diario=reporte,
-                        usuario_validador=request.user,
-                        estatus=form.cleaned_data["estatus"],
-                        comentarios=form.cleaned_data["comentarios"] or None,
-                    )
-                    reporte.estatus = form.cleaned_data["estatus"]
-                    reporte.save(update_fields=["estatus"])
-                    messages.success(request, f"Reporte marcado como «{reporte.estatus.nombre}».")
-        else:
-            messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+            elif form.is_valid():
+                reportes.registrar_decision(
+                    reporte, request.user, form.cleaned_data["rol"], form.cleaned_data["estatus"],
+                    form.cleaned_data["comentarios"],
+                )
+                messages.success(request, f"Decisión registrada. Estado: {reportes.estado_legible(reporte)}.")
+            else:
+                messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
     return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte_id)
+
+
+@login_required
+def pendientes(request):
+    revisar, corregir = reportes.pendientes_de(request.user)
+    return render(request, "pendientes.html", {"revisar": revisar, "corregir": corregir})
+
+
+# ---------------------------------------------------------------------------
+# Programa de obra (CU-03)
+# ---------------------------------------------------------------------------
+
+@requiere_permiso(VER)
+def programa_ver(request, obra):
+    puntos = list(ProgramaObra.objects.filter(obra=obra).order_by("fecha"))
+    contexto = {"obra": obra, "puntos": puntos, "puede_editar": puede(request.user, obra, GESTIONAR_PROGRAMA)}
+    return render(request, "programa.html", contexto)
+
+
+@requiere_permiso(GESTIONAR_PROGRAMA)
+def programa_editar(request, obra):
+    existentes = list(ProgramaObra.objects.filter(obra=obra).order_by("fecha"))
+    inicial = [{"fecha": p.fecha, "avance": p.avance_programado_porcentaje} for p in existentes]
+    ProgramaFormSet = formset_factory(
+        ProgramaForm, formset=BaseProgramaFormSet, extra=3 if existentes else 6, can_delete=True
+    )
+    if request.method == "POST":
+        formset = ProgramaFormSet(request.POST, initial=inicial)
+        if formset.is_valid():
+            filas = [f.cleaned_data for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+            with transaction.atomic():
+                ProgramaObra.objects.filter(obra=obra).delete()
+                ProgramaObra.objects.bulk_create(
+                    [ProgramaObra(obra=obra, fecha=d["fecha"], avance_programado_porcentaje=d["avance"]) for d in filas]
+                )
+            messages.success(request, f"Programa guardado: {len(filas)} fecha(s).")
+            return redirect("programa_ver", obra_id=obra.pk)
+    else:
+        formset = ProgramaFormSet(initial=inicial)
+    return render(request, "programa_editar.html", {"obra": obra, "formset": formset})
 
 
 # ---------------------------------------------------------------------------

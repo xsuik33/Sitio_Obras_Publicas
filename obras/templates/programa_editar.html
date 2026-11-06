@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Editar programa · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'programa_ver' obra.pk %}">← Programa de obra</a></p>
+<h1>Editar programa de obra</h1>
+<p class="suave">Captura fechas clave con su avance programado <strong>acumulado</strong> (no puede bajar de una fecha a otra). Si la obra tiene fecha de inicio oficial, antes de la primera fecha el avance parte de 0 %. Para quitar una fila, marca «Eliminar»; las filas vacías se ignoran.</p>
+<form method="post" class="tarjeta">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <div class="tabla-edicion">
+    <table>
+      <thead><tr><th>Fecha</th><th>Avance programado acumulado (%)</th><th>Eliminar</th></tr></thead>
+      <tbody>
+      {% for f in formset %}
+        <tr>
+          <td>{{ f.fecha.errors }}{{ f.fecha }}</td>
+          <td>{{ f.avance.errors }}{{ f.avance }}</td>
+          <td>{{ f.DELETE }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><button type="submit">Guardar programa</button></p>
+</form>
+{% endblock %}

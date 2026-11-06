@@ -5,7 +5,11 @@
 <h1>Reporte del {{ reporte.fecha_reporte|date:"d/m/Y" }}
   <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
 <p class="suave">{{ obra.nombre }} · Supervisor: {{ reporte.supervisor }}</p>
-{% if puede_editar %}<p><a href="{% url 'reporte_editar' obra.pk reporte.pk %}">Editar reporte</a></p>{% endif %}
+<p><strong>{{ estado }}</strong></p>
+<p class="acciones">
+  {% if puede_editar %}<a href="{% url 'reporte_editar' obra.pk reporte.pk %}">{% if es_borrador %}Editar y enviar a revisión{% else %}Editar reporte{% endif %}</a>{% endif %}
+  <a href="{% url 'reporte_pdf' obra.pk reporte.pk %}" target="_blank">Descargar PDF</a>
+</p>
 
 <div class="grid">
   <div class="tarjeta"><div class="suave">Avance físico real</div><div class="dato">{{ reporte.avance_fisico_real_porcentaje|floatformat:2 }} %</div></div>
@@ -14,6 +18,29 @@
   <div class="tarjeta"><div class="suave">Clima</div><div class="dato" style="font-size:1.2rem">
     {{ reporte.clima|default:"—" }}{% if reporte.temperatura_c is not None %} · {{ reporte.temperatura_c }} °C{% endif %}</div></div>
 </div>
+
+{% if desviacion or financiero %}
+<div class="tarjeta">
+  <h2>Avance y desviación</h2>
+  {% if desviacion %}
+    <table>
+      <tr><th>Avance programado a esta fecha</th><td>{{ desviacion.programado }} %</td></tr>
+      <tr><th>Avance real</th><td>{{ desviacion.real }} %</td></tr>
+      <tr><th>Desviación</th><td class="{{ desviacion.clase }}">{{ desviacion.texto }}</td></tr>
+    </table>
+  {% else %}
+    <p class="suave">La obra aún no tiene programa; con él se calcula el atraso o adelanto. <a href="{% url 'programa_ver' obra.pk %}">Ver programa</a></p>
+  {% endif %}
+  {% if financiero %}
+    <table style="margin-top:10px">
+      <tr><th>Monto del contrato</th><td class="num">$ {{ financiero.monto|floatformat:2 }}</td></tr>
+      <tr><th>Avance físico × monto del contrato</th><td class="num">$ {{ financiero.fisico|floatformat:2 }}</td></tr>
+      <tr><th>Aprobado en estimaciones</th><td class="num">$ {{ financiero.estimado|floatformat:2 }}</td></tr>
+      <tr><th>Diferencia por estimar</th><td class="num">$ {{ financiero.por_estimar|floatformat:2 }}</td></tr>
+    </table>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="tarjeta"><h2>Actividades realizadas</h2><div class="texto">{{ reporte.actividades_realizadas }}</div></div>
 {% if reporte.incidencias %}<div class="tarjeta"><h2>Incidencias</h2><div class="texto">{{ reporte.incidencias }}</div></div>{% endif %}
@@ -27,24 +54,27 @@
 
 <div class="tarjeta">
   <h2>Revisión</h2>
+  {% if not es_borrador %}
+  <p>{% for rol, d in decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente" }}</span>{% endfor %}</p>
+  {% else %}<p class="suave">Borrador: todavía no se envía a revisión.</p>{% endif %}
   {% for v in validaciones %}
     <p><span class="chip" data-e="{{ v.estatus.nombre }}">{{ v.estatus.nombre }}</span>
-       {{ v.usuario_validador }} · <span class="suave">{{ v.fecha_validacion|date:"d/m/Y H:i" }}</span>
+       {% if v.rol_validador %}<span class="suave">{{ v.rol_validador }} ·</span> {% endif %}{{ v.usuario_validador }} · <span class="suave">{{ v.fecha_validacion|date:"d/m/Y H:i" }}</span>
        {% if v.comentarios %}<br><span class="texto">{{ v.comentarios }}</span>{% endif %}</p>
   {% empty %}
-    <p class="suave">Todavía no ha sido revisado.</p>
+    {% if not es_borrador %}<p class="suave">Todavía no ha sido revisado.</p>{% endif %}
   {% endfor %}
   {% if puede_validar %}
     <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
-    {% if es_admin and validaciones %}<p class="suave">Como administrador puedes corregir el estatus en cualquier momento.</p>{% endif %}
+    {% if es_admin %}<p class="suave">Como administrador puedes corregir la decisión de cualquiera de los dos, o regresarla a Pendiente.</p>{% endif %}
     <form method="post" action="{% url 'reporte_validar' obra.pk reporte.pk %}" class="formulario"
-          onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de estatus?{% else %}¿Confirmas esta revisión? Después solo el administrador podrá cambiarla.{% endif %}');">
+          onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de estatus?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
       {% csrf_token %}
       {{ form_validacion.as_p }}
       <button type="submit">Registrar revisión</button>
     </form>
   {% elif revision_bloqueada %}
-    <p class="suave">La revisión ya fue registrada. Si hay un error, pide al administrador que la corrija.</p>
+    <p class="suave">Ya no puedes decidir sobre este reporte. Si hay un error, pide al administrador que lo corrija.</p>
   {% endif %}
 </div>
 {% endblock %}

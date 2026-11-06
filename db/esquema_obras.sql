@@ -175,6 +175,17 @@ CREATE TABLE reportes_diarios (
   CONSTRAINT uq_reporte_obra_fecha UNIQUE (obra_id, fecha_reporte)
 );
 
+-- Programa de obra: avance físico programado ACUMULADO en fechas clave (se interpola entre ellas).
+CREATE TABLE programa_obra (
+  id                            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  obra_id                       UUID NOT NULL REFERENCES obras(id) ON DELETE CASCADE,
+  fecha                         DATE NOT NULL,
+  avance_programado_porcentaje  NUMERIC(5,2) NOT NULL
+                                  CHECK (avance_programado_porcentaje BETWEEN 0 AND 100),
+  fecha_registro                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_programa_obra_fecha UNIQUE (obra_id, fecha)
+);
+
 -- ---------------------------------------------------------------------
 -- 5. REPORTES MENSUALES, BITÁCORA, DOCUMENTOS Y EVIDENCIAS
 -- ---------------------------------------------------------------------
@@ -243,6 +254,8 @@ CREATE TABLE validaciones_reportes_diarios (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporte_diario_id     UUID NOT NULL REFERENCES reportes_diarios(id) ON DELETE CASCADE,
   usuario_validador_id  UUID NOT NULL REFERENCES usuarios(id),
+  rol_validador         VARCHAR(40)
+                          CHECK (rol_validador IS NULL OR rol_validador IN ('Residente', 'Superintendente Contratista')),
   estatus_id            SMALLINT NOT NULL REFERENCES catalogo_estatus_validacion(id),
   fecha_validacion      TIMESTAMPTZ NOT NULL DEFAULT now(),
   comentarios           TEXT
@@ -429,6 +442,7 @@ INSERT INTO catalogo_estatus_validacion (id, nombre, descripcion) VALUES
   (1, 'Pendiente', 'Registrado, aún sin revisión'),
   (2, 'Aprobado', 'Revisado y aceptado'),
   (3, 'Rechazado', 'Revisado y devuelto con observaciones'),
-  (4, 'En revisión', 'Revisión en curso');
+  (4, 'En revisión', 'Revisión en curso'),
+  (5, 'Borrador', 'Guardado por su autor, aún no enviado a revisión');
 
-SELECT setval(pg_get_serial_sequence('catalogo_estatus_validacion', 'id'), 4);
+SELECT setval(pg_get_serial_sequence('catalogo_estatus_validacion', 'id'), 5);

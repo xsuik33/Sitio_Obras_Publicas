@@ -356,6 +356,22 @@ class ReporteDiario(models.Model):
         constraints = [models.UniqueConstraint(fields=["obra", "fecha_reporte"], name="uq_reporte_obra_fecha")]
 
 
+class ProgramaObra(models.Model):
+    """Avance físico programado ACUMULADO (%) en una fecha clave; entre fechas se interpola."""
+    id = pk_uuid()
+    obra = models.ForeignKey(Obra, on_delete=models.CASCADE)
+    fecha = models.DateField()
+    avance_programado_porcentaje = models.DecimalField(max_digits=5, decimal_places=2)
+    fecha_registro = fecha_auto()
+
+    class Meta:
+        managed = False
+        db_table = "programa_obra"
+        verbose_name = "Programa de obra"
+        verbose_name_plural = "Programa de obra"
+        constraints = [models.UniqueConstraint(fields=["obra", "fecha"], name="uq_programa_obra_fecha")]
+
+
 class ReporteMensual(models.Model):
     id = pk_uuid()
     obra = models.ForeignKey(Obra, on_delete=models.CASCADE)
@@ -450,6 +466,8 @@ class ValidacionReporteDiario(models.Model):
     id = pk_uuid()
     reporte_diario = models.ForeignKey(ReporteDiario, on_delete=models.CASCADE)
     usuario_validador = models.ForeignKey(Usuario, on_delete=models.PROTECT)
+    # Rol en cuyo nombre se decidió (Residente o Superintendente Contratista); nulo en registros anteriores a CU-03.
+    rol_validador = models.CharField(max_length=40, null=True, blank=True)
     estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT)
     fecha_validacion = fecha_auto()
     comentarios = models.TextField(null=True, blank=True)

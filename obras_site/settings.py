@@ -116,6 +116,7 @@ BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
 BREVO_API_URL = os.environ.get("BREVO_API_URL", "https://api.brevo.com/v3/smtp/email")
 MAIL_FROM_EMAIL = os.environ.get("MAIL_FROM_EMAIL", "")
 MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Sistema de Obras")
+SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")  # p. ej. https://sistema-obras.onrender.com (para los enlaces de los correos)
 EMAIL_BACKEND = (
     "obras.correo.BrevoEmailBackend" if BREVO_API_KEY else "django.core.mail.backends.console.EmailBackend"
 )

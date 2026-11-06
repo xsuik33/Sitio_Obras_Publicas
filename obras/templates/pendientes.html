@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Pendientes · Sistema de Obras{% endblock %}
+{% block contenido %}
+<h1>Pendientes</h1>
+<div class="tarjeta">
+  <h2>Reportes diarios por revisar</h2>
+  <table>
+    <thead><tr><th>Obra</th><th>Fecha</th><th>Supervisor</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for r, estado in revisar %}
+      <tr><td>{{ r.obra.nombre }}</td>
+          <td><a href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d/m/Y" }}</a></td>
+          <td>{{ r.supervisor }}</td><td>{{ estado }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="suave">No tienes reportes por revisar.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="tarjeta">
+  <h2>Mis reportes por enviar o corregir</h2>
+  <table>
+    <thead><tr><th>Obra</th><th>Fecha</th><th>Estatus</th><th>Detalle</th></tr></thead>
+    <tbody>
+    {% for r, estado in corregir %}
+      <tr><td>{{ r.obra.nombre }}</td>
+          <td><a href="{% url 'reporte_detalle' r.obra_id r.pk %}">{{ r.fecha_reporte|date:"d/m/Y" }}</a></td>
+          <td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td>{{ estado }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="suave">No tienes borradores ni reportes rechazados.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -67,6 +67,8 @@ class ReporteDiarioForm(forms.ModelForm):
 
 
 class ValidacionForm(forms.Form):
+    """Decisión de un rol validador. El administrador puede además regresar la decisión a Pendiente."""
+    rol = forms.ChoiceField(label="Decides como")
     estatus = forms.ModelChoiceField(
         label="Resultado de la revisión",
         queryset=CatalogoEstatusValidacion.objects.none(),
@@ -74,11 +76,12 @@ class ValidacionForm(forms.Form):
     )
     comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}))
 
-    def __init__(self, *args, es_admin=False, **kwargs):
+    def __init__(self, *args, es_admin=False, roles=(), **kwargs):
         super().__init__(*args, **kwargs)
-        estatus = CatalogoEstatusValidacion.objects.order_by("id")
-        # Solo el administrador puede regresar un reporte a "Pendiente".
-        self.fields["estatus"].queryset = estatus if es_admin else estatus.exclude(nombre="Pendiente")
+        etiquetas = {"Superintendente Contratista": "Superintendente", "Residente": "Residente"}
+        self.fields["rol"].choices = [(r, etiquetas.get(r, r)) for r in roles]
+        permitidos = ("Pendiente", "Aprobado", "Rechazado") if es_admin else ("Aprobado", "Rechazado")
+        self.fields["estatus"].queryset = CatalogoEstatusValidacion.objects.filter(nombre__in=permitidos).order_by("id")
 
     def clean(self):
         datos = super().clean()
@@ -87,6 +90,32 @@ class ValidacionForm(forms.Form):
             self.add_error("comentarios", "Explica el motivo del rechazo.")
         datos["comentarios"] = comentarios
         return datos
+
+
+class ProgramaForm(forms.Form):
+    fecha = forms.DateField(label="Fecha", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    avance = forms.DecimalField(
+        label="Avance programado acumulado (%)", max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        widget=forms.NumberInput(attrs={"min": 0, "max": 100, "step": "0.01"}),
+    )
+
+
+class BaseProgramaFormSet(forms.BaseFormSet):
+    def clean(self):
+        if any(self.errors):
+            return
+        filas = [f.cleaned_data for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+        fechas = [d["fecha"] for d in filas]
+        if len(fechas) != len(set(fechas)):
+            raise ValidationError("Hay fechas repetidas en el programa.")
+        filas.sort(key=lambda d: d["fecha"])
+        for anterior, actual in zip(filas, filas[1:]):
+            if actual["avance"] < anterior["avance"]:
+                raise ValidationError(
+                    f"El avance es acumulado y no puede bajar: el {actual['fecha']:%d/%m/%Y} "
+                    f"({actual['avance']} %) es menor que el {anterior['fecha']:%d/%m/%Y} ({anterior['avance']} %)."
+                )
 
 
 # ---------------------------------------------------------------------------

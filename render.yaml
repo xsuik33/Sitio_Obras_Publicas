@@ -32,3 +32,5 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: Sistema de Obras
+      - key: SITE_URL
+        sync: false
