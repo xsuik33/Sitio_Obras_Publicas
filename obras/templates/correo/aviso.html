@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{ asunto }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f2ef;font-family:'IBM Plex Sans',Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e2124;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ previa }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f2ef;">
+  <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+      {# Encabezado: banda gris carbón con filete amarillo, como el sistema #}
+      <tr><td style="background:#1e2124;border-radius:12px 12px 0 0;border-bottom:3px solid #d99a00;padding:16px 24px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="width:32px;height:32px;background:#d99a00;border-radius:8px;text-align:center;vertical-align:middle;font-size:16px;line-height:32px;color:#1e2124;font-weight:700;">&#8962;</td>
+          <td style="padding-left:10px;">
+            <div style="color:#f3f2ef;font-weight:700;font-size:15px;line-height:1.2;">Sistema de Obras</div>
+            <div style="color:#b9bbbf;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-family:'IBM Plex Mono',Menlo,Consolas,monospace;">Obra pública</div>
+          </td>
+        </tr></table>
+      </td></tr>
+
+      {# Cuerpo #}
+      <tr><td style="background:#ffffff;border-left:1px solid #e1dfda;border-right:1px solid #e1dfda;padding:28px 24px 8px;">
+        <div style="display:inline-block;background:{{ tono.fondo }};color:{{ tono.texto }};border-radius:999px;padding:3px 11px;font-size:12px;font-weight:600;">&#9679; {{ tono.etiqueta }}</div>
+        <h1 style="margin:12px 0 4px;font-size:22px;line-height:1.25;color:#1e2124;font-weight:700;">{{ titulo }}</h1>
+        {% if subtitulo %}<div style="color:#5b5f64;font-size:14px;margin-bottom:18px;">{{ subtitulo }}</div>{% endif %}
+
+        {% for b in bloques %}
+          {% if b.tipo == "texto" %}
+            <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1e2124;">{{ b.texto|linebreaksbr }}</p>
+          {% elif b.tipo == "estado" %}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+              <tr><td style="border-left:4px solid {{ tono.borde }};background:#f8f7f5;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.5;">
+                <span style="color:#868a8f;font-size:12px;text-transform:uppercase;letter-spacing:.8px;font-weight:600;">Estado</span><br>
+                <strong style="color:#1e2124;">{{ b.texto }}</strong>
+              </td></tr>
+            </table>
+          {% elif b.tipo == "cita" %}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+              <tr><td style="background:#f8f7f5;border:1px solid #e1dfda;border-radius:10px;padding:12px 14px;">
+                <div style="color:#868a8f;font-size:12px;text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:4px;">{{ b.etiqueta }}</div>
+                <div style="font-size:14px;line-height:1.6;color:#1e2124;">{{ b.texto|linebreaksbr }}</div>
+              </td></tr>
+            </table>
+          {% elif b.tipo == "lista" %}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+              <tr><td style="background:#fcf1d6;border-left:4px solid #8a5a00;border-radius:8px;padding:12px 14px;">
+                <div style="color:#8a5a00;font-size:12px;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:6px;">{{ b.etiqueta }}</div>
+                {% for item in b.items %}<div style="font-size:14px;line-height:1.5;color:#1e2124;padding:2px 0;">&#8226; {{ item }}</div>{% endfor %}
+              </td></tr>
+            </table>
+          {% endif %}
+        {% endfor %}
+
+        {% if enlace %}
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 18px;">
+            <tr><td style="background:#0e6170;border-radius:8px;">
+              <a href="{{ enlace }}" style="display:inline-block;padding:12px 22px;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;">{{ boton }}</a>
+            </td></tr>
+          </table>
+          <p style="margin:0 0 18px;font-size:12px;line-height:1.5;color:#868a8f;">Si el botón no funciona, copia este enlace en tu navegador:<br>
+            <a href="{{ enlace }}" style="color:#0e6170;word-break:break-all;">{{ enlace }}</a></p>
+        {% endif %}
+      </td></tr>
+
+      {# Pie #}
+      <tr><td style="background:#f8f7f5;border:1px solid #e1dfda;border-top:none;border-radius:0 0 12px 12px;padding:14px 24px;font-size:12px;line-height:1.5;color:#868a8f;">
+        Recibes este aviso porque tienes un rol en esta obra dentro del Sistema de Obras. Es un correo automático: no lo respondas.
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

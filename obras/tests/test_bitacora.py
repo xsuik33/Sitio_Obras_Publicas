@@ -37,7 +37,7 @@ class BaseBitacora(TestCase):
         obra = obra or self.obra
         datos = {"tipo": self.tipo.pk, "descripcion": texto, **extra}
         r = self.client.post(reverse("nota_nueva", args=[obra.pk]), datos)
-        self.assertEqual(r.status_code, 302, getattr(r, "context", None) and r.context["form"].errors)
+        self.assertEqual(r.status_code, 302, r.context and "form" in r.context and r.context["form"].errors)
         return NotaBitacora.objects.filter(obra=obra).order_by("-folio").first()
 
     def firmar(self, usuario, nota, decision="Firmada", rol=None, comentarios=""):

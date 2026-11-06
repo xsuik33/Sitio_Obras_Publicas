@@ -228,7 +228,7 @@ def _avisar_por_firmar(nota, autor, verbo):
         _correos_de(nota.obra, faltan, excepto=autor),
         f"Nota de bitácora por firmar · {nota.obra.nombre} · folio {nota.folio}",
         f"{autor} {verbo} la nota {nota.folio} ({nota.tipo.nombre}) en la bitácora de la obra "
-        f"«{nota.obra.nombre}».\n\n{nota.descripcion}\n\n"
+        f"«{nota.obra.nombre}».\n\nContenido de la nota:\n{nota.descripcion}\n\n"
         f"Entra al sistema para firmarla o rechazarla (Pendientes).{_enlace(nota)}",
     )
 

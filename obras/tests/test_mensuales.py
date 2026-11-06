@@ -47,7 +47,7 @@ class BaseMensual(TestCase):
         self.client.force_login(self.supervisor)
         datos = {"anio": anio, "mes": mes, "fecha_corte": "", "resumen": "Se coló la losa.", "accion": accion, **extra}
         r = self.client.post(reverse("mensual_nuevo", args=[self.obra.pk]), datos)
-        self.assertEqual(r.status_code, 302, r.context and r.context["form"].errors)
+        self.assertEqual(r.status_code, 302, r.context and "form" in r.context and r.context["form"].errors)
         return ReporteMensual.objects.get(obra=self.obra, anio=anio, mes=mes)
 
     def decidir(self, usuario, reporte, nombre, rol=None, comentarios=""):
