@@ -7,7 +7,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
 from .cuentas import ROLES_CUENTA
-from .models import CatalogoEstatusValidacion, Obra, ReporteDiario, Rol, Usuario
+from .models import CatalogoEstatusValidacion, CatalogoTipoNota, NotaBitacora, Obra, ReporteDiario, Rol, Usuario
 
 
 class ReporteDiarioForm(forms.ModelForm):
@@ -116,6 +116,63 @@ class BaseProgramaFormSet(forms.BaseFormSet):
                     f"El avance es acumulado y no puede bajar: el {actual['fecha']:%d/%m/%Y} "
                     f"({actual['avance']} %) es menor que el {anterior['fecha']:%d/%m/%Y} ({anterior['avance']} %)."
                 )
+
+
+# ---------------------------------------------------------------------------
+# Bitácora de obra (CU-09)
+# ---------------------------------------------------------------------------
+
+class NotaBitacoraForm(forms.ModelForm):
+    class Meta:
+        model = NotaBitacora
+        fields = ("tipo", "descripcion", "nota_relacionada")
+        labels = {"tipo": "Tipo de nota", "descripcion": "Contenido de la nota", "nota_relacionada": "Responde a la nota"}
+        widgets = {"descripcion": forms.Textarea(attrs={"rows": 8})}
+        help_texts = {"nota_relacionada": "Opcional: la nota anterior a la que esta responde o corrige."}
+
+    def __init__(self, *args, obra=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.obra = obra
+        self.fields["tipo"].queryset = CatalogoTipoNota.objects.order_by("id")
+        self.fields["tipo"].empty_label = "— elegir —"
+        otras = NotaBitacora.objects.filter(obra=obra).order_by("-folio")
+        if self.instance.pk:
+            otras = otras.exclude(pk=self.instance.pk)
+        self.fields["nota_relacionada"].queryset = otras
+        self.fields["nota_relacionada"].label_from_instance = (
+            lambda n: f"Folio {n.folio} · {n.fecha_nota:%d/%m/%Y} · {n.descripcion[:60]}"
+        )
+        self.fields["nota_relacionada"].empty_label = "— ninguna —"
+
+    def clean_descripcion(self):
+        texto = (self.cleaned_data.get("descripcion") or "").strip()
+        if not texto:
+            raise ValidationError("Escribe el contenido de la nota.")
+        return texto
+
+
+class FirmaNotaForm(forms.Form):
+    """Firma o rechazo de un rol. El administrador puede además regresar la firma a Pendiente."""
+    rol = forms.ChoiceField(label="Firmas como")
+    decision = forms.ChoiceField(label="Decisión")
+    comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, es_admin=False, roles=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        etiquetas = {"Superintendente Contratista": "Superintendente"}
+        self.fields["rol"].choices = [(r, etiquetas.get(r, r)) for r in roles]
+        opciones = [("Firmada", "Firmar"), ("Rechazada", "Rechazar")]
+        if es_admin:
+            opciones.append(("Pendiente", "Regresar a pendiente"))
+        self.fields["decision"].choices = [("", "— elegir —")] + opciones
+
+    def clean(self):
+        datos = super().clean()
+        comentarios = (datos.get("comentarios") or "").strip()
+        if datos.get("decision") == "Rechazada" and not comentarios:
+            self.add_error("comentarios", "Explica el motivo del rechazo.")
+        datos["comentarios"] = comentarios
+        return datos
 
 
 # ---------------------------------------------------------------------------

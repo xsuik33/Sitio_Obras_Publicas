@@ -133,6 +133,8 @@ class Obra(models.Model):
     ubicacion = models.TextField(null=True, blank=True)
     fecha_inicio_oficial = models.DateField(null=True, blank=True)
     fecha_fin_oficial = models.DateField(null=True, blank=True)
+    # Contador de folios de la bitácora; lo incrementa el trigger trg_nota_folio.
+    ultimo_folio_bitacora = models.IntegerField(db_default=0, editable=False)
     fecha_registro = fecha_auto()
 
     class Meta:
@@ -390,14 +392,39 @@ class ReporteMensual(models.Model):
         constraints = [models.UniqueConstraint(fields=["obra", "anio", "mes"], name="uq_reporte_mensual")]
 
 
+class CatalogoTipoNota(models.Model):
+    id = models.SmallAutoField(primary_key=True)
+    nombre = models.CharField(max_length=50, unique=True)
+    descripcion = models.TextField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "catalogo_tipos_nota"
+        verbose_name = "Tipo de nota"
+        verbose_name_plural = "Tipos de nota"
+
+    def __str__(self):
+        return self.nombre
+
+
 class NotaBitacora(models.Model):
+    """
+    Nota de la bitácora de obra (CU-09). El folio lo asigna la BD (trigger trg_nota_folio).
+    estado_firma se deriva de las firmas (ver obras/bitacora.py).
+    """
     FIRMAS = [("Pendiente", "Pendiente"), ("Firmada", "Firmada"), ("Rechazada", "Rechazada")]
 
     id = pk_uuid()
     obra = models.ForeignKey(Obra, on_delete=models.CASCADE)
+    folio = models.IntegerField(db_default=0, editable=False)
+    tipo = models.ForeignKey(CatalogoTipoNota, on_delete=models.PROTECT, db_default=7)
     usuario_creador = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     fecha_nota = fecha_auto()
+    fecha_modificacion = models.DateTimeField(null=True, blank=True, editable=False)
     descripcion = models.TextField()
+    nota_relacionada = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="notas_que_la_citan"
+    )
     estado_firma = models.CharField(max_length=20, choices=FIRMAS, db_default="Pendiente")
 
     class Meta:
@@ -405,6 +432,29 @@ class NotaBitacora(models.Model):
         db_table = "notas_bitacora"
         verbose_name = "Nota de bitácora"
         verbose_name_plural = "Notas de bitácora"
+        constraints = [models.UniqueConstraint(fields=["obra", "folio"], name="uq_notas_obra_folio")]
+
+    def __str__(self):
+        return f"Nota {self.folio}"
+
+
+class FirmaNotaBitacora(models.Model):
+    """Decisión de un rol sobre una nota. La última de cada rol es la vigente; 'Pendiente' reinicia."""
+    DECISIONES = [("Firmada", "Firmada"), ("Rechazada", "Rechazada"), ("Pendiente", "Pendiente")]
+
+    id = pk_uuid()
+    nota_bitacora = models.ForeignKey(NotaBitacora, on_delete=models.CASCADE, related_name="firmas")
+    usuario_firmante = models.ForeignKey(Usuario, on_delete=models.PROTECT)
+    rol_firmante = models.CharField(max_length=40)
+    decision = models.CharField(max_length=20, choices=DECISIONES)
+    fecha_firma = fecha_auto()
+    comentarios = models.TextField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "firmas_notas_bitacora"
+        verbose_name = "Firma de nota de bitácora"
+        verbose_name_plural = "Firmas de notas de bitácora"
 
 
 class Documento(models.Model):

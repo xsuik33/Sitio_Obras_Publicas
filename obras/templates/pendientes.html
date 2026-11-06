@@ -28,4 +28,30 @@
     </tbody>
   </table>
 </div>
+<div class="tarjeta">
+  <h2>Notas de bitácora por firmar</h2>
+  <table>
+    <thead><tr><th>Obra</th><th>Folio</th><th>Tipo</th><th>Autor</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for n, estado in notas_firmar %}
+      <tr><td>{{ n.obra.nombre }}</td>
+          <td><a href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio }}</a></td>
+          <td>{{ n.tipo.nombre }}</td><td>{{ n.usuario_creador }}</td><td>{{ estado }}</td></tr>
+    {% empty %}<tr><td colspan="5" class="suave">No tienes notas por firmar.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="tarjeta">
+  <h2>Mis notas rechazadas por corregir</h2>
+  <table>
+    <thead><tr><th>Obra</th><th>Folio</th><th>Tipo</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for n, estado in notas_corregir %}
+      <tr><td>{{ n.obra.nombre }}</td>
+          <td><a href="{% url 'nota_detalle' n.obra_id n.pk %}">{{ n.folio }}</a></td>
+          <td>{{ n.tipo.nombre }}</td><td>{{ estado }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="suave">No tienes notas rechazadas.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

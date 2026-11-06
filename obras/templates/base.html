@@ -35,10 +35,10 @@
     .formulario p { display:flex; flex-direction:column; gap:4px; margin:0 0 14px; }
     .formulario input, .formulario select, .formulario textarea { width:100%; }
     .formulario .helptext { color:var(--suave); font-size:.85rem; }
-    .chip[data-e="Aprobado"] { border-color:var(--ok); color:var(--ok); }
+    .chip[data-e="Aprobado"], .chip[data-e="Firmada"] { border-color:var(--ok); color:var(--ok); }
     .chip[data-e="Borrador"], .chip[data-e="En revisión"] { border-color:#d29922; color:#d29922; }
     .atraso { color:var(--error); font-weight:600; } .adelanto { color:var(--ok); font-weight:600; }
-    .chip[data-e="Rechazado"] { border-color:var(--error); color:var(--error); }
+    .chip[data-e="Rechazado"], .chip[data-e="Rechazada"] { border-color:var(--error); color:var(--error); }
     .texto { white-space:pre-line; }
     .formulario input[type=checkbox] { width:auto; }
     .formulario ul { list-style:none; padding:0; margin:0; } .formulario li { display:flex; gap:8px; align-items:center; }

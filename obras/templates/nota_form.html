@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p>{% if nota %}<a href="{% url 'nota_detalle' obra.pk nota.pk %}">← Nota {{ nota.folio }}</a>{% else %}<a href="{% url 'bitacora_lista' obra.pk %}">← Bitácora de obra</a>{% endif %}</p>
+<h1>{{ titulo }}</h1>
+<div class="tarjeta">
+  <form method="post" class="formulario">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {% if nota %}
+      <button type="submit">{% if era_rechazada %}Corregir y enviar a firma{% else %}Guardar cambios{% endif %}</button>
+      {% if era_rechazada %}<p class="suave">Al guardar, la nota vuelve a Pendiente: se reinician las firmas y se avisa por correo a los firmantes.</p>{% endif %}
+    {% else %}
+      <button type="submit">Registrar nota</button>
+      <p class="suave">El folio lo asigna el sistema. La nota queda firmada por ti con tus roles en la obra y se avisa por correo al Residente, al Supervisor y al Superintendente que falten por firmar. Podrás editarla o borrarla mientras nadie más la haya firmado.</p>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

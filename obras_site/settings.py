@@ -86,6 +86,7 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "obras.Usuario"  # tabla `usuarios`
+TEST_RUNNER = "obras.pruebas_bd.RunnerPostgres"  # carga db/esquema_obras.sql en la base de prueba
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "mis_obras"
 LOGOUT_REDIRECT_URL = "login"

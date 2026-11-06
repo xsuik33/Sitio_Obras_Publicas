@@ -1,3 +1,4 @@
+import uuid
 from collections import defaultdict
 from decimal import Decimal
 from functools import wraps
@@ -15,20 +16,20 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from . import pdf, reportes
+from . import bitacora, pdf, reportes
 from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
-    BaseProgramaFormSet, ProgramaForm, ReporteDiarioForm, ValidacionForm,
+    BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ValidacionForm,
 )
 from .models import (
-    CatalogoConcepto, CatalogoEstatusValidacion, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
+    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
     ProgramaObra, ReporteDiario, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
-    CREAR_REPORTE, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
+    CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
     puede, requiere_permiso, roles_en,
 )
 
@@ -270,7 +271,10 @@ def reporte_validar(request, obra, reporte_id):
 @login_required
 def pendientes(request):
     revisar, corregir = reportes.pendientes_de(request.user)
-    return render(request, "pendientes.html", {"revisar": revisar, "corregir": corregir})
+    notas_firmar, notas_corregir = bitacora.pendientes_de(request.user)
+    contexto = {"revisar": revisar, "corregir": corregir, "notas_firmar": notas_firmar,
+                "notas_corregir": notas_corregir}
+    return render(request, "pendientes.html", contexto)
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +309,153 @@ def programa_editar(request, obra):
     else:
         formset = ProgramaFormSet(initial=inicial)
     return render(request, "programa_editar.html", {"obra": obra, "formset": formset})
+
+
+# ---------------------------------------------------------------------------
+# Bitácora de obra (CU-09)
+# ---------------------------------------------------------------------------
+
+def _nota(obra, nota_id, bloquear=False):
+    consulta = NotaBitacora.objects.select_related("obra", "tipo", "usuario_creador", "nota_relacionada")
+    if bloquear:
+        consulta = consulta.select_for_update(of=("self",))
+    return get_object_or_404(consulta, pk=nota_id, obra=obra)
+
+
+def _es_uuid(valor):
+    try:
+        uuid.UUID(str(valor))
+        return True
+    except ValueError:
+        return False
+
+
+@requiere_permiso(VER)
+def bitacora_lista(request, obra):
+    estado = request.GET.get("estado", "")
+    tipo = request.GET.get("tipo", "")
+    q = (request.GET.get("q") or "").strip()
+    if estado not in ("", bitacora.PENDIENTE, bitacora.FIRMADA, bitacora.RECHAZADA):
+        estado = ""
+    if not tipo.isdigit():
+        tipo = ""
+    filas = [(n, bitacora.estado_legible(n)) for n in bitacora.buscar(obra, estado, tipo, q)]
+    contexto = {
+        "obra": obra, "filas": filas, "estado": estado, "tipo": tipo, "q": q,
+        "tipos": CatalogoTipoNota.objects.order_by("id"),
+        "estados": (bitacora.PENDIENTE, bitacora.FIRMADA, bitacora.RECHAZADA),
+        "puede_crear": puede(request.user, obra, CREAR_NOTA),
+    }
+    return render(request, "bitacora_lista.html", contexto)
+
+
+@requiere_permiso(CREAR_NOTA)
+def nota_nueva(request, obra):
+    inicial = {}
+    responde = request.GET.get("responde")
+    if responde and _es_uuid(responde):
+        inicial["nota_relacionada"] = NotaBitacora.objects.filter(obra=obra, pk=responde).first()
+    form = NotaBitacoraForm(request.POST or None, obra=obra, initial=inicial)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            nota = form.save(commit=False)
+            nota.obra = obra
+            bitacora.crear_nota(nota, request.user)
+        messages.success(request, f"Nota {nota.folio} registrada. Estado: {bitacora.estado_legible(nota)}.")
+        return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota.pk)
+    return render(request, "nota_form.html", {"obra": obra, "form": form, "titulo": "Nueva nota de bitácora"})
+
+
+@requiere_permiso(VER)
+def nota_detalle(request, obra, nota_id):
+    nota = _nota(obra, nota_id)
+    es_admin = es_administrador(request.user, obra)
+    vigentes = bitacora.firmas_vigentes(nota)
+    requeridos = bitacora.roles_requeridos(obra, vigentes)
+    roles = bitacora.roles_que_firma(request.user, obra, nota, vigentes, es_admin)
+    puede_firmar = puede(request.user, obra, FIRMAR_NOTA) and bool(roles)
+    mis_roles_firmantes = [r for r in bitacora.ROLES_FIRMANTES if r in roles_en(request.user, obra)]
+    contexto = {
+        "obra": obra,
+        "nota": nota,
+        "estado": bitacora.estado_legible(nota, vigentes, requeridos),
+        "firmas": [(bitacora.ETIQUETA[r], vigentes[r]) for r in requeridos],
+        "historial": nota.firmas.select_related("usuario_firmante").order_by("-fecha_firma"),
+        "citada_por": nota.notas_que_la_citan.select_related("tipo").order_by("folio"),
+        "puede_editar": bitacora.puede_editar(request.user, obra, nota, vigentes),
+        "puede_borrar": bitacora.puede_borrar(request.user, obra, nota, vigentes),
+        "puede_responder": puede(request.user, obra, CREAR_NOTA),
+        "es_admin": es_admin,
+        "puede_firmar": puede_firmar,
+        "firma_bloqueada": bool(mis_roles_firmantes) and not puede_firmar and nota.estado_firma != bitacora.FIRMADA,
+        "form_firma": FirmaNotaForm(es_admin=es_admin, roles=roles) if puede_firmar else None,
+    }
+    return render(request, "nota_detalle.html", contexto)
+
+
+@requiere_permiso(CREAR_NOTA)
+def nota_editar(request, obra, nota_id):
+    nota = _nota(obra, nota_id)
+    if not bitacora.puede_editar(request.user, obra, nota):
+        raise PermissionDenied
+    era_rechazada = nota.estado_firma == bitacora.RECHAZADA
+    form = NotaBitacoraForm(request.POST or None, instance=nota, obra=obra)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            bloqueada = _nota(obra, nota_id, bloquear=True)
+            if not bitacora.puede_editar(request.user, obra, bloqueada):
+                messages.error(request, "La nota ya fue firmada por alguien más; ya no se puede editar.")
+                return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+            bloqueada.tipo = form.cleaned_data["tipo"]
+            bloqueada.descripcion = form.cleaned_data["descripcion"]
+            bloqueada.nota_relacionada = form.cleaned_data["nota_relacionada"]
+            bitacora.guardar_correccion(bloqueada, request.user)
+        if era_rechazada:
+            messages.success(request, "Nota corregida y enviada de nuevo a firma.")
+        else:
+            messages.success(request, "Nota actualizada.")
+        return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+    contexto = {"obra": obra, "form": form, "nota": nota, "titulo": f"Editar nota {nota.folio}",
+                "era_rechazada": era_rechazada}
+    return render(request, "nota_form.html", contexto)
+
+
+@requiere_permiso(CREAR_NOTA)
+def nota_borrar(request, obra, nota_id):
+    if request.method != "POST":
+        return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+    with transaction.atomic():
+        nota = _nota(obra, nota_id, bloquear=True)
+        if not bitacora.puede_borrar(request.user, obra, nota):
+            messages.error(request, "La nota ya fue firmada o rechazada por alguien más; no se puede borrar.")
+            return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+        folio = nota.folio
+        nota.delete()
+    messages.success(request, f"Nota {folio} borrada. Su folio no se volverá a usar.")
+    return redirect("bitacora_lista", obra_id=obra.pk)
+
+
+@requiere_permiso(FIRMAR_NOTA)
+def nota_firmar(request, obra, nota_id):
+    if request.method == "POST":
+        es_admin = es_administrador(request.user, obra)
+        with transaction.atomic():
+            nota = _nota(obra, nota_id, bloquear=True)  # dos personas no deciden a la vez
+            roles = bitacora.roles_que_firma(request.user, obra, nota, es_admin=es_admin)
+            form = FirmaNotaForm(request.POST, es_admin=es_admin, roles=roles)
+            if not roles:
+                messages.error(
+                    request, "Ya no puedes firmar esta nota. Si hay un error, solo el administrador puede corregirlo."
+                )
+            elif form.is_valid():
+                bitacora.registrar_firma(
+                    nota, request.user, form.cleaned_data["rol"], form.cleaned_data["decision"],
+                    form.cleaned_data["comentarios"],
+                )
+                messages.success(request, f"Firma registrada. Estado: {bitacora.estado_legible(nota)}.")
+            else:
+                messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
 
 
 # ---------------------------------------------------------------------------

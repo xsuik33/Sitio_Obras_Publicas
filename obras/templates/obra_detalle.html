@@ -14,7 +14,7 @@
   <div class="tarjeta"><div class="suave">Estimaciones</div><div class="dato">{{ n_estimaciones }}</div></div>
   <a href="{% url 'reportes_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Reportes diarios →</div><div class="dato">{{ n_reportes }}</div></a>
   <a href="{% url 'programa_ver' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Programa de obra →</div><div class="dato" style="font-size:1.1rem">Avance programado</div></a>
-  <div class="tarjeta"><div class="suave">Notas de bitácora</div><div class="dato">{{ n_notas }}</div></div>
+  <a href="{% url 'bitacora_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Bitácora de obra →</div><div class="dato">{{ n_notas }}</div></a>
 </div>
 
 <div class="tarjeta">
