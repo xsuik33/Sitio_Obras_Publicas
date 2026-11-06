@@ -8,24 +8,24 @@
     /* Tema elegido por el usuario (claro / oscuro); sin elección se sigue al sistema. Va antes del CSS para no parpadear. */
     try { var t = localStorage.getItem("tema"); if (t === "claro" || t === "oscuro") document.documentElement.dataset.theme = t === "claro" ? "light" : "dark"; } catch (e) {}
   </script>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238a1c3a'/%3E%3Cpath d='M8 24V13l8-5 8 5v11h-5v-6h-6v6z' fill='%23f3e6cf'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e6170'/%3E%3Cpath d='M8 24V13l8-5 8 5v11h-5v-6h-6v6z' fill='%23f3f2ef'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
   <style>
-    /* Paleta «Guinda institucional»: guinda como marca, dorado como resalte, neutros cálidos.
-       Estados (bien / atención / problema) y series de la gráfica son independientes de la marca. */
+    /* Paleta «Concreto y señalización»: grises de concreto, verde petróleo como marca y amarillo de señalización
+       como resalte. Estados (info / bien / atención / problema) y series de la gráfica son independientes de la marca. */
     :root {
       color-scheme: light;
-      --fondo:#f6f3f1; --tarjeta:#ffffff; --tarjeta-2:#faf8f6; --hundido:#f1ece9;
-      --texto:#231f20; --suave:#625a5b; --tenue:#8e8586; --borde:#e6dfdc; --borde-fuerte:#d3cac6;
-      --acento:#8a1c3a; --acento-hover:#6f1530; --acento-suave:#f6e7eb; --sobre-acento:#ffffff;
-      --resalte:#a8844f; --resalte-suave:#f5ecdf; --resalte-texto:#6f5530;
-      --barra:#6b1530; --barra-texto:#f7ecee; --barra-suave:rgba(255,255,255,.72); --barra-activo:rgba(255,255,255,.14);
-      --info:#2f5f9e; --info-suave:#e7eef8; --ok:#127a3e; --ok-suave:#e6f4ea; --aviso:#8a5a00; --aviso-suave:#fcf1d6; --error:#c0311a; --error-suave:#fdece8;
-      --serie-1:#2a78d6; --serie-2:#eb6834; --serie-3:#1baf7a; --rejilla:#ece6e3;
-      --sombra:0 1px 2px rgba(35,31,32,.05), 0 1px 3px rgba(35,31,32,.06);
-      --sombra-alta:0 6px 18px rgba(35,31,32,.09), 0 2px 4px rgba(35,31,32,.05);
+      --fondo:#f3f2ef; --tarjeta:#ffffff; --tarjeta-2:#f8f7f5; --hundido:#efede9;
+      --texto:#1e2124; --suave:#5b5f64; --tenue:#868a8f; --borde:#e1dfda; --borde-fuerte:#cdcac3;
+      --acento:#0e6170; --acento-hover:#0a4c58; --acento-suave:#e2eff0; --sobre-acento:#ffffff;
+      --resalte:#d99a00; --resalte-suave:#fbf0cf; --resalte-texto:#7a5600;
+      --barra:#1e2124; --barra-texto:#f3f2ef; --barra-suave:rgba(255,255,255,.7); --barra-activo:rgba(255,255,255,.1);
+      --info:#2f5f9e; --info-suave:#e7eef8; --ok:#127a3e; --ok-suave:#e6f4ea; --aviso:#8a5a00; --aviso-suave:#fcf1d6; --error:#b42318; --error-suave:#fdeceb;
+      --serie-1:#2a78d6; --serie-2:#eb6834; --serie-3:#1baf7a; --rejilla:#e9e7e2;
+      --sombra:0 1px 2px rgba(30,33,36,.05), 0 1px 3px rgba(30,33,36,.06);
+      --sombra-alta:0 6px 18px rgba(30,33,36,.09), 0 2px 4px rgba(30,33,36,.05);
       --radio:12px;
       --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -33,25 +33,25 @@
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
         color-scheme: dark;
-        --fondo:#161213; --tarjeta:#1f1a1b; --tarjeta-2:#262022; --hundido:#1a1516;
-        --texto:#efe9e7; --suave:#b1a7a5; --tenue:#857b7a; --borde:#352c2e; --borde-fuerte:#44393b;
-        --acento:#e0708f; --acento-hover:#ea8ea7; --acento-suave:#3a1b24; --sobre-acento:#1c0d12;
-        --resalte:#d4b483; --resalte-suave:#2e2618; --resalte-texto:#e2c79c;
-        --barra:#1f1a1b; --barra-texto:#efe9e7; --barra-suave:#b1a7a5; --barra-activo:#3a1b24;
+        --fondo:#131415; --tarjeta:#1b1d1f; --tarjeta-2:#222528; --hundido:#17191a;
+        --texto:#ecebe8; --suave:#a6a8ab; --tenue:#7d8084; --borde:#2c2f32; --borde-fuerte:#3a3e42;
+        --acento:#4fb3bf; --acento-hover:#73c6d0; --acento-suave:#14292c; --sobre-acento:#0b1214;
+        --resalte:#f0b429; --resalte-suave:#2e2610; --resalte-texto:#f0c45a;
+        --barra:#1b1d1f; --barra-texto:#ecebe8; --barra-suave:#a6a8ab; --barra-activo:#26292c;
         --info:#8ab4f8; --info-suave:#17233a; --ok:#4cc38a; --ok-suave:#13281d; --aviso:#e3b341; --aviso-suave:#2c2412; --error:#ff7b72; --error-suave:#301816;
-        --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --rejilla:#2b2426;
+        --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --rejilla:#26292c;
         --sombra:0 1px 2px rgba(0,0,0,.45); --sombra-alta:0 8px 20px rgba(0,0,0,.5);
       }
     }
     :root[data-theme="dark"] {
       color-scheme: dark;
-      --fondo:#161213; --tarjeta:#1f1a1b; --tarjeta-2:#262022; --hundido:#1a1516;
-      --texto:#efe9e7; --suave:#b1a7a5; --tenue:#857b7a; --borde:#352c2e; --borde-fuerte:#44393b;
-      --acento:#e0708f; --acento-hover:#ea8ea7; --acento-suave:#3a1b24; --sobre-acento:#1c0d12;
-      --resalte:#d4b483; --resalte-suave:#2e2618; --resalte-texto:#e2c79c;
-      --barra:#1f1a1b; --barra-texto:#efe9e7; --barra-suave:#b1a7a5; --barra-activo:#3a1b24;
+      --fondo:#131415; --tarjeta:#1b1d1f; --tarjeta-2:#222528; --hundido:#17191a;
+      --texto:#ecebe8; --suave:#a6a8ab; --tenue:#7d8084; --borde:#2c2f32; --borde-fuerte:#3a3e42;
+      --acento:#4fb3bf; --acento-hover:#73c6d0; --acento-suave:#14292c; --sobre-acento:#0b1214;
+      --resalte:#f0b429; --resalte-suave:#2e2610; --resalte-texto:#f0c45a;
+      --barra:#1b1d1f; --barra-texto:#ecebe8; --barra-suave:#a6a8ab; --barra-activo:#26292c;
       --info:#8ab4f8; --info-suave:#17233a; --ok:#4cc38a; --ok-suave:#13281d; --aviso:#e3b341; --aviso-suave:#2c2412; --error:#ff7b72; --error-suave:#301816;
-      --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --rejilla:#2b2426;
+      --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --rejilla:#26292c;
       --sombra:0 1px 2px rgba(0,0,0,.45); --sombra-alta:0 8px 20px rgba(0,0,0,.5);
     }
 
@@ -64,7 +64,7 @@
     :focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
     .mono, .codigo { font-family:var(--mono); }
 
-    /* Encabezado institucional: banda guinda con filete dorado */
+    /* Encabezado: banda gris carbón con filete amarillo de señalización */
     .barra { position:sticky; top:0; z-index:20; background:var(--barra); color:var(--barra-texto); border-bottom:3px solid var(--resalte); }
     .barra-in { max-width:1160px; margin:0 auto; padding:10px 20px; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; }
     .marca { display:flex; align-items:center; gap:10px; color:var(--barra-texto); font-weight:700; font-size:1rem; margin-right:6px; }
