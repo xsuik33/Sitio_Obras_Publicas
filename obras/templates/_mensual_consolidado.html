@@ -1,0 +1,82 @@
+{# Consolidado del mes. Variables: obra, c (dict de mensuales.consolidar) #}
+{% if c.advertencias %}
+<div class="mensaje warning">
+  <strong>Advertencias</strong>
+  <ul style="margin:6px 0 0">{% for a in c.advertencias %}<li>{{ a }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="grid">
+  <div class="tarjeta"><div class="suave">Avance real al corte</div><div class="dato">{% if c.avance.corte %}{{ c.avance.corte }} %{% else %}—{% endif %}</div>
+    {% if c.avance.fecha_corte_real %}<div class="suave">según el diario del {{ c.avance.fecha_corte_real }}{% if c.avance.fuente == "sin aprobar" %} (sin aprobar){% endif %}</div>{% endif %}</div>
+  <div class="tarjeta"><div class="suave">Avance en el mes</div><div class="dato">{% if c.avance.mes %}{{ c.avance.mes }} %{% else %}—{% endif %}</div>
+    <div class="suave">desde {{ c.avance.inicio }} %</div></div>
+  <div class="tarjeta"><div class="suave">Programado al corte</div><div class="dato">{% if c.avance.programado %}{{ c.avance.programado }} %{% else %}—{% endif %}</div>
+    {% if c.avance.texto %}<div class="{{ c.avance.clase }}">{{ c.avance.texto }}</div>{% endif %}</div>
+  <div class="tarjeta"><div class="suave">Reportes diarios</div><div class="dato">{{ c.diarios.total }} / {{ c.periodo.dias }}</div>
+    <div class="suave">{{ c.diarios.aprobados }} aprobado(s){% if c.diarios.sin_aprobar %} · {{ c.diarios.sin_aprobar }} sin aprobar{% endif %}</div></div>
+</div>
+
+<div class="tarjeta">
+  <h2>Reportes diarios del periodo</h2>
+  <p class="suave">Del {{ c.periodo.inicio }} al {{ c.periodo.corte }}.
+    {% if c.diarios.dias_sin_reporte %}Días sin reporte: {{ c.diarios.fechas_sin_reporte|join:", " }}.{% endif %}
+    {% if c.clima %}Clima: {% for nombre, n in c.clima %}{{ nombre }} ({{ n }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+  {% if c.diarios.filas %}
+  <table>
+    <thead><tr><th>Fecha</th><th class="num">Avance</th><th>Estatus</th></tr></thead>
+    <tbody>
+    {% for d in c.diarios.filas %}
+      <tr><td><a href="{% url 'reporte_detalle' obra.pk d.id %}">{{ d.fecha }}</a></td><td class="num">{{ d.avance }} %</td>
+          <td><span class="chip" data-e="{{ d.estatus }}">{{ d.estatus }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+{% if c.incidencias or c.seguridad %}
+<div class="tarjeta">
+  {% if c.incidencias %}<h2>Incidencias</h2>
+    {% for i in c.incidencias %}<p><strong>{{ i.fecha }}</strong> · <span class="texto">{{ i.texto }}</span></p>{% endfor %}{% endif %}
+  {% if c.seguridad %}<h2>Incidentes de seguridad</h2>
+    {% for i in c.seguridad %}<p><strong>{{ i.fecha }}</strong> · <span class="texto">{{ i.texto }}</span></p>{% endfor %}{% endif %}
+</div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>Estimaciones</h2>
+  {% if c.estimaciones %}
+    {% if c.estimaciones.filas %}
+    <table>
+      <thead><tr><th>Folio</th><th>Corte</th><th class="num">Subtotal</th><th>Estatus</th></tr></thead>
+      <tbody>{% for e in c.estimaciones.filas %}
+        <tr><td>{{ e.folio }}</td><td>{{ e.corte }}</td><td class="num">{{ e.subtotal }}</td>
+            <td><span class="chip" data-e="{{ e.estatus }}">{{ e.estatus }}</span></td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="suave">Ninguna estimación con corte en este periodo.</p>{% endif %}
+    <table style="margin-top:10px">
+      <tr><th>Aprobado en el mes</th><td class="num">{{ c.estimaciones.aprobado_mes }}</td></tr>
+      <tr><th>Acumulado aprobado al corte</th><td class="num">{{ c.estimaciones.acumulado }}</td></tr>
+      <tr><th>Monto del contrato</th><td class="num">{{ c.estimaciones.monto }}</td></tr>
+      {% if c.estimaciones.avance_financiero %}<tr><th>Avance financiero</th><td class="num">{{ c.estimaciones.avance_financiero }} %</td></tr>{% endif %}
+    </table>
+  {% else %}
+    <p class="suave">La obra no tiene contrato registrado.</p>
+  {% endif %}
+</div>
+
+<div class="tarjeta">
+  <h2>Bitácora del periodo</h2>
+  {% if c.bitacora.total %}
+    <p class="suave">{{ c.bitacora.total }} nota(s): {{ c.bitacora.firmadas }} firmada(s), {{ c.bitacora.pendientes }} pendiente(s), {{ c.bitacora.rechazadas }} rechazada(s).</p>
+    <table>
+      <thead><tr><th>Folio</th><th>Tipo</th><th>Nota</th><th>Firma</th></tr></thead>
+      <tbody>{% for n in c.bitacora.filas %}
+        <tr><td><a href="{% url 'nota_detalle' obra.pk n.id %}">{{ n.folio }}</a></td><td>{{ n.tipo }}</td>
+            <td>{{ n.texto }}</td><td><span class="chip" data-e="{{ n.estado }}">{{ n.estado }}</span></td></tr>{% endfor %}</tbody>
+    </table>
+  {% else %}
+    <p class="suave">Sin notas de bitácora en el periodo.</p>
+  {% endif %}
+</div>

@@ -77,5 +77,5 @@ admin.site.register([
     models.Anticipo, models.CatalogoConcepto, models.Estimacion, models.EstimacionDetalle,
     models.ReporteDiario, models.ReporteMensual, models.NotaBitacora, models.Documento,
     models.Evidencia, models.ProgramaObra, models.ValidacionEstimacion, models.ValidacionReporteDiario,
-    models.CatalogoTipoNota, models.FirmaNotaBitacora,
+    models.CatalogoTipoNota, models.FirmaNotaBitacora, models.ValidacionReporteMensual,
 ])

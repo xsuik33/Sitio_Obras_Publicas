@@ -15,18 +15,20 @@ from django.forms import formset_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 
-from . import bitacora, pdf, reportes
+from . import bitacora, mensuales, pdf, reportes
 from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
-    BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ValidacionForm,
+    BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
+    ValidacionForm,
 )
 from .models import (
     CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, EstimacionDetalle, NotaBitacora,
-    ProgramaObra, ReporteDiario, Rol, Usuario, UsuarioProyectoRol,
+    ProgramaObra, ReporteDiario, ReporteMensual, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
     CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
@@ -69,6 +71,7 @@ def obra_detalle(request, obra):
         "mis_roles": sorted(roles_en(request.user, obra)),
         "n_estimaciones": Estimacion.objects.filter(contrato__obra=obra).count(),
         "n_reportes": ReporteDiario.objects.filter(obra=obra).count(),
+        "n_mensuales": ReporteMensual.objects.filter(obra=obra).exclude(estatus__nombre=reportes.BORRADOR).count(),
         "n_notas": NotaBitacora.objects.filter(obra=obra).count(),
         "n_conceptos": CatalogoConcepto.objects.filter(obra=obra).count(),
         "puede_gestionar": puede(request.user, obra, GESTIONAR_USUARIOS),
@@ -272,8 +275,9 @@ def reporte_validar(request, obra, reporte_id):
 def pendientes(request):
     revisar, corregir = reportes.pendientes_de(request.user)
     notas_firmar, notas_corregir = bitacora.pendientes_de(request.user)
+    mens_revisar, mens_corregir = mensuales.pendientes_de(request.user)
     contexto = {"revisar": revisar, "corregir": corregir, "notas_firmar": notas_firmar,
-                "notas_corregir": notas_corregir}
+                "notas_corregir": notas_corregir, "mens_revisar": mens_revisar, "mens_corregir": mens_corregir}
     return render(request, "pendientes.html", contexto)
 
 
@@ -309,6 +313,165 @@ def programa_editar(request, obra):
     else:
         formset = ProgramaFormSet(initial=inicial)
     return render(request, "programa_editar.html", {"obra": obra, "formset": formset})
+
+
+# ---------------------------------------------------------------------------
+# Reporte mensual (CU-04)
+# ---------------------------------------------------------------------------
+
+def _mensual_visible(usuario, obra, reporte_id, bloquear=False):
+    consulta = ReporteMensual.objects.select_related("supervisor", "estatus", "obra")
+    if bloquear:
+        consulta = consulta.select_for_update(of=("self",))
+    reporte = get_object_or_404(consulta, pk=reporte_id, obra=obra)
+    es_borrador = reporte.estatus.nombre == reportes.BORRADOR
+    if es_borrador and reporte.supervisor_id != usuario.pk and not es_administrador(usuario, obra):
+        raise PermissionDenied  # un borrador solo lo ven su autor y los administradores
+    return reporte
+
+
+@requiere_permiso(VER)
+def mensuales_lista(request, obra):
+    consulta = ReporteMensual.objects.filter(obra=obra).select_related("supervisor", "estatus", "obra")
+    if not es_administrador(request.user, obra):
+        consulta = consulta.exclude(Q(estatus__nombre=reportes.BORRADOR) & ~Q(supervisor=request.user))
+    filas = [(r, mensuales.nombre_mes(r), mensuales.estado_legible(r)) for r in consulta.order_by("-anio", "-mes")]
+    contexto = {"obra": obra, "filas": filas, "puede_crear": puede(request.user, obra, CREAR_REPORTE)}
+    return render(request, "mensuales_lista.html", contexto)
+
+
+def _vista_previa(obra, form):
+    """Consolidado del mes elegido en el formulario, para ver advertencias antes de enviar."""
+    datos = form.cleaned_data if form.is_bound and form.is_valid() else None
+    instancia = form.instance
+    anio = (datos or {}).get("anio") or instancia.anio or form.fields["anio"].initial
+    mes = (datos or {}).get("mes") or instancia.mes or form.fields["mes"].initial
+    if not anio or not mes:
+        return None
+    corte = (datos or {}).get("fecha_corte") or instancia.fecha_corte or mensuales.ultimo_dia(anio, mes)
+    return mensuales.consolidar(ReporteMensual(obra=obra, anio=anio, mes=mes, fecha_corte=corte))
+
+
+@requiere_permiso(CREAR_REPORTE)
+def mensual_nuevo(request, obra):
+    form = ReporteMensualForm(request.POST or None, obra=obra)
+    if request.method == "POST" and form.is_valid():
+        enviar = request.POST.get("accion") == "enviar"
+        with transaction.atomic():
+            reporte = form.save(commit=False)
+            reporte.obra, reporte.supervisor = obra, request.user
+            reporte.estatus = reportes.estatus(reportes.BORRADOR)
+            reporte.save()
+            if enviar:
+                mensuales.enviar_a_revision(reporte, request.user)
+        if enviar:
+            messages.success(request, "Reporte mensual enviado a revisión del Superintendente y del Residente.")
+        else:
+            messages.success(request, "Borrador guardado. Envíalo a revisión cuando esté listo.")
+        return redirect("mensual_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
+    contexto = {"obra": obra, "form": form, "titulo": "Nuevo reporte mensual", "nuevo": True,
+                "previa": _vista_previa(obra, form)}
+    return render(request, "mensual_form.html", contexto)
+
+
+@requiere_permiso(VER)
+def mensual_detalle(request, obra, reporte_id):
+    reporte = _mensual_visible(request.user, obra, reporte_id)
+    es_admin = es_administrador(request.user, obra)
+    decs = mensuales.decisiones(reporte)
+    roles = mensuales.roles_que_decide(request.user, obra, reporte, decs, es_admin)
+    puede_validar = puede(request.user, obra, VALIDAR_REPORTE) and bool(roles)
+    consolidado, congelado = mensuales.datos(reporte)
+    contexto = {
+        "obra": obra,
+        "reporte": reporte,
+        "mes": mensuales.nombre_mes(reporte),
+        "estado": mensuales.estado_legible(reporte, decs),
+        "decisiones": [(reportes.ETIQUETA[r], d) for r, d in decs.items()],
+        "validaciones": reporte.validaciones.select_related("usuario_validador", "estatus").order_by("-fecha_validacion"),
+        "c": consolidado,
+        "congelado": congelado,
+        "puede_editar": mensuales.puede_editar(request.user, obra, reporte),
+        "es_borrador": reporte.estatus.nombre == reportes.BORRADOR,
+        "es_admin": es_admin,
+        "puede_validar": puede_validar,
+        "revision_bloqueada": puede(request.user, obra, VALIDAR_REPORTE) and not puede_validar
+        and reporte.estatus.nombre != reportes.BORRADOR,
+        "form_validacion": ValidacionForm(es_admin=es_admin, roles=roles) if puede_validar else None,
+    }
+    return render(request, "mensual_detalle.html", contexto)
+
+
+@requiere_permiso(CREAR_REPORTE)
+def mensual_editar(request, obra, reporte_id):
+    reporte = _mensual_visible(request.user, obra, reporte_id)
+    if not mensuales.puede_editar(request.user, obra, reporte):
+        raise PermissionDenied
+    era_borrador = reporte.estatus.nombre == reportes.BORRADOR
+    form = ReporteMensualForm(request.POST or None, instance=reporte, obra=obra)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            bloqueado = _mensual_visible(request.user, obra, reporte_id, bloquear=True)
+            if not mensuales.puede_editar(request.user, obra, bloqueado):
+                messages.error(request, "El reporte ya fue aprobado; no se puede editar.")
+                return redirect("mensual_detalle", obra_id=obra.pk, reporte_id=reporte_id)
+            for campo in ("fecha_corte", "resumen", "observaciones"):
+                setattr(bloqueado, campo, form.cleaned_data[campo])
+            bloqueado.fecha_modificacion = timezone.now()
+            bloqueado.save(update_fields=["fecha_corte", "resumen", "observaciones", "fecha_modificacion"])
+            previo = bloqueado.estatus.nombre
+            reenviar = (era_borrador and request.POST.get("accion") == "enviar") or (
+                previo in (reportes.RECHAZADO, reportes.EN_REVISION)
+            )
+            if reenviar:
+                mensuales.enviar_a_revision(bloqueado, request.user)
+        if era_borrador and not reenviar:
+            messages.success(request, "Borrador actualizado.")
+        elif reenviar:
+            messages.success(request, "Reporte mensual enviado a revisión.")
+        else:
+            messages.success(request, "Reporte mensual actualizado.")
+        return redirect("mensual_detalle", obra_id=obra.pk, reporte_id=reporte_id)
+    contexto = {"obra": obra, "form": form, "titulo": f"Editar reporte mensual · {mensuales.nombre_mes(reporte)}",
+                "nuevo": False, "es_borrador": era_borrador, "reporte": reporte, "previa": _vista_previa(obra, form)}
+    return render(request, "mensual_form.html", contexto)
+
+
+@requiere_permiso(VALIDAR_REPORTE)
+def mensual_validar(request, obra, reporte_id):
+    if request.method == "POST":
+        es_admin = es_administrador(request.user, obra)
+        with transaction.atomic():
+            reporte = _mensual_visible(request.user, obra, reporte_id, bloquear=True)  # sin decisiones simultáneas
+            roles = mensuales.roles_que_decide(request.user, obra, reporte, es_admin=es_admin)
+            form = ValidacionForm(request.POST, es_admin=es_admin, roles=roles)
+            if not roles:
+                messages.error(
+                    request,
+                    "Ya no puedes decidir sobre este reporte. Si hay un error, solo el administrador puede corregirlo.",
+                )
+            elif form.is_valid():
+                mensuales.registrar_decision(
+                    reporte, request.user, form.cleaned_data["rol"], form.cleaned_data["estatus"],
+                    form.cleaned_data["comentarios"],
+                )
+                messages.success(request, f"Decisión registrada. Estado: {mensuales.estado_legible(reporte)}.")
+            else:
+                messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect("mensual_detalle", obra_id=obra.pk, reporte_id=reporte_id)
+
+
+@requiere_permiso(VER)
+def mensual_pdf(request, obra, reporte_id):
+    reporte = _mensual_visible(request.user, obra, reporte_id)
+    consolidado, congelado = mensuales.datos(reporte)
+    contenido = pdf.reporte_mensual_pdf(
+        reporte, mensuales.nombre_mes(reporte), mensuales.estado_legible(reporte), consolidado, congelado,
+        list(reporte.validaciones.select_related("usuario_validador", "estatus").order_by("fecha_validacion")),
+    )
+    respuesta = HttpResponse(contenido, content_type="application/pdf")
+    respuesta["Content-Disposition"] = f'inline; filename="reporte-mensual-{reporte.anio}-{reporte.mes:02d}.pdf"'
+    return respuesta
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+import calendar
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django import forms
@@ -7,7 +9,10 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
 from .cuentas import ROLES_CUENTA
-from .models import CatalogoEstatusValidacion, CatalogoTipoNota, NotaBitacora, Obra, ReporteDiario, Rol, Usuario
+from .mensuales import MESES
+from .models import (
+    CatalogoEstatusValidacion, CatalogoTipoNota, NotaBitacora, Obra, ReporteDiario, ReporteMensual, Rol, Usuario,
+)
 
 
 class ReporteDiarioForm(forms.ModelForm):
@@ -44,7 +49,7 @@ class ReporteDiarioForm(forms.ModelForm):
     def __init__(self, *args, obra=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.obra = obra
-        if not self.instance.pk:
+        if self.instance._state.adding:
             self.fields["fecha_reporte"].initial = timezone.localdate()
         self.fields["avance_fisico_real_porcentaje"].validators += [MinValueValidator(0), MaxValueValidator(100)]
         self.fields["clima"].required = False
@@ -116,6 +121,64 @@ class BaseProgramaFormSet(forms.BaseFormSet):
                     f"El avance es acumulado y no puede bajar: el {actual['fecha']:%d/%m/%Y} "
                     f"({actual['avance']} %) es menor que el {anterior['fecha']:%d/%m/%Y} ({anterior['avance']} %)."
                 )
+
+
+# ---------------------------------------------------------------------------
+# Reporte mensual (CU-04)
+# ---------------------------------------------------------------------------
+
+class ReporteMensualForm(forms.ModelForm):
+    mes = forms.TypedChoiceField(label="Mes", coerce=int, choices=[(i + 1, m) for i, m in enumerate(MESES)])
+
+    class Meta:
+        model = ReporteMensual
+        fields = ("anio", "mes", "fecha_corte", "resumen", "observaciones")
+        labels = {
+            "anio": "Año", "fecha_corte": "Fecha de corte",
+            "resumen": "Resumen del mes", "observaciones": "Observaciones",
+        }
+        help_texts = {"fecha_corte": "Vacía = último día del mes. El consolidado toma los datos hasta esta fecha."}
+        widgets = {
+            "anio": forms.NumberInput(attrs={"min": 2000, "max": 2100}),
+            "fecha_corte": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "resumen": forms.Textarea(attrs={"rows": 6}),
+            "observaciones": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, obra=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.obra = obra
+        self.fields["fecha_corte"].required = False
+        self.fields["resumen"].required = True
+        if not self.instance._state.adding:  # el mes no cambia una vez creado
+            self.fields["anio"].disabled = self.fields["mes"].disabled = True
+        else:
+            hoy = timezone.localdate()
+            anterior = hoy.replace(day=1) - timedelta(days=1)  # por omisión, el mes anterior
+            self.fields["anio"].initial, self.fields["mes"].initial = anterior.year, anterior.month
+
+    def clean(self):
+        datos = super().clean()
+        anio, mes = datos.get("anio"), datos.get("mes")
+        if not anio or not mes:
+            return datos
+        if not 2000 <= anio <= 2100:
+            self.add_error("anio", "Año fuera de rango.")
+            return datos
+        inicio = date(anio, mes, 1)
+        ultimo = date(anio, mes, calendar.monthrange(anio, mes)[1])
+        if inicio > timezone.localdate():
+            self.add_error("mes", "No se puede reportar un mes que aún no empieza.")
+        corte = datos.get("fecha_corte") or ultimo
+        if not inicio <= corte <= ultimo:
+            self.add_error("fecha_corte", "La fecha de corte debe caer dentro del mes reportado.")
+        datos["fecha_corte"] = corte
+        repetidos = ReporteMensual.objects.filter(obra=self.obra, anio=anio, mes=mes)
+        if not self.instance._state.adding:
+            repetidos = repetidos.exclude(pk=self.instance.pk)
+        if repetidos.exists():
+            self.add_error("mes", "Ya existe el reporte mensual de ese mes para esta obra.")
+        return datos
 
 
 # ---------------------------------------------------------------------------

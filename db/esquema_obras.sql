@@ -205,9 +205,17 @@ CREATE TABLE reportes_mensuales (
   anio            SMALLINT NOT NULL CHECK (anio BETWEEN 2000 AND 2100),
   mes             SMALLINT NOT NULL CHECK (mes BETWEEN 1 AND 12),
   fecha_corte     DATE NOT NULL,
+  resumen         TEXT,
   observaciones   TEXT,
+  estatus_id      SMALLINT NOT NULL DEFAULT 1 REFERENCES catalogo_estatus_validacion(id),
+  -- Consolidado del mes guardado al aprobarse; NULL = se calcula al vuelo.
+  consolidado     JSONB,
   fecha_registro  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_reporte_mensual UNIQUE (obra_id, anio, mes)
+  fecha_modificacion TIMESTAMPTZ,
+  CONSTRAINT uq_reporte_mensual UNIQUE (obra_id, anio, mes),
+  CONSTRAINT ck_reporte_mensual_corte CHECK (
+    fecha_corte >= make_date(anio, mes, 1)
+    AND fecha_corte < make_date(anio, mes, 1) + INTERVAL '1 month')
 );
 
 -- folio: consecutivo por obra, lo asigna el trigger trg_nota_folio (nunca se reutiliza).
@@ -290,6 +298,17 @@ CREATE TABLE firmas_notas_bitacora (
   comentarios           TEXT
 );
 
+CREATE TABLE validaciones_reportes_mensuales (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporte_mensual_id    UUID NOT NULL REFERENCES reportes_mensuales(id) ON DELETE CASCADE,
+  usuario_validador_id  UUID NOT NULL REFERENCES usuarios(id),
+  rol_validador         VARCHAR(40) NOT NULL
+                          CHECK (rol_validador IN ('Residente', 'Superintendente Contratista')),
+  estatus_id            SMALLINT NOT NULL REFERENCES catalogo_estatus_validacion(id),
+  fecha_validacion      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  comentarios           TEXT
+);
+
 -- ---------------------------------------------------------------------
 -- 7. ÍNDICES (Postgres no indexa FKs automáticamente)
 -- ---------------------------------------------------------------------
@@ -303,6 +322,10 @@ CREATE INDEX ix_detalles_concepto         ON estimaciones_detalles (concepto_id)
 CREATE INDEX ix_reportes_diarios_super    ON reportes_diarios (supervisor_id);
 CREATE INDEX ix_reportes_diarios_estatus  ON reportes_diarios (estatus_id);
 CREATE INDEX ix_reportes_mens_super       ON reportes_mensuales (supervisor_id);
+CREATE INDEX ix_reportes_mens_estatus     ON reportes_mensuales (estatus_id);
+CREATE INDEX ix_val_rm_reporte            ON validaciones_reportes_mensuales (reporte_mensual_id);
+CREATE INDEX ix_val_rm_validador          ON validaciones_reportes_mensuales (usuario_validador_id);
+CREATE INDEX ix_val_rm_estatus            ON validaciones_reportes_mensuales (estatus_id);
 CREATE INDEX ix_notas_obra_fecha          ON notas_bitacora (obra_id, fecha_nota);
 CREATE INDEX ix_notas_creador             ON notas_bitacora (usuario_creador_id);
 CREATE INDEX ix_notas_tipo                ON notas_bitacora (tipo_id);

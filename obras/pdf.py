@@ -1,4 +1,4 @@
-"""PDF del reporte diario (reportlab)."""
+"""PDF de los reportes diario y mensual (reportlab)."""
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -89,6 +89,107 @@ def reporte_diario_pdf(reporte, estado, desviacion, financiero, validaciones):
             historia.append(_p(linea, normal))
             historia.append(Spacer(1, 3))
     else:
+        historia.append(_p("Todavía no ha sido revisado.", suave))
+
+    doc.build(historia)
+    return buffer.getvalue()
+
+
+def _tabla(filas, anchos, encabezado=False, derecha=()):
+    t = Table(filas, colWidths=anchos, repeatRows=1 if encabezado else 0)
+    estilo = [
+        ("FONTSIZE", (0, 0), (-1, -1), 9), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d9dde4")),
+    ]
+    if encabezado:
+        estilo += [("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f5f6f8")),
+                   ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#667085"))]
+    estilo += [("ALIGN", (c, 0), (c, -1), "RIGHT") for c in derecha]
+    t.setStyle(TableStyle(estilo))
+    return t
+
+
+def reporte_mensual_pdf(reporte, mes, estado, c, congelado, validaciones):
+    """PDF del reporte mensual (CU-04). `c` es el consolidado de obras.mensuales.consolidar."""
+    base = getSampleStyleSheet()
+    normal = ParagraphStyle("n", parent=base["Normal"], fontSize=9.5, leading=13)
+    suave = ParagraphStyle("s", parent=normal, textColor=colors.HexColor("#667085"))
+    h1 = ParagraphStyle("h1", parent=base["Title"], fontSize=17, alignment=0, spaceAfter=2)
+    h2 = ParagraphStyle("h2", parent=base["Heading2"], fontSize=11.5, spaceBefore=10, spaceAfter=3)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm, bottomMargin=1.8 * cm,
+        title=f"Reporte mensual {mes}", author="Sistema de Obras",
+    )
+    av, di = c["avance"], c["diarios"]
+    historia = [
+        _p(f"Reporte mensual · {mes}", h1),
+        _p(reporte.obra.nombre, normal),
+        _p(f"Supervisor: {reporte.supervisor} · Periodo: {c['periodo']['inicio']} – {c['periodo']['corte']} · "
+           f"Estado: {estado}", suave),
+        _p(("Cifras congeladas al aprobarse" if congelado else "Cifras calculadas") + f" el {c['generado']}.", suave),
+        Spacer(1, 8),
+    ]
+    pct = lambda v: f"{v} %" if v else "—"  # noqa: E731
+    historia.append(_tabla([
+        ["Avance real al corte", pct(av["corte"]), "Avance en el mes", pct(av["mes"])],
+        ["Programado al corte", pct(av["programado"]), "Desviación", av["texto"] or "—"],
+        ["Reportes diarios", f"{di['total']} de {c['periodo']['dias']} días", "Aprobados", str(di["aprobados"])],
+    ], [3.6 * cm, 4.9 * cm, 3.6 * cm, 4.9 * cm]))
+
+    if c["advertencias"]:
+        historia += [_p("Advertencias", h2)] + [_p(f"• {a}", normal) for a in c["advertencias"]]
+
+    historia += [_p("Resumen del mes", h2), _p(reporte.resumen or "—", normal)]
+    if reporte.observaciones:
+        historia += [_p("Observaciones", h2), _p(reporte.observaciones, normal)]
+
+    if di["filas"]:
+        historia.append(_p("Reportes diarios del periodo", h2))
+        filas = [["Fecha", "Avance", "Estatus"]] + [[d["fecha"], f"{d['avance']} %", d["estatus"]] for d in di["filas"]]
+        historia.append(_tabla(filas, [5 * cm, 4 * cm, 8 * cm], encabezado=True, derecha=(1,)))
+        if di["fechas_sin_reporte"]:
+            historia.append(_p("Días sin reporte: " + ", ".join(di["fechas_sin_reporte"]), suave))
+    if c["clima"]:
+        historia.append(_p("Clima: " + ", ".join(f"{n} ({k})" for n, k in c["clima"]), suave))
+
+    for titulo, clave in (("Incidencias", "incidencias"), ("Incidentes de seguridad", "seguridad")):
+        if c[clave]:
+            historia.append(_p(titulo, h2))
+            historia += [_p(f"{i['fecha']} · {i['texto']}", normal) for i in c[clave]]
+
+    est = c["estimaciones"]
+    historia.append(_p("Estimaciones", h2))
+    if est:
+        if est["filas"]:
+            filas = [["Folio", "Corte", "Subtotal", "Estatus"]] + [
+                [e["folio"], e["corte"], e["subtotal"], e["estatus"]] for e in est["filas"]]
+            historia.append(_tabla(filas, [4.5 * cm, 3.5 * cm, 4.5 * cm, 4.5 * cm], encabezado=True, derecha=(2,)))
+            historia.append(Spacer(1, 4))
+        resumen = [["Aprobado en el mes", est["aprobado_mes"]], ["Acumulado aprobado al corte", est["acumulado"]],
+                   ["Monto del contrato", est["monto"]]]
+        if est["avance_financiero"]:
+            resumen.append(["Avance financiero", f"{est['avance_financiero']} %"])
+        historia.append(_tabla(resumen, [10 * cm, 7 * cm], derecha=(1,)))
+    else:
+        historia.append(_p("La obra no tiene contrato registrado.", suave))
+
+    bt = c["bitacora"]
+    historia.append(_p("Bitácora del periodo", h2))
+    if bt["filas"]:
+        filas = [["Folio", "Tipo", "Nota", "Firma"]] + [
+            [str(n["folio"]), n["tipo"], _p(n["texto"], normal), n["estado"]] for n in bt["filas"]]
+        historia.append(_tabla(filas, [1.5 * cm, 2.8 * cm, 10.2 * cm, 2.5 * cm], encabezado=True))
+    else:
+        historia.append(_p("Sin notas de bitácora en el periodo.", suave))
+
+    historia.append(_p("Revisión", h2))
+    for v in validaciones:
+        rol = {"Superintendente Contratista": "Superintendente"}.get(v.rol_validador, v.rol_validador)
+        linea = f"{v.estatus.nombre} · {rol} · {v.usuario_validador} · {v.fecha_validacion:%d/%m/%Y %H:%M}"
+        historia.append(_p(linea + (f"\n{v.comentarios}" if v.comentarios else ""), normal))
+    if not validaciones:
         historia.append(_p("Todavía no ha sido revisado.", suave))
 
     doc.build(historia)

@@ -1,7 +1,7 @@
 import logging
 
 from .cuentas import puede_administrar_cuentas
-from . import bitacora
+from . import bitacora, mensuales
 from .reportes import pendientes_de
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,8 @@ def navegacion(request):
     try:
         revisar, corregir = pendientes_de(usuario)
         notas_firmar, notas_corregir = bitacora.pendientes_de(usuario)
-        n = len(revisar) + len(corregir) + len(notas_firmar) + len(notas_corregir)
+        mens_revisar, mens_corregir = mensuales.pendientes_de(usuario)
+        n = sum(map(len, (revisar, corregir, notas_firmar, notas_corregir, mens_revisar, mens_corregir)))
     except Exception:  # noqa: BLE001 - el menú nunca debe tumbar una página
         logger.exception("No se pudo contar los pendientes")
         n = 0

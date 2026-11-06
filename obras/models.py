@@ -375,14 +375,22 @@ class ProgramaObra(models.Model):
 
 
 class ReporteMensual(models.Model):
+    """
+    Reporte mensual (CU-04). Mismo flujo que el diario (ver obras/mensuales.py).
+    `consolidado` guarda las cifras del mes al aprobarse; mientras es NULL se calculan al vuelo.
+    """
     id = pk_uuid()
     obra = models.ForeignKey(Obra, on_delete=models.CASCADE)
     supervisor = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     anio = models.SmallIntegerField()
     mes = models.SmallIntegerField()
     fecha_corte = models.DateField()
+    resumen = models.TextField(null=True, blank=True)
     observaciones = models.TextField(null=True, blank=True)
+    estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT, db_default=1)
+    consolidado = models.JSONField(null=True, blank=True, editable=False)
     fecha_registro = fecha_auto()
+    fecha_modificacion = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         managed = False
@@ -527,3 +535,19 @@ class ValidacionReporteDiario(models.Model):
         db_table = "validaciones_reportes_diarios"
         verbose_name = "Validación de reporte diario"
         verbose_name_plural = "Validaciones de reportes diarios"
+
+
+class ValidacionReporteMensual(models.Model):
+    id = pk_uuid()
+    reporte_mensual = models.ForeignKey(ReporteMensual, on_delete=models.CASCADE, related_name="validaciones")
+    usuario_validador = models.ForeignKey(Usuario, on_delete=models.PROTECT)
+    rol_validador = models.CharField(max_length=40)
+    estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT)
+    fecha_validacion = fecha_auto()
+    comentarios = models.TextField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = "validaciones_reportes_mensuales"
+        verbose_name = "Validación de reporte mensual"
+        verbose_name_plural = "Validaciones de reportes mensuales"

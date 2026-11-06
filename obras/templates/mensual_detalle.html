@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Reporte mensual {{ mes }} · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<p><a href="{% url 'mensuales_lista' obra.pk %}">← Reportes mensuales</a></p>
+<h1>Reporte mensual · {{ mes }}
+  <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
+<p class="suave">{{ obra.nombre }} · Supervisor: {{ reporte.supervisor }} · Corte: {{ reporte.fecha_corte|date:"d/m/Y" }}
+  {% if reporte.fecha_modificacion %} · editado el {{ reporte.fecha_modificacion|date:"d/m/Y H:i" }}{% endif %}</p>
+<p><strong>{{ estado }}</strong></p>
+<p class="acciones">
+  {% if puede_editar %}<a href="{% url 'mensual_editar' obra.pk reporte.pk %}">{% if es_borrador %}Editar y enviar a revisión{% else %}Editar reporte{% endif %}</a>{% endif %}
+  <a href="{% url 'mensual_pdf' obra.pk reporte.pk %}" target="_blank">Descargar PDF</a>
+</p>
+<p class="suave">{% if congelado %}Cifras congeladas al aprobarse ({{ c.generado }}): no cambian aunque se corrija un diario.{% else %}Cifras calculadas al momento ({{ c.generado }}); se congelan al aprobarse.{% endif %}</p>
+
+<div class="tarjeta"><h2>Resumen del mes</h2><div class="texto">{{ reporte.resumen|default:"—" }}</div></div>
+{% if reporte.observaciones %}<div class="tarjeta"><h2>Observaciones</h2><div class="texto">{{ reporte.observaciones }}</div></div>{% endif %}
+
+{% include "_mensual_consolidado.html" %}
+
+<div class="tarjeta">
+  <h2>Revisión</h2>
+  {% if not es_borrador %}
+  <p>{% for rol, d in decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente" }}</span>{% endfor %}</p>
+  {% else %}<p class="suave">Borrador: todavía no se envía a revisión.</p>{% endif %}
+  {% for v in validaciones %}
+    <p><span class="chip" data-e="{{ v.estatus.nombre }}">{{ v.estatus.nombre }}</span>
+       <span class="suave">{{ v.rol_validador }} ·</span> {{ v.usuario_validador }} · <span class="suave">{{ v.fecha_validacion|date:"d/m/Y H:i" }}</span>
+       {% if v.comentarios %}<br><span class="texto">{{ v.comentarios }}</span>{% endif %}</p>
+  {% empty %}
+    {% if not es_borrador %}<p class="suave">Todavía no ha sido revisado.</p>{% endif %}
+  {% endfor %}
+  {% if puede_validar %}
+    <hr style="border:none;border-top:1px solid var(--borde);margin:14px 0">
+    {% if es_admin %}<p class="suave">Como administrador puedes corregir la decisión de cualquiera de los dos, o regresarla a Pendiente.</p>{% endif %}
+    <form method="post" action="{% url 'mensual_validar' obra.pk reporte.pk %}" class="formulario"
+          onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de estatus?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
+      {% csrf_token %}
+      {{ form_validacion.as_p }}
+      <button type="submit">Registrar revisión</button>
+    </form>
+  {% elif revision_bloqueada %}
+    <p class="suave">Ya no puedes decidir sobre este reporte. Si hay un error, pide al administrador que lo corrija.</p>
+  {% endif %}
+</div>
+{% endblock %}
