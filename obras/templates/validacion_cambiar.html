@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block titulo %}Cambiar estatus · {{ nombre }} · {{ reporte.obra.nombre }}{% endblock %}
+{% block titulo %}Cambiar estatus · {{ nombre }} · {{ obra_r.nombre }}{% endblock %}
 {% block contenido %}
 <div class="encabezado">
   <div>
     <nav class="migas" aria-label="Ruta"><a href="{% url 'validaciones' %}?tipo={{ tipo }}">Validaciones</a><span aria-hidden="true">/</span><span>{{ tipo_nombre }}</span></nav>
-    <div class="eyebrow">{{ reporte.obra.nombre }}</div>
+    <div class="eyebrow">{{ obra_r.nombre }}</div>
     <h1>{{ nombre }} <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
-    <p class="sub"><span>Supervisor: {{ reporte.supervisor }}</span></p>
+    <p class="sub"><span>{% if tipo == "estimaciones" %}Superintendente{% else %}Supervisor{% endif %}: {{ autor }}</span></p>
   </div>
   <div class="acciones"><a class="boton secundario" href="{{ url_reporte }}">Ver el reporte</a></div>
 </div>
@@ -22,7 +22,7 @@
       {{ form.as_p }}
       <div class="pie-form"><button type="submit">Registrar cambio</button><a class="boton secundario" href="{% url 'validaciones' %}?tipo={{ tipo }}">Cancelar</a></div>
     </form>
-    <p class="nota-ayuda">El contenido del reporte no cambia. El estatus general se recalcula con las decisiones de los dos roles: con una aprobación queda «En revisión», con las dos «Aprobado» y con un rechazo «Rechazado».</p>
+    <p class="nota-ayuda">{% if tipo == "estimaciones" %}La estimación no cambia. Su estatus se recalcula: aprobada por el Supervisor queda «En revisión»; aprobada también por el Residente, «Aprobado»; con observaciones del Supervisor o un rechazo, regresa al Superintendente.{% else %}El contenido del reporte no cambia. El estatus general se recalcula con las decisiones de los dos roles: con una aprobación queda «En revisión», con las dos «Aprobado» y con un rechazo «Rechazado».{% endif %}</p>
   </div>
   <div class="tarjeta">
     <h2>Historial de validaciones</h2>

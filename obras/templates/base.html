@@ -136,6 +136,7 @@
                border-bottom:1px solid var(--borde); white-space:nowrap; }
     tfoot th, tfoot td { border-top:2px solid var(--borde-fuerte); border-bottom:none; color:var(--texto); font-weight:600; }
     td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    td.num { white-space:nowrap; }
     .tabla-scroll { overflow-x:auto; }
     .tabla-lista { padding:0; overflow:hidden; }
     .tabla-lista table { min-width:560px; }
@@ -188,6 +189,8 @@
     .formulario.ancho { max-width:none; }
     .formulario p { display:flex; flex-direction:column; gap:5px; margin:0 0 16px; }
     .formulario label { font-weight:500; font-size:.9rem; }
+    .formulario .campo { display:flex; flex-direction:column; gap:5px; margin:0 0 16px; min-width:0; }
+    .formulario .campo .helptext { order:3; }
     .formulario input:not([type=checkbox]):not([type=radio]), .formulario select, .formulario textarea { width:100%; }
     .formulario .helptext { color:var(--tenue); font-size:.82rem; }
     .formulario input[type=checkbox] { width:auto; }

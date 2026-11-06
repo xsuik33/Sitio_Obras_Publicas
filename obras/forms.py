@@ -12,7 +12,8 @@ from . import reportes
 from .cuentas import ROLES_CUENTA
 from .mensuales import MESES
 from .models import (
-    CatalogoEstatusValidacion, CatalogoTipoNota, NotaBitacora, Obra, ReporteDiario, ReporteMensual, Rol, Usuario,
+    CatalogoEstatusValidacion, CatalogoTipoNota, Estimacion, NotaBitacora, Obra, ReporteDiario, ReporteMensual, Rol,
+    Usuario,
 )
 
 
@@ -405,3 +406,129 @@ class BaseConceptoFormSet(forms.BaseFormSet):
             if clave in vistas:
                 form.add_error("clave", f"La clave «{datos['clave']}» ya existe en el catálogo. Usa otra.")
             vistas.add(clave)
+
+
+# ---------------------------------------------------------------------------
+# Estimaciones (CU-02, CU-05, CU-08)
+# ---------------------------------------------------------------------------
+
+class EstimacionForm(forms.ModelForm):
+    """Datos generales de la estimación; las cantidades por concepto se capturan en la tabla de la plantilla."""
+
+    class Meta:
+        model = Estimacion
+        fields = ("periodo_inicio", "fecha_corte", "observaciones", "atraso_no_imputable", "justificacion_atraso")
+        labels = {
+            "periodo_inicio": "Inicio del periodo",
+            "fecha_corte": "Fecha de corte",
+            "observaciones": "Observaciones",
+            "atraso_no_imputable": "El atraso no es imputable al contratista",
+            "justificacion_atraso": "Justificación del atraso",
+        }
+        help_texts = {
+            "fecha_corte": "El periodo no puede ser mayor a un mes (LOPSRM, art. 54).",
+            "atraso_no_imputable": "Márcalo solo si el atraso se debe a causas ajenas al contratista; no se aplicará la "
+                                   "retención por atraso y quedará a revisión del Supervisor y del Residente.",
+            "justificacion_atraso": "Explica la causa y adjunta su evidencia en los documentos de soporte.",
+        }
+        widgets = {
+            "periodo_inicio": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "fecha_corte": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "observaciones": forms.Textarea(attrs={"rows": 3}),
+            "justificacion_atraso": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, contrato=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contrato = contrato
+        if self.instance._state.adding and contrato is not None:
+            anterior = Estimacion.objects.filter(contrato=contrato).order_by("-numero_estimacion").first()
+            inicio = anterior.fecha_corte + timedelta(days=1) if anterior else (contrato.fecha_inicio or contrato.obra.fecha_inicio_oficial)
+            if inicio:
+                self.fields["periodo_inicio"].initial = inicio
+                self.fields["fecha_corte"].initial = min(
+                    inicio + timedelta(days=calendar.monthrange(inicio.year, inicio.month)[1] - 1), timezone.localdate())
+
+    def clean(self):
+        from . import estimaciones
+        datos = super().clean()
+        inicio, corte = datos.get("periodo_inicio"), datos.get("fecha_corte")
+        if inicio and corte:
+            if corte < inicio:
+                self.add_error("fecha_corte", "La fecha de corte no puede ser anterior al inicio del periodo.")
+            elif not estimaciones.periodo_valido(inicio, corte):
+                self.add_error("fecha_corte", "El periodo no puede ser mayor a un mes (LOPSRM, art. 54).")
+            previa = Estimacion.objects.filter(contrato=self.contrato, fecha_corte__gte=inicio)
+            if not self.instance._state.adding:
+                previa = previa.exclude(pk=self.instance.pk).filter(numero_estimacion__lt=self.instance.numero_estimacion)
+            previa = previa.order_by("-fecha_corte").first()
+            if previa:
+                self.add_error("periodo_inicio", f"Se traslapa con la {previa.folio}, que corta el {previa.fecha_corte:%d/%m/%Y}.")
+        if datos.get("atraso_no_imputable") and not (datos.get("justificacion_atraso") or "").strip():
+            self.add_error("justificacion_atraso", "Explica por qué el atraso no es imputable al contratista.")
+        if not datos.get("atraso_no_imputable"):
+            datos["justificacion_atraso"] = None
+        return datos
+
+
+class DecisionEstimacionForm(forms.Form):
+    """Decisión del Supervisor (aprobar, observaciones o rechazar) o del Residente (aprobar o rechazar)."""
+    rol = forms.ChoiceField(label="Decides como")
+    estatus = forms.ModelChoiceField(label="Resultado", queryset=CatalogoEstatusValidacion.objects.none(),
+                                     empty_label="Elige el resultado")
+    comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, es_admin=False, roles=(), **kwargs):
+        from . import estimaciones
+        super().__init__(*args, **kwargs)
+        self.es_admin = es_admin
+        self.fields["rol"].choices = [(r, r) for r in roles]
+        if es_admin:
+            nombres = ("Pendiente", "Aprobado", estimaciones.OBSERVACIONES, "Rechazado")
+            self.fields["comentarios"].label = "Motivo del cambio"
+            self.fields["comentarios"].required = True
+        else:
+            nombres = sorted({n for r in roles for n in estimaciones.OPCIONES[r]},
+                             key=("Aprobado", estimaciones.OBSERVACIONES, "Rechazado").index)
+        orden = {n: i for i, n in enumerate(nombres)}
+        self.fields["estatus"].queryset = CatalogoEstatusValidacion.objects.filter(nombre__in=nombres)
+        self.fields["estatus"].label_from_instance = lambda e: {"Aprobado": "Aprobar", "Rechazado": "Rechazar",
+                                                                 estimaciones.OBSERVACIONES: "Regresar con observaciones",
+                                                                 "Pendiente": "Regresar a Pendiente"}[e.nombre]
+        self.orden = orden
+
+    def clean(self):
+        from . import estimaciones
+        datos = super().clean()
+        rol, estatus = datos.get("rol"), datos.get("estatus")
+        comentarios = (datos.get("comentarios") or "").strip()
+        if rol and estatus and estatus.nombre == estimaciones.OBSERVACIONES and rol != estimaciones.ROL_SUPERVISOR:
+            self.add_error("estatus", "Solo el Supervisor puede regresarla con observaciones.")
+        if self.es_admin and not comentarios:
+            self.add_error("comentarios", "Escribe el motivo del cambio; queda en el historial.")
+        elif estatus and estatus.nombre in ("Rechazado", estimaciones.OBSERVACIONES) and not comentarios:
+            self.add_error("comentarios", "Explica qué debe corregirse.")
+        datos["comentarios"] = comentarios
+        return datos
+
+
+class DocumentoForm(forms.Form):
+    archivo = forms.FileField(label="Archivo")
+    categoria = forms.ChoiceField(label="Tipo de documento")
+    nombre = forms.CharField(label="Nombre", required=False, max_length=255,
+                             help_text="Si lo dejas vacío se usa el nombre del archivo.")
+    descripcion = forms.CharField(label="Descripción", required=False, widget=forms.Textarea(attrs={"rows": 2}))
+
+    def __init__(self, *args, categorias=None, **kwargs):
+        from .documentos import ACEPTA, FORMATOS_LEGIBLES, max_mb
+        super().__init__(*args, **kwargs)
+        from .models import Documento
+        self.fields["categoria"].choices = categorias or Documento.CATEGORIAS
+        self.fields["archivo"].widget.attrs["accept"] = ACEPTA
+        self.fields["archivo"].help_text = f"{FORMATOS_LEGIBLES}; hasta {max_mb()} MB."
+
+    def clean_archivo(self):
+        from .documentos import validar
+        archivo = self.cleaned_data["archivo"]
+        validar(archivo)
+        return archivo

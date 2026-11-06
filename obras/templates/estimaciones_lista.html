@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Estimaciones · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
+    <h1>Estimaciones</h1>
+    <p class="sub">{% if contrato %}<span class="mono">{{ contrato.numero_contrato }}</span>{% endif %}<span>Las crea el Superintendente; las revisa el Supervisor y las valida el Residente</span></p>
+  </div>
+  {% if puede_crear and not abierta and not catalogo_vacio %}<div class="acciones"><a class="boton" href="{% url 'estimacion_nueva' obra.pk %}">+ Nueva estimación</a></div>{% endif %}
+</div>
+{% if not contrato %}<div class="mensaje warning">La obra todavía no tiene contrato registrado.</div>
+{% elif catalogo_vacio %}<div class="mensaje warning">El catálogo de conceptos está vacío; se necesita para estimar. <a href="{% url 'catalogo_ver' obra.pk %}">Ver catálogo</a></div>
+{% elif abierta and puede_crear %}<div class="mensaje info">La <a href="{% url 'estimacion_detalle' obra.pk abierta.pk %}">{{ abierta.folio }}</a> sigue abierta; la siguiente se podrá crear cuando quede aprobada.</div>{% endif %}
+
+<div class="tarjeta tabla-lista"><div class="tabla-scroll">
+  <table style="min-width:760px">
+    <thead><tr><th>Folio</th><th>Periodo</th><th class="num">Importe</th><th class="num">Neto a pagar</th><th>Estatus</th><th>Revisión</th></tr></thead>
+    <tbody>
+    {% for e, estado in filas %}
+      <tr>
+        <td><a class="principal mono" href="{% url 'estimacion_detalle' obra.pk e.pk %}">{{ e.folio }}</a></td>
+        <td style="white-space:nowrap">{{ e.periodo_inicio|date:"d/m/y" }} – {{ e.fecha_corte|date:"d/m/y" }}</td>
+        <td class="num">$ {{ e.subtotal|floatformat:"2g" }}</td>
+        <td class="num">$ {{ e.monto_neto|floatformat:"2g" }}</td>
+        <td><span class="chip" data-e="{{ e.estatus.nombre }}">{{ e.estatus.nombre }}</span></td>
+        <td class="tenue">{{ estado }}</td>
+      </tr>
+    {% empty %}
+      <tr class="fila-vacia"><td colspan="6">Todavía no hay estimaciones en esta obra.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

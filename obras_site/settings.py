@@ -118,6 +118,7 @@ STORAGES = {
 }
 EVIDENCIA_MAX_MB = 10  # tamaño máximo por archivo
 EVIDENCIA_MAX_ARCHIVOS = 10  # por envío
+DOCUMENTO_MAX_MB = 20  # documentos de la obra y de estimaciones (CU-11)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

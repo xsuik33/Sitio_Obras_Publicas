@@ -127,6 +127,9 @@
   <a class="tarjeta modulo" href="{% url 'catalogo_ver' obra.pk %}">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
     <span><span class="n">{{ x.catalogo.datos.n|default:"0" }}</span><br><span class="l">Conceptos</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'estimaciones_lista' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>
+    <span><span class="n">{{ x.estimaciones.datos.lista|length|default:"0" }}</span><br><span class="l">Estimaciones</span></span></a>
   <a class="tarjeta modulo" href="{% url 'reportes_lista' obra.pk %}">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16"/></svg></span>
     <span><span class="n">{{ x.diarios.datos.n|default:"0" }}</span><br><span class="l">Reportes diarios</span></span></a>
@@ -167,14 +170,14 @@
 
   {# Estimaciones #}
   <div class="tarjeta">
-    <div class="titulo-sec"><h2>Estimaciones</h2></div>
+    <div class="titulo-sec"><h2>Estimaciones</h2><a href="{% url 'estimaciones_lista' obra.pk %}">Ver todas →</a></div>
     {% if not x.estimaciones.ok %}<div class="falla">No se pudieron cargar las estimaciones. <a href="">Reintentar</a></div>
     {% elif x.estimaciones.datos.lista %}
       <div class="conteos">{% for e, n in x.estimaciones.datos.conteo.items %}<span class="chip" data-e="{{ e }}">{{ e }}: {{ n }}</span>{% endfor %}</div>
       <div class="tabla-scroll"><table>
-        <thead><tr><th>Núm.</th><th>Periodo</th><th class="num">Subtotal</th><th>Estatus</th></tr></thead>
+        <thead><tr><th>Folio</th><th>Periodo</th><th class="num">Importe</th><th>Estatus</th></tr></thead>
         <tbody>{% for e in x.estimaciones.datos.lista %}
-          <tr><td>{{ e.numero_estimacion }}<br><span class="tenue">{{ e.tipo }}</span></td>
+          <tr><td><a class="mono principal" href="{% url 'estimacion_detalle' obra.pk e.pk %}">{{ e.folio }}</a></td>
               <td>{{ e.periodo_inicio|date:"d/m/y" }} – {{ e.fecha_corte|date:"d/m/y" }}</td>
               <td class="num">$ {{ e.subtotal|floatformat:"2g" }}</td>
               <td><span class="chip" data-e="{{ e.estatus.nombre }}">{{ e.estatus.nombre }}</span></td></tr>

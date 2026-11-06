@@ -180,6 +180,11 @@ class Contrato(models.Model):
         output_field=DecimalField(max_digits=15, decimal_places=2),
         db_persist=True,
     )
+    # Retención económica por atraso (LOPSRM art. 46 Bis) y garantías (art. 48).
+    porcentaje_retencion_atraso = models.DecimalField(max_digits=5, decimal_places=2, db_default=5)
+    monto_garantia_cumplimiento = dinero(null=True, blank=True)
+    numero_fianza = models.CharField(max_length=100, null=True, blank=True)
+    afianzadora = models.CharField(max_length=255, null=True, blank=True)
     fecha_registro = fecha_auto()
 
     class Meta:
@@ -256,7 +261,7 @@ class Estimacion(models.Model):
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT)
     superintendente = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     numero_estimacion = models.IntegerField()
-    folio = models.CharField(max_length=50, unique=True)
+    folio = models.CharField(max_length=50)  # EST-001… único por contrato
     tipo = models.CharField(max_length=20, choices=TIPOS, db_default="Ordinaria")
     periodo_inicio = models.DateField()
     fecha_corte = models.DateField()
@@ -266,8 +271,15 @@ class Estimacion(models.Model):
     retencion = dinero(db_default=0, editable=False)
     iva = dinero(db_default=0, editable=False)
     monto_neto = dinero(db_default=0, editable=False)
+    retencion_atraso = dinero(db_default=0)  # LOPSRM 46 Bis / Reglamento 88
+    devolucion_retencion = dinero(db_default=0)
+    dias_atraso = models.IntegerField(null=True, blank=True)
+    atraso_no_imputable = models.BooleanField(db_default=False)
+    justificacion_atraso = models.TextField(null=True, blank=True)
     estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT, db_default=1)
     observaciones = models.TextField(null=True, blank=True)
+    fecha_envio = models.DateTimeField(null=True, blank=True)
+    fecha_modificacion = models.DateTimeField(null=True, blank=True)
     fecha_registro = fecha_auto()
 
     class Meta:
@@ -316,6 +328,7 @@ class EstimacionDetalle(models.Model):
     es_excedente = models.BooleanField(db_default=False, editable=False)
     numero_generador = models.CharField(max_length=50, null=True, blank=True)
     observaciones = models.TextField(null=True, blank=True)
+    nota_bitacora = models.ForeignKey("NotaBitacora", on_delete=models.PROTECT, null=True, blank=True)  # orden del excedente
 
     class Meta:
         managed = False
@@ -491,6 +504,10 @@ class Documento(models.Model):
     tipo_archivo = models.CharField(max_length=50, null=True, blank=True)
     descripcion = models.TextField(null=True, blank=True)
     fecha_subida = fecha_auto()
+    CATEGORIAS = [(c, c) for c in ("Contrato", "Reporte", "Documento técnico", "Plano", "Fotografía", "Factura",
+                                   "Números generadores", "Croquis", "Prueba de laboratorio", "Otro")]
+    categoria = models.CharField(max_length=40, choices=CATEGORIAS, db_default="Otro")
+    estimacion = models.ForeignKey(Estimacion, on_delete=models.CASCADE, null=True, blank=True, related_name="documentos")
 
     class Meta:
         managed = False
@@ -529,6 +546,7 @@ class ValidacionEstimacion(models.Model):
     estatus = models.ForeignKey(CatalogoEstatusValidacion, on_delete=models.PROTECT)
     fecha_validacion = fecha_auto()
     comentarios = models.TextField(null=True, blank=True)
+    rol_validador = models.CharField(max_length=40, null=True, blank=True)  # Supervisor o Residente
 
     class Meta:
         managed = False

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block titulo %}{{ est.folio }} · {{ obra.nombre }}{% endblock %}
+{% block estilos %}
+    .desglose td, .desglose th { padding:8px 10px; }
+    .desglose tr.total td, .desglose tr.total th { border-top:2px solid var(--borde-fuerte); font-weight:700; color:var(--texto); font-size:1.02rem; }
+    .desglose .resta { color:var(--suave); }
+    .faltantes { margin:0; padding-left:20px; }
+    .faltantes li { margin:3px 0; }
+    .plazo { display:flex; flex-wrap:wrap; gap:6px 22px; font-size:.88rem; color:var(--suave); }
+    .plazo strong { color:var(--texto); }
+{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'estimaciones_lista' obra.pk %}">Estimaciones</a></nav>
+    <div class="eyebrow">Estimación · trabajos ejecutados</div>
+    <h1><span class="mono">{{ est.folio }}</span> <span class="chip" data-e="{{ est.estatus.nombre }}">{{ est.estatus.nombre }}</span></h1>
+    <p class="sub"><span>Periodo {{ est.periodo_inicio|date:"d M Y" }} – {{ est.fecha_corte|date:"d M Y" }}</span><span>Superintendente: {{ est.superintendente }}</span><span class="mono">{{ contrato.numero_contrato }}</span></p>
+  </div>
+  {% if puede_editar %}<div class="acciones"><a class="boton secundario" href="{% url 'estimacion_editar' obra.pk est.pk %}">Editar estimación</a></div>{% endif %}
+</div>
+
+<div class="estado" data-e="{{ est.estatus.nombre }}"><span><strong>{{ estado }}</strong><br>
+  <span class="plazo">
+    {% if plazos.presentada %}
+      <span>Presentada el <strong>{{ plazos.presentada|date:"d/m/Y" }}</strong>{% if plazos.dias_tarde %} · <span class="atraso">{{ plazos.dias_tarde }} día{{ plazos.dias_tarde|pluralize }} después del plazo</span>{% else %} · a tiempo{% endif %}</span>
+      {% if en_validacion %}<span>Revisión: vence el <strong>{{ plazos.limite_revision|date:"d/m/Y" }}</strong>{% if plazos.vencida %} · <span class="atraso">vencida hace {{ plazos.dias_restantes|stringformat:"d"|slice:"1:" }} día(s)</span>{% else %} · quedan {{ plazos.dias_restantes }} día{{ plazos.dias_restantes|pluralize }}{% endif %}</span>{% endif %}
+    {% else %}
+      <span>Debe presentarse a más tardar el <strong>{{ plazos.limite_presentacion|date:"d/m/Y" }}</strong> (6 días naturales tras el corte){% if plazos.dias_restantes < 0 %} · <span class="atraso">plazo vencido</span>{% endif %}</span>
+    {% endif %}
+  </span></span></div>
+
+{% if puede_editar %}
+<div class="tarjeta" style="border-left:4px solid {% if faltantes %}var(--aviso){% else %}var(--ok){% endif %}">
+  <div class="titulo-sec"><h2>{% if faltantes %}Antes de enviarla{% else %}Lista para enviar{% endif %}</h2></div>
+  {% if faltantes %}<ul class="faltantes">{% for f in faltantes %}<li>{{ f }}</li>{% endfor %}</ul>
+  {% else %}<p class="suave" style="margin:0 0 12px">Al enviarla se avisa al Supervisor y sus volúmenes quedan bloqueados mientras está en validación.</p>
+    <form method="post" action="{% url 'estimacion_enviar' obra.pk est.pk %}" onsubmit="return confirm('¿Enviar {{ est.folio }} a revisión del Supervisor?');">
+      {% csrf_token %}<button type="submit">Enviar a revisión</button></form>{% endif %}
+</div>
+{% endif %}
+
+<div class="grid kpis" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+  <div class="tarjeta kpi"><div class="etiqueta">Importe de la estimación</div><div class="dato">$ {{ est.subtotal|floatformat:"2g" }}</div><div class="nota">Antes de IVA</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Neto a pagar</div><div class="dato">$ {{ est.monto_neto|floatformat:"2g" }}</div><div class="nota">Con IVA y deducciones</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Avance financiero acumulado</div><div class="dato">{% if avance.pct_financiero is not None %}{{ avance.pct_financiero }} %{% else %}—{% endif %}</div><div class="nota">$ {{ avance.acumulado|floatformat:"2g" }} del contrato</div></div>
+  <div class="tarjeta kpi"><div class="etiqueta">Avance físico al corte</div><div class="dato">{% if avance.real is not None %}{{ avance.real }} %{% else %}—{% endif %}</div>
+    <div class="nota">{% if avance.programado is not None %}Programado {{ avance.programado }} %{% if avance.dias_atraso %} · <span class="atraso">{{ avance.dias_atraso }} día{{ avance.dias_atraso|pluralize }} de atraso</span>{% endif %}{% else %}Sin programa de obra{% endif %}</div></div>
+</div>
+
+<div class="columnas">
+  <div>
+    <div class="tarjeta tabla-lista">
+      <div class="titulo-sec" style="padding:16px 20px 0"><h2>Conceptos estimados</h2><span class="tenue">{{ renglones|length }}</span></div>
+      <div class="tabla-scroll"><table style="min-width:640px">
+        <thead><tr><th>Clave</th><th>Concepto</th><th class="num">Cantidad</th><th class="num">Acumulado</th><th class="num">P. U.</th><th class="num">Importe</th></tr></thead>
+        <tbody>
+        {% for r in renglones %}
+          <tr{% if r.es_excedente %} style="background:var(--aviso-suave)"{% endif %}>
+            <td class="mono principal">{{ r.concepto.clave }}</td>
+            <td>{{ r.concepto.descripcion|truncatechars:70 }}<br><span class="tenue">{{ r.concepto.unidad_medida }}{% if r.es_excedente %} · <strong style="color:var(--aviso)">Excedente</strong>{% if r.nota_bitacora %} · autorizado en <a href="{% url 'nota_detalle' obra.pk r.nota_bitacora.pk %}">nota {{ r.nota_bitacora.folio }}</a>{% endif %}{% endif %}</span></td>
+            <td class="num">{{ r.cantidad_ejecutada|floatformat:"-4g" }}</td>
+            <td class="num">{{ r.cantidad_acumulada|floatformat:"-4g" }} <span class="tenue">/ {{ r.concepto.volumen_total_contratado|floatformat:"-4g" }}</span></td>
+            <td class="num">{{ r.precio_unitario|floatformat:"2g" }}</td>
+            <td class="num">{{ r.importe|floatformat:"2g" }}</td>
+          </tr>
+        {% empty %}<tr class="fila-vacia"><td colspan="6">Sin conceptos capturados.</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+
+    {% if est.atraso_no_imputable or est.observaciones %}
+    <div class="tarjeta">
+      {% if est.atraso_no_imputable %}<h2>Atraso no imputable al contratista</h2><div class="texto lectura">{{ est.justificacion_atraso }}</div>
+        <p class="tenue" style="margin:8px 0 0">Por esta justificación no se aplicó retención por atraso. El Supervisor y el Residente la revisan.</p>{% endif %}
+      {% if est.observaciones %}<h2{% if est.atraso_no_imputable %} style="margin-top:16px"{% endif %}>Observaciones</h2><div class="texto lectura">{{ est.observaciones }}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="tarjeta">
+      <div class="titulo-sec"><h2>Documentos de soporte</h2><span class="tenue">Reglamento LOPSRM, art. 132</span></div>
+      <ul class="lista">
+      {% for d in documentos %}
+        <li><span><a href="{% url 'documento_ver' obra.pk d.pk %}">{{ d.nombre_archivo }}</a><br><span class="sub">{{ d.usuario_subida }} · {{ d.fecha_subida|date:"d M Y" }}{% if d.descripcion %} · {{ d.descripcion }}{% endif %}</span></span>
+          <span class="acciones"><span class="chip rol">{{ d.categoria }}</span>
+            {% if puede_editar %}<form method="post" action="{% url 'documento_borrar' obra.pk d.pk %}" onsubmit="return confirm('¿Quitar este documento?');">{% csrf_token %}<button type="submit" class="enlace" style="color:var(--error)">Quitar</button></form>{% endif %}</span></li>
+      {% empty %}<li class="vacio-sec">Sin documentos.{% if puede_editar %} Los números generadores son obligatorios para enviarla.{% endif %}</li>{% endfor %}
+      </ul>
+      {% if form_documento %}
+      <hr class="separador">
+      <form method="post" enctype="multipart/form-data" action="{% url 'estimacion_documento_subir' obra.pk est.pk %}" class="formulario ancho">
+        {% csrf_token %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+          <div class="campo">{{ form_documento.archivo.as_field_group }}</div>
+          <div class="campo">{{ form_documento.categoria.as_field_group }}</div>
+        </div>
+        <div class="campo">{{ form_documento.descripcion.as_field_group }}</div>
+        <button type="submit" class="secundario">Subir documento</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="tarjeta">
+      <h2>Importes</h2>
+      <table class="desglose">
+        <tr><th>Importe de los trabajos</th><td class="num">$ {{ est.subtotal|floatformat:"2g" }}</td></tr>
+        <tr><th>Amortización del anticipo ({{ contrato.porcentaje_anticipo|floatformat:"-2" }} %)</th><td class="num resta">− $ {{ est.amortizacion_anticipo|floatformat:"2g" }}</td></tr>
+        <tr><th>IVA ({{ contrato.porcentaje_iva|floatformat:"-2" }} %)</th><td class="num">+ $ {{ est.iva|floatformat:"2g" }}</td></tr>
+        <tr><th>Retención por derechos ({{ contrato.porcentaje_retencion|floatformat:"-2" }} %)</th><td class="num resta">− $ {{ est.retencion|floatformat:"2g" }}</td></tr>
+        {% if est.retencion_atraso %}<tr><th>Retención por atraso ({{ contrato.porcentaje_retencion_atraso|floatformat:"-2" }} % del importe atrasado)</th><td class="num atraso">− $ {{ est.retencion_atraso|floatformat:"2g" }}</td></tr>{% endif %}
+        {% if est.devolucion_retencion %}<tr><th>Devolución de retención por atraso</th><td class="num adelanto">+ $ {{ est.devolucion_retencion|floatformat:"2g" }}</td></tr>{% endif %}
+        <tr class="total"><th>Neto a pagar</th><td class="num">$ {{ est.monto_neto|floatformat:"2g" }}</td></tr>
+      </table>
+      <p class="tenue" style="margin:10px 0 0">La retención por atraso se calcula con el avance físico a la fecha de corte frente al programa y se devuelve si la obra se regulariza (LOPSRM, art. 46 Bis).</p>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Revisión</h2>
+      <div style="margin-bottom:14px">{% for rol, d in decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente"|lower }}</span>{% endfor %}</div>
+      <ul class="historial">
+      {% for v in historial %}
+        <li><div class="quien"><span class="chip" data-e="{{ v.estatus.nombre }}">{{ v.estatus.nombre }}</span> {{ v.usuario_validador }}{% if v.rol_validador %} <span class="tenue">· {{ v.rol_validador }}</span>{% endif %}</div>
+            <div class="cuando">{{ v.fecha_validacion|date:"d M Y, H:i" }}</div>
+            {% if v.comentarios %}<div class="texto">{{ v.comentarios }}</div>{% endif %}</li>
+      {% empty %}<li class="vacio-sec">Todavía no ha sido revisada.</li>{% endfor %}
+      </ul>
+      {% if puede_validar %}
+        <hr class="separador">
+        {% if es_admin %}<p class="nota-ayuda" style="margin:0 0 12px">Como administrador puedes cambiar la decisión del Supervisor o del Residente; el motivo es obligatorio.</p>{% endif %}
+        <form method="post" action="{% url 'estimacion_validar' obra.pk est.pk %}" class="formulario"
+              onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de estatus?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
+          {% csrf_token %}
+          {{ form_decision.as_p }}
+          <button type="submit">Registrar decisión</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

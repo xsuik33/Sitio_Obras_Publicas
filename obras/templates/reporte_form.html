@@ -12,7 +12,7 @@
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% for campo in form %}{% if campo.name != "notas" and campo.name != "atraso_causa" and campo.name != "atraso_solicitud" %}
-      <p>{{ campo.as_field_group }}</p>
+      <div class="campo">{{ campo.as_field_group }}</div>
     {% endif %}{% endfor %}
 
     <fieldset class="seccion-form">
@@ -30,8 +30,8 @@
       <legend>Atraso crítico</legend>
       <p class="helptext" style="margin:0 0 12px">Se pide cuando el avance real va {{ atraso_critico_dias }} día o más detrás del programa de obra. Documenta la causa y si solicitas reprogramación o retención.
         {% if dias_atraso is not None %}<br><strong>Con los datos guardados, este reporte va {{ dias_atraso }} día{{ dias_atraso|pluralize }} {% if dias_atraso %}atrasado{% else %}en tiempo{% endif %}.</strong>{% endif %}</p>
-      <p>{{ form.atraso_causa.as_field_group }}</p>
-      <p>{{ form.atraso_solicitud.as_field_group }}</p>
+      <div class="campo">{{ form.atraso_causa.as_field_group }}</div>
+      <div class="campo">{{ form.atraso_solicitud.as_field_group }}</div>
     </fieldset>
 
     <div class="pie-form">

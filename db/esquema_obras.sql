@@ -36,9 +36,15 @@ CREATE TABLE contratos (
   porcentaje_iva          NUMERIC(5,2)  NOT NULL DEFAULT 16 CHECK (porcentaje_iva BETWEEN 0 AND 100),
   porcentaje_retencion    NUMERIC(5,2)  NOT NULL DEFAULT 0  CHECK (porcentaje_retencion BETWEEN 0 AND 100),
   porcentaje_anticipo     NUMERIC(5,2)  NOT NULL DEFAULT 0  CHECK (porcentaje_anticipo BETWEEN 0 AND 100),
+  -- Retención económica por atraso (LOPSRM art. 46 Bis) y garantías (art. 48).
+  porcentaje_retencion_atraso NUMERIC(5,2) NOT NULL DEFAULT 5,
+  monto_garantia_cumplimiento NUMERIC(15,2),
+  numero_fianza           VARCHAR(100),
+  afianzadora             VARCHAR(255),
   monto_anticipo          NUMERIC(15,2) GENERATED ALWAYS AS
                             (ROUND(monto_total_contratado * porcentaje_anticipo / 100, 2)) STORED,
   fecha_registro          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_contratos_ret_atraso CHECK (porcentaje_retencion_atraso BETWEEN 0 AND 100),
   CONSTRAINT ck_contratos_fechas CHECK (
     fecha_inicio IS NULL OR fecha_fin IS NULL OR fecha_fin >= fecha_inicio)
 );
@@ -123,7 +129,7 @@ CREATE TABLE estimaciones (
   contrato_id            UUID NOT NULL REFERENCES contratos(id),
   superintendente_id     UUID NOT NULL REFERENCES usuarios(id),
   numero_estimacion      INTEGER NOT NULL CHECK (numero_estimacion > 0),
-  folio                  VARCHAR(50) NOT NULL UNIQUE,
+  folio                  VARCHAR(50) NOT NULL,          -- EST-001, EST-002… por contrato
   tipo                   VARCHAR(20) NOT NULL DEFAULT 'Ordinaria'
                            CHECK (tipo IN ('Ordinaria', 'Extraordinaria', 'Finiquito')),
   periodo_inicio         DATE NOT NULL,
@@ -134,10 +140,19 @@ CREATE TABLE estimaciones (
   retencion              NUMERIC(15,2) NOT NULL DEFAULT 0,
   iva                    NUMERIC(15,2) NOT NULL DEFAULT 0,
   monto_neto             NUMERIC(15,2) NOT NULL DEFAULT 0,
+  retencion_atraso       NUMERIC(15,2) NOT NULL DEFAULT 0,   -- LOPSRM 46 Bis / Reglamento 88
+  devolucion_retencion   NUMERIC(15,2) NOT NULL DEFAULT 0,
+  dias_atraso            INTEGER,
+  atraso_no_imputable    BOOLEAN NOT NULL DEFAULT false,
+  justificacion_atraso   TEXT,
   estatus_id             SMALLINT NOT NULL DEFAULT 1 REFERENCES catalogo_estatus_validacion(id),
   observaciones          TEXT,
+  fecha_envio            TIMESTAMPTZ,
+  fecha_modificacion     TIMESTAMPTZ,
   fecha_registro         TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_estimaciones_contrato_numero UNIQUE (contrato_id, numero_estimacion),
+  CONSTRAINT uq_estimaciones_contrato_folio UNIQUE (contrato_id, folio),
+  CONSTRAINT ck_estimaciones_retenciones CHECK (retencion_atraso >= 0 AND devolucion_retencion >= 0),
   CONSTRAINT ck_estimaciones_fechas CHECK (fecha_corte >= periodo_inicio)
 );
 
@@ -155,6 +170,7 @@ CREATE TABLE estimaciones_detalles (
   es_excedente                 BOOLEAN NOT NULL DEFAULT false,
   numero_generador             VARCHAR(50),
   observaciones                TEXT,
+  nota_bitacora_id             UUID,   -- orden escrita del excedente (Reglamento 118); FK más abajo
   CONSTRAINT uq_detalle_estimacion_concepto UNIQUE (estimacion_id, concepto_id)
 );
 
@@ -240,6 +256,9 @@ CREATE TABLE notas_bitacora (
   CONSTRAINT ck_nota_no_se_relaciona_consigo CHECK (nota_relacionada_id IS NULL OR nota_relacionada_id <> id)
 );
 
+ALTER TABLE estimaciones_detalles
+  ADD CONSTRAINT fk_detalle_nota_bitacora FOREIGN KEY (nota_bitacora_id) REFERENCES notas_bitacora(id);
+
 -- Notas de bitácora vinculadas a un reporte diario.
 CREATE TABLE reportes_diarios_notas (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -256,7 +275,12 @@ CREATE TABLE documentos (
   ruta_almacenamiento VARCHAR(500) NOT NULL,
   tipo_archivo        VARCHAR(50),
   descripcion         TEXT,
-  fecha_subida        TIMESTAMPTZ NOT NULL DEFAULT now()
+  fecha_subida        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  categoria           VARCHAR(40) NOT NULL DEFAULT 'Otro',
+  estimacion_id       UUID REFERENCES estimaciones(id) ON DELETE CASCADE,   -- soporte de una estimación
+  CONSTRAINT ck_documentos_categoria CHECK (categoria IN (
+    'Contrato', 'Reporte', 'Documento técnico', 'Plano', 'Fotografía', 'Factura', 'Números generadores',
+    'Croquis', 'Prueba de laboratorio', 'Otro'))
 );
 
 CREATE TABLE evidencias (
@@ -283,7 +307,8 @@ CREATE TABLE validaciones_estimaciones (
   usuario_validador_id  UUID NOT NULL REFERENCES usuarios(id),
   estatus_id            SMALLINT NOT NULL REFERENCES catalogo_estatus_validacion(id),
   fecha_validacion      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  comentarios           TEXT
+  comentarios           TEXT,
+  rol_validador         VARCHAR(40) CHECK (rol_validador IS NULL OR rol_validador IN ('Supervisor', 'Residente'))
 );
 
 CREATE TABLE validaciones_reportes_diarios (
@@ -351,6 +376,7 @@ CREATE INDEX ix_evidencias_rm             ON evidencias (reporte_mensual_id) WHE
 CREATE INDEX ix_evidencias_nb             ON evidencias (nota_bitacora_id)   WHERE nota_bitacora_id   IS NOT NULL;
 CREATE INDEX ix_evidencias_usuario        ON evidencias (usuario_subida_id);
 CREATE INDEX ix_rd_notas_nota             ON reportes_diarios_notas (nota_bitacora_id);
+CREATE INDEX ix_documentos_estimacion     ON documentos (estimacion_id) WHERE estimacion_id IS NOT NULL;
 CREATE INDEX ix_val_est_estimacion        ON validaciones_estimaciones (estimacion_id);
 CREATE INDEX ix_val_est_validador         ON validaciones_estimaciones (usuario_validador_id);
 CREATE INDEX ix_val_est_estatus           ON validaciones_estimaciones (estatus_id);
@@ -458,7 +484,8 @@ BEGIN
     FROM contratos WHERE id = NEW.contrato_id;
   NEW.retencion  := ROUND(NEW.subtotal * v_ret / 100, 2);
   NEW.iva        := ROUND((NEW.subtotal - NEW.amortizacion_anticipo) * v_iva / 100, 2);
-  NEW.monto_neto := NEW.subtotal - NEW.amortizacion_anticipo + NEW.iva - NEW.retencion;
+  NEW.monto_neto := NEW.subtotal - NEW.amortizacion_anticipo + NEW.iva - NEW.retencion
+                    - NEW.retencion_atraso + NEW.devolucion_retencion;
   RETURN NEW;
 END $$;
 
@@ -527,9 +554,10 @@ INSERT INTO catalogo_estatus_validacion (id, nombre, descripcion) VALUES
   (2, 'Aprobado', 'Revisado y aceptado'),
   (3, 'Rechazado', 'Revisado y devuelto con observaciones'),
   (4, 'En revisión', 'Revisión en curso'),
-  (5, 'Borrador', 'Guardado por su autor, aún no enviado a revisión');
+  (5, 'Borrador', 'Guardado por su autor, aún no enviado a revisión'),
+  (6, 'Con observaciones', 'Regresado a su autor para corregir, sin rechazarlo');
 
-SELECT setval(pg_get_serial_sequence('catalogo_estatus_validacion', 'id'), 5);
+SELECT setval(pg_get_serial_sequence('catalogo_estatus_validacion', 'id'), 6);
 
 INSERT INTO catalogo_tipos_nota (id, nombre, descripcion) VALUES
   (1, 'Apertura',    'Apertura de la bitácora y datos generales de la obra'),

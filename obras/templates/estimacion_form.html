@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · {{ obra.nombre }}{% endblock %}
+{% block estilos %}
+    .conceptos input.cant { width:110px; text-align:right; font-variant-numeric:tabular-nums; }
+    .conceptos td { vertical-align:middle; }
+    .conceptos tr.excede td { background:var(--aviso-suave); }
+    .conceptos tr.con-error td { background:var(--error-suave); }
+    .conceptos select { max-width:220px; font-size:.82rem; padding:5px 8px; }
+    .conceptos .desc { max-width:280px; }
+    .resumen-est { display:flex; flex-wrap:wrap; gap:8px 24px; justify-content:flex-end; font-variant-numeric:tabular-nums; }
+    .resumen-est strong { font-size:1.15rem; }
+{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'estimaciones_lista' obra.pk %}">Estimaciones</a></nav>
+    <h1>{{ titulo }}</h1>
+    <p class="sub"><span class="mono">{{ contrato.numero_contrato }}</span><span>Anticipo {{ contrato.porcentaje_anticipo|floatformat:"-2" }} % · IVA {{ contrato.porcentaje_iva|floatformat:"-2" }} % · Retención {{ contrato.porcentaje_retencion|floatformat:"-2" }} %</span></p>
+  </div>
+</div>
+
+<form method="post" id="form-estimacion">
+  {% csrf_token %}
+  <div class="tarjeta">
+    <h2>Periodo</h2>
+    <div class="formulario ancho" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+      {{ form.non_field_errors }}
+      <div class="campo">{{ form.periodo_inicio.as_field_group }}</div>
+      <div class="campo">{{ form.fecha_corte.as_field_group }}</div>
+    </div>
+  </div>
+
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Conceptos ejecutados</h2><span class="tenue">Deja en blanco los que no se ejecutaron en el periodo</span></div>
+    <div class="tabla-scroll">
+      <table class="conceptos" style="min-width:980px">
+        <thead><tr><th>Clave</th><th>Descripción</th><th>Unidad</th><th class="num">P. unitario</th><th class="num">Contratado</th><th class="num">Estimado antes</th><th class="num">Esta estimación</th><th class="num">Acumulado</th><th class="num">Importe</th></tr></thead>
+        <tbody>
+        {% for f in filas %}
+          <tr data-pu="{{ f.c.precio_unitario|stringformat:'s' }}" data-vol="{{ f.c.volumen_total_contratado|stringformat:'s' }}" data-ant="{{ f.anterior|stringformat:'s' }}" class="{% if f.error %}con-error{% endif %}">
+            <td class="mono principal">{{ f.c.clave }}</td>
+            <td class="desc">{{ f.c.descripcion }}{% if f.error %}<div class="errorlist">{{ f.error }}</div>{% endif %}
+              <div class="nota-excedente" {% if not f.nota_id and not f.error %}hidden{% endif %}>
+                <label class="tenue" for="nota_{{ f.c.pk }}">Nota de bitácora que autorizó el excedente</label><br>
+                <select id="nota_{{ f.c.pk }}" name="nota_{{ f.c.pk }}">
+                  <option value="">Elige una nota firmada</option>
+                  {% for n in notas %}<option value="{{ n.pk }}"{% if n.pk|stringformat:"s" == f.nota_id %} selected{% endif %}>Nota {{ n.folio }} · {{ n.tipo.nombre }} · {{ n.descripcion|truncatechars:40 }}</option>{% endfor %}
+                </select>
+              </div></td>
+            <td>{{ f.c.unidad_medida }}</td>
+            <td class="num">{{ f.c.precio_unitario|floatformat:"2g" }}</td>
+            <td class="num">{{ f.c.volumen_total_contratado|floatformat:"-4g" }}</td>
+            <td class="num">{{ f.anterior|floatformat:"-4g" }}</td>
+            <td class="num"><input class="cant" type="text" inputmode="decimal" name="cant_{{ f.c.pk }}" value="{{ f.texto }}" aria-label="Cantidad de {{ f.c.clave }}"></td>
+            <td class="num acum">—</td>
+            <td class="num imp">—</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="resumen-est" style="padding:14px 20px">
+      <span>Importe de esta estimación <strong id="total">$ 0.00</strong></span>
+      <span class="suave">Amortización del anticipo ({{ contrato.porcentaje_anticipo|floatformat:"-2" }} %) <strong id="amort">$ 0.00</strong></span>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Observaciones y atraso</h2>
+    <div class="formulario ancho">
+      <div class="campo">{{ form.observaciones.as_field_group }}</div>
+      <p style="flex-direction:row;align-items:center;gap:8px">{{ form.atraso_no_imputable }} <label for="{{ form.atraso_no_imputable.id_for_label }}">{{ form.atraso_no_imputable.label }}</label></p>
+      <p class="helptext" style="margin-top:-10px">{{ form.atraso_no_imputable.help_text }}</p>
+      <div class="campo">{{ form.justificacion_atraso.as_field_group }}</div>
+    </div>
+    <p class="nota-ayuda">Al guardar, el sistema calcula la amortización del anticipo, la retención por derechos, el IVA y, si la obra va atrasada a la fecha de corte, la retención económica por atraso (LOPSRM, art. 46 Bis). La estimación queda como borrador hasta que adjuntes los números generadores y la envíes.</p>
+    <div class="pie-form">
+      <button type="submit">Guardar estimación</button>
+      <a class="boton secundario" href="{% if est %}{% url 'estimacion_detalle' obra.pk est.pk %}{% else %}{% url 'estimaciones_lista' obra.pk %}{% endif %}">Cancelar</a>
+    </div>
+  </div>
+</form>
+
+<script>
+(function () {
+  const fmt = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtC = new Intl.NumberFormat("es-MX", { maximumFractionDigits: 4 });
+  const pctAnticipo = parseFloat("{{ contrato.porcentaje_anticipo|stringformat:'s' }}") || 0;
+  function recalcular() {
+    let total = 0;
+    document.querySelectorAll(".conceptos tbody tr").forEach(tr => {
+      const cant = parseFloat((tr.querySelector(".cant").value || "").replace(/,/g, ""));
+      const pu = parseFloat(tr.dataset.pu), vol = parseFloat(tr.dataset.vol), ant = parseFloat(tr.dataset.ant);
+      const valido = !isNaN(cant) && cant > 0;
+      const acum = ant + (valido ? cant : 0);
+      tr.querySelector(".acum").textContent = fmtC.format(acum);
+      const imp = valido ? Math.round(cant * pu * 100) / 100 : 0;
+      tr.querySelector(".imp").textContent = valido ? fmt.format(imp) : "—";
+      total += imp;
+      const excede = valido && acum > vol + 1e-9;
+      tr.classList.toggle("excede", excede);
+      tr.querySelector(".nota-excedente").hidden = !excede;
+    });
+    document.getElementById("total").textContent = "$ " + fmt.format(total);
+    document.getElementById("amort").textContent = "$ " + fmt.format(Math.round(total * pctAnticipo) / 100);
+  }
+  document.getElementById("form-estimacion").addEventListener("input", recalcular);
+  recalcular();
+})();
+</script>
+{% endblock %}

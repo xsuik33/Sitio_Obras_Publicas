@@ -191,9 +191,12 @@ def _catalogo(obra, **_):
     return {"n": total["n"], "importe": total["importe"] or Decimal(0), "capitulos": capitulos}
 
 
-def _estimaciones(obra, **_):
-    lista = list(Estimacion.objects.filter(contrato__obra=obra).select_related("estatus").order_by("-numero_estimacion"))
-    return {"lista": lista, "conteo": _conteo(Estimacion.objects.filter(contrato__obra=obra), "estatus__nombre")}
+def _estimaciones(obra, usuario, **_):
+    consulta = Estimacion.objects.filter(contrato__obra=obra)
+    if not es_administrador(usuario, obra):
+        consulta = consulta.exclude(Q(estatus__nombre=reportes.BORRADOR) & ~Q(superintendente=usuario))
+    lista = list(consulta.select_related("estatus").order_by("-numero_estimacion"))
+    return {"lista": lista, "conteo": _conteo(consulta, "estatus__nombre")}
 
 
 def _diarios(obra, usuario, **_):

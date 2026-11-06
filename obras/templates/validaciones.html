@@ -17,7 +17,6 @@
 
 <nav class="pestanas" aria-label="Tipo de reporte">
   {% for clave, nombre in tipos %}<a href="?tipo={{ clave }}" class="{% if clave == tipo %}activa{% endif %}">{{ nombre }}</a>{% endfor %}
-  <a aria-disabled="true" class="tenue" title="Llega con el módulo de estimaciones" style="cursor:default">Estimaciones · próximamente</a>
 </nav>
 
 <form method="get" class="tarjeta filtros">
@@ -44,8 +43,8 @@
     <tbody>
     {% for f in filas %}
       <tr>
-        <td><span class="principal">{{ f.nombre }}</span><br><span class="tenue">{{ f.r.supervisor }}</span></td>
-        <td>{{ f.r.obra.nombre }}</td>
+        <td><span class="principal{% if tipo == 'estimaciones' %} mono{% endif %}">{{ f.nombre }}</span><br><span class="tenue">{{ f.autor }}</span></td>
+        <td>{{ f.obra.nombre }}</td>
         <td><span class="chip" data-e="{{ f.r.estatus.nombre }}">{{ f.r.estatus.nombre }}</span></td>
         <td>{% for rol, d in f.decisiones %}<span class="chip" data-e="{{ d|default:'Pendiente' }}">{{ rol }}: {{ d|default:"pendiente"|lower }}</span>{% endfor %}</td>
         <td class="num"><a class="boton secundario chico" href="{% url 'validacion_cambiar' tipo f.r.pk %}">Cambiar estatus</a></td>

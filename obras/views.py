@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from . import bitacora, evidencias, mensuales, pdf, reportes
+from . import bitacora, documentos, estimaciones, evidencias, mensuales, pdf, reportes
 from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
@@ -31,15 +31,17 @@ from .cuentas import (
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
     BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
-    ValidacionForm,
+    DecisionEstimacionForm, DocumentoForm, EstimacionForm, ValidacionForm,
 )
 from .models import (
-    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, EstimacionDetalle, Evidencia,
+    CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Documento, Estimacion, EstimacionDetalle,
+    Evidencia,
     NotaBitacora,
     ProgramaObra, ReporteDiario, ReporteMensual, Rol, Usuario, UsuarioProyectoRol,
 )
 from .permisos import (
-    CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS, VALIDAR_REPORTE, VER, es_administrador, obras_de,
+    CREAR_ESTIMACION, CREAR_NOTA, CREAR_REPORTE, FIRMAR_NOTA, GESTIONAR_CATALOGO, GESTIONAR_PROGRAMA, GESTIONAR_USUARIOS,
+    VALIDAR_ESTIMACION, VALIDAR_REPORTE, VER, es_administrador, obras_de,
     puede, requiere_permiso, roles_en,
 )
 
@@ -293,8 +295,10 @@ def pendientes(request):
     revisar, corregir = reportes.pendientes_de(request.user)
     notas_firmar, notas_corregir = bitacora.pendientes_de(request.user)
     mens_revisar, mens_corregir = mensuales.pendientes_de(request.user)
+    est_revisar, est_corregir = estimaciones.pendientes_de(request.user)
     contexto = {"revisar": revisar, "corregir": corregir, "notas_firmar": notas_firmar,
-                "notas_corregir": notas_corregir, "mens_revisar": mens_revisar, "mens_corregir": mens_corregir}
+                "notas_corregir": notas_corregir, "mens_revisar": mens_revisar, "mens_corregir": mens_corregir,
+                "est_revisar": est_revisar, "est_corregir": est_corregir}
     return render(request, "pendientes.html", contexto)
 
 
@@ -746,14 +750,326 @@ def evidencia_borrar(request, obra, evidencia_id):
 
 
 # ---------------------------------------------------------------------------
+# Estimaciones (CU-02, CU-05, CU-08)
+# ---------------------------------------------------------------------------
+
+def _estimacion(obra, estimacion_id, bloquear=False):
+    consulta = Estimacion.objects.select_related("contrato__obra", "estatus", "superintendente")
+    if bloquear:
+        consulta = consulta.select_for_update(of=("self",))
+    return get_object_or_404(consulta, pk=estimacion_id, contrato__obra=obra)
+
+
+def _estimacion_visible(usuario, obra, estimacion_id, bloquear=False):
+    est = _estimacion(obra, estimacion_id, bloquear)
+    if not estimaciones.puede_ver(usuario, obra, est):
+        raise PermissionDenied  # un borrador solo lo ven su autor y los administradores
+    return est
+
+
+def _filas_estimacion(contrato, est, post=None):
+    """Una fila por concepto del catálogo con lo contratado, lo estimado antes y lo de esta estimación."""
+    numero = est.numero_estimacion if est else estimaciones.siguiente_numero(contrato)
+    anteriores = estimaciones.acumulado_anterior(contrato, numero)
+    actuales = {d.concepto_id: d for d in est.estimaciondetalle_set.all()} if est else {}
+    filas = []
+    for c in CatalogoConcepto.objects.filter(obra=contrato.obra).order_by("capitulo", "clave"):
+        actual = actuales.get(c.pk)
+        if post is not None:
+            texto = (post.get(f"cant_{c.pk}") or "").strip().replace(",", "")
+            nota_id = post.get(f"nota_{c.pk}") or ""
+        else:
+            texto = f"{actual.cantidad_ejecutada.normalize():f}" if actual else ""
+            nota_id = str(actual.nota_bitacora_id) if actual and actual.nota_bitacora_id else ""
+        anterior = anteriores.get(c.pk, Decimal(0))
+        filas.append({"c": c, "anterior": anterior, "texto": texto, "nota_id": nota_id, "error": None, "cantidad": None})
+    return filas
+
+
+def _validar_filas(filas, obra):
+    notas_validas = {str(n.pk) for n in estimaciones.notas_firmadas(obra)}
+    ok = True
+    for f in filas:
+        if not f["texto"]:
+            f["cantidad"] = Decimal(0)
+            continue
+        try:
+            cantidad = Decimal(f["texto"])
+        except (ArithmeticError, ValueError):
+            cantidad = None
+        if cantidad is None or not cantidad.is_finite() or cantidad < 0 or cantidad.as_tuple().exponent < -4:
+            f["error"], ok = "Cantidad no válida (número positivo, hasta 4 decimales).", False
+            continue
+        f["cantidad"] = cantidad
+        excede = f["anterior"] + cantidad > f["c"].volumen_total_contratado
+        if excede and cantidad > 0 and f["nota_id"] not in notas_validas:
+            f["error"], ok = "Rebasa el volumen contratado: elige la nota de bitácora firmada que lo autorizó.", False
+        if not excede:
+            f["nota_id"] = ""
+    return ok
+
+
+def _guardar_filas(est, filas):
+    actuales = {d.concepto_id: d for d in est.estimaciondetalle_set.all()}
+    for f in filas:
+        actual = actuales.get(f["c"].pk)
+        if not f["cantidad"]:
+            if actual:
+                actual.delete()
+            continue
+        nota = f["nota_id"] or None
+        if actual:
+            actual.cantidad_ejecutada, actual.nota_bitacora_id = f["cantidad"], nota
+            actual.save(update_fields=["cantidad_ejecutada", "nota_bitacora"])
+        else:
+            EstimacionDetalle.objects.create(estimacion=est, concepto=f["c"], cantidad_ejecutada=f["cantidad"],
+                                             nota_bitacora_id=nota)
+    estimaciones.recalcular(est)
+
+
+def _contexto_form_estimacion(obra, contrato, form, filas, est=None):
+    return {
+        "obra": obra, "contrato": contrato, "form": form, "filas": filas, "est": est,
+        "notas": estimaciones.notas_firmadas(obra),
+        "titulo": f"Editar estimación {est.folio}" if est else
+                  f"Nueva estimación {estimaciones.folio(estimaciones.siguiente_numero(contrato))}",
+    }
+
+
+@requiere_permiso(VER)
+def estimaciones_lista(request, obra):
+    contrato = estimaciones.contrato_de(obra)
+    consulta = Estimacion.objects.filter(contrato__obra=obra).select_related("estatus", "superintendente", "contrato")
+    if not es_administrador(request.user, obra):
+        consulta = consulta.exclude(Q(estatus__nombre=estimaciones.BORRADOR) & ~Q(superintendente=request.user))
+    filas = [(e, estimaciones.estado_legible(e)) for e in consulta.order_by("-numero_estimacion")]
+    contexto = {
+        "obra": obra, "contrato": contrato, "filas": filas,
+        "puede_crear": bool(contrato) and puede(request.user, obra, CREAR_ESTIMACION),
+        "abierta": estimaciones.abierta(contrato) if contrato else None,
+        "catalogo_vacio": not CatalogoConcepto.objects.filter(obra=obra).exists(),
+    }
+    return render(request, "estimaciones_lista.html", contexto)
+
+
+@requiere_permiso(CREAR_ESTIMACION)
+def estimacion_nueva(request, obra):
+    contrato = estimaciones.contrato_de(obra)
+    if not contrato or not CatalogoConcepto.objects.filter(obra=obra).exists():
+        messages.error(request, "Para crear estimaciones la obra necesita contrato y catálogo de conceptos.")
+        return redirect("estimaciones_lista", obra_id=obra.pk)
+    abierta = estimaciones.abierta(contrato)
+    if abierta:
+        messages.error(request, f"Primero debe quedar aprobada la {abierta.folio}; solo puede haber una estimación abierta.")
+        return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=abierta.pk)
+    form = EstimacionForm(request.POST or None, contrato=contrato)
+    filas = _filas_estimacion(contrato, None, request.POST if request.method == "POST" else None)
+    if request.method == "POST":
+        filas_ok = _validar_filas(filas, obra)
+        if form.is_valid() and filas_ok:
+            with transaction.atomic():
+                Contrato.objects.select_for_update().get(pk=contrato.pk)  # numeración sin choques
+                if estimaciones.abierta(contrato):
+                    messages.error(request, "Alguien más acaba de crear una estimación abierta.")
+                    return redirect("estimaciones_lista", obra_id=obra.pk)
+                est = form.save(commit=False)
+                est.contrato, est.superintendente = contrato, request.user
+                est.numero_estimacion = estimaciones.siguiente_numero(contrato)
+                est.folio = estimaciones.folio(est.numero_estimacion)
+                est.estatus = reportes.estatus(estimaciones.BORRADOR)
+                est.save()
+                _guardar_filas(est, filas)
+            messages.success(request, f"{est.folio} guardada como borrador. Adjunta los números generadores y envíala a revisión.")
+            return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=est.pk)
+        messages.error(request, "Revisa los datos marcados.")
+    return render(request, "estimacion_form.html", _contexto_form_estimacion(obra, contrato, form, filas))
+
+
+@requiere_permiso(CREAR_ESTIMACION)
+def estimacion_editar(request, obra, estimacion_id):
+    est = _estimacion_visible(request.user, obra, estimacion_id)
+    if not estimaciones.puede_editar(request.user, obra, est):
+        raise PermissionDenied
+    contrato = est.contrato
+    form = EstimacionForm(request.POST or None, instance=est, contrato=contrato)
+    filas = _filas_estimacion(contrato, est, request.POST if request.method == "POST" else None)
+    if request.method == "POST":
+        filas_ok = _validar_filas(filas, obra)
+        if form.is_valid() and filas_ok:
+            with transaction.atomic():
+                bloqueada = _estimacion(obra, estimacion_id, bloquear=True)
+                if not estimaciones.puede_editar(request.user, obra, bloqueada):
+                    messages.error(request, "La estimación ya está en validación; no se puede modificar.")
+                    return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=est.pk)
+                for campo in ("periodo_inicio", "fecha_corte", "observaciones", "atraso_no_imputable", "justificacion_atraso"):
+                    setattr(bloqueada, campo, form.cleaned_data[campo])
+                bloqueada.fecha_modificacion = timezone.now()
+                bloqueada.save(update_fields=["periodo_inicio", "fecha_corte", "observaciones", "atraso_no_imputable",
+                                              "justificacion_atraso", "fecha_modificacion"])
+                _guardar_filas(bloqueada, filas)
+            messages.success(request, "Estimación actualizada. Cuando esté lista, envíala a revisión.")
+            return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=est.pk)
+        messages.error(request, "Revisa los datos marcados.")
+    return render(request, "estimacion_form.html", _contexto_form_estimacion(obra, contrato, form, filas, est))
+
+
+@requiere_permiso(VER)
+def estimacion_detalle(request, obra, estimacion_id):
+    est = _estimacion_visible(request.user, obra, estimacion_id)
+    es_admin = es_administrador(request.user, obra)
+    decs = estimaciones.decisiones(est)
+    roles = estimaciones.roles_que_decide(request.user, obra, est, es_admin)
+    puede_validar = puede(request.user, obra, VALIDAR_ESTIMACION) and bool(roles)
+    puede_editar = estimaciones.puede_editar(request.user, obra, est)
+    renglones = list(est.estimaciondetalle_set.select_related("concepto", "nota_bitacora").order_by("concepto__clave"))
+    contexto = {
+        "obra": obra, "est": est, "contrato": est.contrato,
+        "estado": estimaciones.estado_legible(est, decs),
+        "decisiones": list(decs.items()),
+        "historial": est.validacionestimacion_set.select_related("usuario_validador", "estatus").order_by("-fecha_validacion"),
+        "renglones": renglones,
+        "avance": estimaciones.avance(est),
+        "plazos": estimaciones.plazos(est),
+        "documentos": est.documentos.select_related("usuario_subida").order_by("categoria", "fecha_subida"),
+        "puede_editar": puede_editar,
+        "faltantes": estimaciones.faltantes_para_enviar(est) if puede_editar else [],
+        "form_documento": DocumentoForm(categorias=[(c, c) for c in (
+            "Números generadores", "Croquis", "Prueba de laboratorio", "Fotografía", "Factura", "Otro")]) if puede_editar else None,
+        "puede_validar": puede_validar,
+        "es_admin": es_admin,
+        "form_decision": DecisionEstimacionForm(es_admin=es_admin, roles=roles) if puede_validar else None,
+        "en_validacion": est.estatus.nombre in estimaciones.EN_VALIDACION,
+    }
+    return render(request, "estimacion_detalle.html", contexto)
+
+
+@requiere_permiso(CREAR_ESTIMACION)
+def estimacion_enviar(request, obra, estimacion_id):
+    if request.method == "POST":
+        with transaction.atomic():
+            est = _estimacion_visible(request.user, obra, estimacion_id, bloquear=True)
+            if not estimaciones.puede_editar(request.user, obra, est):
+                messages.error(request, "Esta estimación no se puede enviar ahora.")
+            else:
+                estimaciones.recalcular(est)
+                faltan = estimaciones.faltantes_para_enviar(est)
+                if faltan:
+                    messages.error(request, "Todavía no se puede enviar: " + " ".join(faltan))
+                else:
+                    estimaciones.enviar_a_revision(est, request.user)
+                    messages.success(request, f"{est.folio} enviada a revisión del Supervisor.")
+    return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=estimacion_id)
+
+
+@requiere_permiso(VALIDAR_ESTIMACION)
+def estimacion_validar(request, obra, estimacion_id):
+    if request.method == "POST":
+        es_admin = es_administrador(request.user, obra)
+        with transaction.atomic():
+            est = _estimacion_visible(request.user, obra, estimacion_id, bloquear=True)
+            roles = estimaciones.roles_que_decide(request.user, obra, est, es_admin)
+            form = DecisionEstimacionForm(request.POST, es_admin=es_admin, roles=roles)
+            if not roles:
+                messages.error(request, "Ya no te toca decidir sobre esta estimación.")
+            elif form.is_valid():
+                rol = form.cleaned_data["rol"]
+                estimaciones.registrar_decision(
+                    est, request.user, rol, form.cleaned_data["estatus"], form.cleaned_data["comentarios"],
+                    por_admin=es_admin and rol not in roles_en(request.user, obra),
+                )
+                messages.success(request, f"Decisión registrada. Estado: {estimaciones.estado_legible(est)}.")
+            else:
+                messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=estimacion_id)
+
+
+@requiere_permiso(CREAR_ESTIMACION)
+def estimacion_documento_subir(request, obra, estimacion_id):
+    if request.method == "POST":
+        est = _estimacion_visible(request.user, obra, estimacion_id)
+        form = DocumentoForm(request.POST, request.FILES)
+        if not estimaciones.puede_editar(request.user, obra, est):
+            messages.error(request, "La estimación está en validación; no se pueden cambiar sus documentos.")
+        elif form.is_valid():
+            try:
+                with transaction.atomic():
+                    documentos.guardar(obra, form.cleaned_data["archivo"], request.user, form.cleaned_data["categoria"],
+                                       form.cleaned_data["descripcion"], estimacion=est, nombre=form.cleaned_data["nombre"])
+                messages.success(request, "Documento agregado a la estimación.")
+            except ValidationError as e:
+                messages.error(request, " ".join(e.messages))
+            except ErrorAlmacenamiento:
+                logger.exception("Error al subir un documento")
+                messages.error(request, "No se pudo guardar el archivo. Intenta de nuevo en un momento.")
+        else:
+            messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=estimacion_id)
+
+
+def _documento(obra, documento_id):
+    return get_object_or_404(Documento.objects.select_related("obra", "estimacion__estatus", "usuario_subida"),
+                             pk=documento_id, obra=obra)
+
+
+@requiere_permiso(VER)
+def documento_ver(request, obra, documento_id):
+    doc = _documento(obra, documento_id)
+    if doc.estimacion and not estimaciones.puede_ver(request.user, obra, doc.estimacion):
+        raise PermissionDenied
+    nombre = documentos.nombre_descarga(doc)
+    try:
+        if hasattr(default_storage, "url_firmada"):
+            return redirect(default_storage.url_firmada(doc.ruta_almacenamiento, descargar=nombre))
+        return FileResponse(default_storage.open(doc.ruta_almacenamiento), content_type=documentos.tipo_contenido(doc),
+                            as_attachment=True, filename=nombre)
+    except (ErrorAlmacenamiento, FileNotFoundError):
+        logger.exception("Error al abrir el documento %s", doc.pk)
+        messages.error(request, "No se pudo abrir el documento. Intenta de nuevo en un momento.")
+        if doc.estimacion_id:
+            return redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=doc.estimacion_id)
+        return redirect("obra_detalle", obra_id=obra.pk)
+
+
+@requiere_permiso(VER)
+def documento_borrar(request, obra, documento_id):
+    doc = _documento(obra, documento_id)
+    volver = (redirect("estimacion_detalle", obra_id=obra.pk, estimacion_id=doc.estimacion_id) if doc.estimacion_id
+              else redirect("obra_detalle", obra_id=obra.pk))
+    if request.method != "POST":
+        return volver
+    if not documentos.puede_borrar(request.user, doc) or (
+            doc.estimacion and not estimaciones.puede_editar(request.user, obra, doc.estimacion)):
+        messages.error(request, "No puedes borrar este documento.")
+        return volver
+    with transaction.atomic():
+        documentos.borrar(doc)
+    messages.success(request, "Documento eliminado.")
+    return volver
+
+
+# ---------------------------------------------------------------------------
 # Módulo de validaciones del administrador (CU-14 y CU-15)
 # ---------------------------------------------------------------------------
 
 TIPOS_VALIDACION = {
-    "diarios": {"modelo": ReporteDiario, "reglas": reportes, "nombre": "Reportes diarios", "orden": ("-fecha_reporte",)},
-    "mensuales": {"modelo": ReporteMensual, "reglas": mensuales, "nombre": "Reportes mensuales", "orden": ("-anio", "-mes")},
+    "diarios": {
+        "modelo": ReporteDiario, "reglas": reportes, "nombre": "Reportes diarios", "orden": ("-fecha_reporte",),
+        "obra": "obra", "autor": "supervisor", "historial": "validacionreportediario_set", "url": "reporte_detalle",
+        "etiqueta": lambda r: r.fecha_reporte.strftime("%d/%m/%Y"),
+    },
+    "mensuales": {
+        "modelo": ReporteMensual, "reglas": mensuales, "nombre": "Reportes mensuales", "orden": ("-anio", "-mes"),
+        "obra": "obra", "autor": "supervisor", "historial": "validaciones", "url": "mensual_detalle",
+        "etiqueta": lambda r: mensuales.nombre_mes(r),
+    },
+    "estimaciones": {
+        "modelo": Estimacion, "reglas": estimaciones, "nombre": "Estimaciones", "orden": ("-fecha_corte",),
+        "obra": "contrato__obra", "autor": "superintendente", "historial": "validacionestimacion_set",
+        "url": "estimacion_detalle", "etiqueta": lambda e: e.folio,
+    },
 }
-ESTATUS_FILTRO = (reportes.PENDIENTE, reportes.EN_REVISION, reportes.APROBADO, reportes.RECHAZADO)
+ESTATUS_FILTRO = (reportes.PENDIENTE, reportes.EN_REVISION, estimaciones.OBSERVACIONES, reportes.APROBADO,
+                  reportes.RECHAZADO)
 
 
 def _solo_administradores(vista):
@@ -767,8 +1083,21 @@ def _solo_administradores(vista):
     return envoltura
 
 
-def _nombre_reporte(tipo, reporte):
-    return reporte.fecha_reporte.strftime("%d/%m/%Y") if tipo == "diarios" else mensuales.nombre_mes(reporte)
+def _obra_de(conf, registro):
+    return registro.contrato.obra if conf["obra"] == "contrato__obra" else registro.obra
+
+
+def _decisiones_legibles(tipo, conf, registro):
+    decs = conf["reglas"].decisiones(registro)
+    if tipo == "estimaciones":
+        return list(decs.items())
+    return [(reportes.ETIQUETA[rol], d) for rol, d in decs.items()]
+
+
+def _form_validacion(tipo, data=None):
+    if tipo == "estimaciones":
+        return DecisionEstimacionForm(data, es_admin=True, roles=estimaciones.ROLES)
+    return ValidacionForm(data, es_admin=True, roles=reportes.ROLES_VALIDADORES)
 
 
 @_solo_administradores
@@ -778,9 +1107,9 @@ def validaciones(request):
     obras = obras_administradas(request.user).order_by("nombre")
     obra_id = request.GET.get("obra", "")
     estatus_f = request.GET.get("estatus", "")
-    consulta = conf["modelo"].objects.filter(obra__in=obras).exclude(estatus__nombre=reportes.BORRADOR)
+    consulta = conf["modelo"].objects.filter(**{f"{conf['obra']}__in": obras}).exclude(estatus__nombre=reportes.BORRADOR)
     if obra_id and _es_uuid(obra_id):
-        consulta = consulta.filter(obra_id=obra_id)
+        consulta = consulta.filter(**{f"{conf['obra']}_id" if conf["obra"] == "obra" else "contrato__obra_id": obra_id})
     else:
         obra_id = ""
     if estatus_f in ESTATUS_FILTRO:
@@ -788,10 +1117,9 @@ def validaciones(request):
     else:
         estatus_f = ""
     filas = []
-    for r in consulta.select_related("obra", "supervisor", "estatus").order_by(*conf["orden"])[:200]:
-        decs = conf["reglas"].decisiones(r)
-        filas.append({"r": r, "nombre": _nombre_reporte(tipo, r),
-                      "decisiones": [(reportes.ETIQUETA[rol], d) for rol, d in decs.items()]})
+    for r in consulta.select_related(conf["obra"], conf["autor"], "estatus").order_by(*conf["orden"])[:200]:
+        filas.append({"r": r, "nombre": conf["etiqueta"](r), "obra": _obra_de(conf, r), "autor": getattr(r, conf["autor"]),
+                      "decisiones": _decisiones_legibles(tipo, conf, r)})
     contexto = {
         "tipo": tipo, "tipos": [(k, c["nombre"]) for k, c in TIPOS_VALIDACION.items()], "filas": filas,
         "obras": obras, "obra_id": obra_id, "estatus": estatus_f, "estatus_opciones": ESTATUS_FILTRO,
@@ -805,33 +1133,35 @@ def validacion_cambiar(request, tipo, reporte_id):
         raise Http404
     conf = TIPOS_VALIDACION[tipo]
     reporte = get_object_or_404(
-        conf["modelo"].objects.select_related("obra", "supervisor", "estatus"),
-        pk=reporte_id, obra__in=obras_administradas(request.user),
+        conf["modelo"].objects.select_related(conf["obra"], conf["autor"], "estatus"),
+        **{"pk": reporte_id, f"{conf['obra']}__in": obras_administradas(request.user)},
     )
     if reporte.estatus.nombre == reportes.BORRADOR:
         messages.error(request, "Un borrador todavía no tiene validaciones.")
         return redirect(f"{reverse('validaciones')}?tipo={tipo}")
-    form = ValidacionForm(request.POST or None, es_admin=True, roles=reportes.ROLES_VALIDADORES)
+    form = _form_validacion(tipo, request.POST or None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             bloqueado = conf["modelo"].objects.select_for_update(of=("self",)).select_related(
-                "obra", "supervisor", "estatus").get(pk=reporte.pk)
+                conf["obra"], conf["autor"], "estatus").get(pk=reporte.pk)
             rol = form.cleaned_data["rol"]
             conf["reglas"].registrar_decision(
                 bloqueado, request.user, rol, form.cleaned_data["estatus"], form.cleaned_data["comentarios"],
-                por_admin=rol not in roles_en(request.user, bloqueado.obra),
+                por_admin=rol not in roles_en(request.user, _obra_de(conf, bloqueado)),
             )
-        messages.success(request, f"Estatus actualizado. {bloqueado.obra.nombre} · {_nombre_reporte(tipo, bloqueado)}: "
+        messages.success(request, f"Estatus actualizado. {_obra_de(conf, bloqueado).nombre} · {conf['etiqueta'](bloqueado)}: "
                                   f"{conf['reglas'].estado_legible(bloqueado)}.")
         return redirect(f"{reverse('validaciones')}?tipo={tipo}")
-    historial = (reporte.validacionreportediario_set if tipo == "diarios" else reporte.validaciones)
+    obra = _obra_de(conf, reporte)
     contexto = {
-        "tipo": tipo, "tipo_nombre": conf["nombre"], "reporte": reporte, "nombre": _nombre_reporte(tipo, reporte),
+        "tipo": tipo, "tipo_nombre": conf["nombre"], "reporte": reporte, "nombre": conf["etiqueta"](reporte),
+        "obra_r": obra, "autor": getattr(reporte, conf["autor"]),
         "estado": conf["reglas"].estado_legible(reporte),
-        "decisiones": [(reportes.ETIQUETA[r], d) for r, d in conf["reglas"].decisiones(reporte).items()],
-        "historial": historial.select_related("usuario_validador", "estatus").order_by("-fecha_validacion"),
+        "decisiones": _decisiones_legibles(tipo, conf, reporte),
+        "historial": getattr(reporte, conf["historial"]).select_related("usuario_validador", "estatus")
+        .order_by("-fecha_validacion"),
         "form": form,
-        "url_reporte": reverse("reporte_detalle" if tipo == "diarios" else "mensual_detalle", args=[reporte.obra_id, reporte.pk]),
+        "url_reporte": reverse(conf["url"], args=[obra.pk, reporte.pk]),
     }
     return render(request, "validacion_cambiar.html", contexto)
 

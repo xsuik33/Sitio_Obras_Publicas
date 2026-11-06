@@ -17,14 +17,15 @@
   </div>
 </div>
 
-{% with n1=revisar|length n2=corregir|length n3=mens_revisar|length n4=mens_corregir|length n5=notas_firmar|length n6=notas_corregir|length %}
+{% with n1=revisar|length n2=corregir|length n3=mens_revisar|length n4=mens_corregir|length n5=notas_firmar|length n6=notas_corregir|length n7=est_revisar|length n8=est_corregir|length %}
 <div class="grid resumen">
   <a class="tarjeta kpi{% if not n1 and not n3 %} cero{% endif %}" href="#revisar"><div class="etiqueta">Reportes por revisar</div><div class="dato">{{ n1|add:n3 }}</div><div class="nota">{{ n1 }} diario{{ n1|pluralize }} · {{ n3 }} mensual{{ n3|pluralize:"es" }}</div></a>
+  <a class="tarjeta kpi{% if not n7 %} cero{% endif %}" href="#estimaciones"><div class="etiqueta">Estimaciones por revisar</div><div class="dato">{{ n7 }}</div><div class="nota">Supervisor y Residente</div></a>
   <a class="tarjeta kpi{% if not n5 %} cero{% endif %}" href="#firmar"><div class="etiqueta">Notas por firmar</div><div class="dato">{{ n5 }}</div><div class="nota">Bitácora de obra</div></a>
-  <a class="tarjeta kpi{% if not n2 and not n4 and not n6 %} cero{% endif %}" href="#corregir"><div class="etiqueta">Por enviar o corregir</div><div class="dato">{{ n2|add:n4|add:n6 }}</div><div class="nota">Borradores y rechazados tuyos</div></a>
+  <a class="tarjeta kpi{% if not n2 and not n4 and not n6 and not n8 %} cero{% endif %}" href="#corregir"><div class="etiqueta">Por enviar o corregir</div><div class="dato">{{ n2|add:n4|add:n6|add:n8 }}</div><div class="nota">Borradores y rechazados tuyos</div></a>
 </div>
 
-{% if not n1 and not n2 and not n3 and not n4 and not n5 and not n6 %}
+{% if not n1 and not n2 and not n3 and not n4 and not n5 and not n6 and not n7 and not n8 %}
 <div class="tarjeta vacio">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
   <h2>Todo al día</h2>
@@ -62,6 +63,21 @@
 </section>
 {% endif %}
 
+{% if n7 %}
+<section class="grupo" id="estimaciones">
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Estimaciones por revisar <span class="chip" data-e="Pendiente">{{ n7 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Folio</th><th>Obra</th><th class="num">Importe</th><th>Revisión</th></tr></thead>
+      <tbody>{% for e, estado in est_revisar %}
+        <tr><td><a class="principal mono" href="{% url 'estimacion_detalle' e.contrato.obra_id e.pk %}">{{ e.folio }}</a></td>
+            <td>{{ e.contrato.obra.nombre }}</td><td class="num">$ {{ e.subtotal|floatformat:"2g" }}</td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+</section>
+{% endif %}
+
 {% if n5 %}
 <section class="grupo" id="firmar">
   <div class="tarjeta tabla-lista">
@@ -77,7 +93,7 @@
 </section>
 {% endif %}
 
-{% if n2 or n4 or n6 %}
+{% if n2 or n4 or n6 or n8 %}
 <section class="grupo" id="corregir">
   {% if n2 %}
   <div class="tarjeta tabla-lista">
@@ -99,6 +115,18 @@
       <tbody>{% for r, estado in mens_corregir %}
         <tr><td><a class="principal" href="{% url 'mensual_detalle' r.obra_id r.pk %}">{{ r.mes|stringformat:"02d" }}/{{ r.anio }}</a></td>
             <td>{{ r.obra.nombre }}</td><td><span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></td><td class="tenue">{{ estado }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+  {% if n8 %}
+  <div class="tarjeta tabla-lista">
+    <div class="titulo-sec" style="padding:16px 20px 0"><h2>Mis estimaciones por enviar o corregir <span class="chip">{{ n8 }}</span></h2></div>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Folio</th><th>Obra</th><th>Estatus</th><th>Detalle</th></tr></thead>
+      <tbody>{% for e, estado in est_corregir %}
+        <tr><td><a class="principal mono" href="{% url 'estimacion_detalle' e.contrato.obra_id e.pk %}">{{ e.folio }}</a></td>
+            <td>{{ e.contrato.obra.nombre }}</td><td><span class="chip" data-e="{{ e.estatus.nombre }}">{{ e.estatus.nombre }}</span></td><td class="tenue">{{ estado }}</td></tr>
       {% endfor %}</tbody>
     </table></div>
   </div>
