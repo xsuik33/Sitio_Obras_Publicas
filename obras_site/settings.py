@@ -136,3 +136,15 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Errores a la consola (Render los muestra en Logs). Sin esto, con DEBUG=False Django no imprime los tracebacks.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"consola": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["consola"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
+        "obras": {"handlers": ["consola"], "level": "INFO", "propagate": False},
+    },
+}
