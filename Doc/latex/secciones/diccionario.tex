@@ -1,0 +1,357 @@
+% Generado por generar_diccionario.py a partir de db/esquema_obras.sql. No editar a mano.
+
+\section{Módulo núcleo}
+Alcance físico y financiero de la obra: la obra, su contrato y anticipos, el catálogo de conceptos y el programa de obra.
+
+\tablabd{obras}{Obra pública: datos generales y fechas oficiales.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+nombre & VARCHAR(255) & obligatorio & Nombre de la obra.\\
+ubicacion & TEXT &  & Ubicación de la obra.\\
+fecha\_inicio\_oficial & DATE &  & Inicio oficial; define el estado de la obra y el arranque del programa.\\
+fecha\_fin\_oficial & DATE &  & Terminación oficial.\\
+ultimo\_folio\_bitacora & INTEGER & obligatorio, por omisión 0 & Contador de folios de la bitácora (lo usa un disparador).\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\tablabd{contratos}{Contrato de la obra (uno por obra) con montos, porcentajes y garantías.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio, único & Referencia a obras.\\
+numero\_contrato & VARCHAR(100) & obligatorio, único & Número del contrato.\\
+contratista & VARCHAR(255) & obligatorio & Empresa contratista.\\
+fecha\_firma & DATE &  & Fecha de firma del contrato.\\
+fecha\_inicio & DATE &  & Inicio de los trabajos según el contrato.\\
+fecha\_fin & DATE &  & Terminación de los trabajos según el contrato.\\
+monto\_total\_contratado & NUMERIC(15,2) & obligatorio & Monto contratado sin IVA.\\
+porcentaje\_iva & NUMERIC(5,2) & obligatorio, por omisión 16 & Porcentaje de IVA.\\
+porcentaje\_retencion & NUMERIC(5,2) & obligatorio, por omisión 0 & Retención por derechos (por ejemplo 5 al millar).\\
+porcentaje\_anticipo & NUMERIC(5,2) & obligatorio, por omisión 0 & Porcentaje de anticipo (máximo 30 \%).\\
+porcentaje\_retencion\_atraso & NUMERIC(5,2) & obligatorio, por omisión 5 & Retención económica por atraso (LOPSRM art. 46 Bis).\\
+monto\_garantia\_cumplimiento & NUMERIC(15,2) &  & Garantía de cumplimiento; tope de penas convencionales.\\
+numero\_fianza & VARCHAR(100) &  & Número de la fianza.\\
+afianzadora & VARCHAR(255) &  & Institución afianzadora.\\
+monto\_anticipo & NUMERIC(15,2) & calculado & Monto del anticipo (calculado).\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\tablabd{anticipos}{Ministraciones del anticipo del contrato.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+contrato\_id & UUID & FK → contratos, obligatorio & Referencia a contratos.\\
+tipo & VARCHAR(30) & obligatorio, por omisión 'Inicio de obra', valores: Inicio de obra, Materiales, Otro & Inicio de obra, Materiales u Otro.\\
+monto & NUMERIC(15,2) & obligatorio & Monto de la ministración.\\
+fecha\_programada & DATE &  & Fecha programada de entrega.\\
+fecha\_pago & DATE &  & Fecha en que se pagó.\\
+estatus & VARCHAR(20) & obligatorio, por omisión 'Programado', valores: Programado, Pagado, Cancelado & Programado, Pagado o Cancelado.\\
+observaciones & TEXT &  & Observaciones en texto libre.\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\tablabd{catalogo\_conceptos}{Conceptos de trabajo de la obra con su volumen y precio unitario.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+capitulo & VARCHAR(100) &  & Capítulo o partida.\\
+clave & VARCHAR(50) & obligatorio & Clave del concepto, única por obra.\\
+descripcion & TEXT & obligatorio & Descripción en texto libre.\\
+unidad\_medida & VARCHAR(20) & obligatorio & Unidad de medida.\\
+volumen\_total\_contratado & NUMERIC(14,4) & obligatorio & Cantidad contratada.\\
+precio\_unitario & NUMERIC(15,2) & obligatorio & Precio unitario.\\
+importe\_contratado & NUMERIC(18,2) & calculado & Cantidad por precio unitario (calculado).\\
+\end{xltabular}
+
+\tablabd{programa\_obra}{Avance físico programado acumulado en fechas clave; entre ellas se interpola.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+fecha & DATE & obligatorio & Fecha clave del programa.\\
+avance\_programado\_porcentaje & NUMERIC(5,2) & obligatorio & Avance físico programado acumulado a esa fecha.\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\section{Módulo de seguridad}
+Cuentas, roles y la asignación de roles por obra, que limita los permisos de cada persona a las obras en que participa.
+
+\tablabd{usuarios}{Cuentas de usuario.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+nombre & VARCHAR(100) & obligatorio & Nombre de la persona.\\
+apellidos & VARCHAR(100) & obligatorio & Apellidos de la persona.\\
+correo & CITEXT & obligatorio, único & Correo; sirve para iniciar sesión y recibir avisos.\\
+password\_hash & VARCHAR(255) & obligatorio & Contraseña cifrada con función hash; nunca en texto claro.\\
+activo & BOOLEAN & obligatorio, por omisión true & Una cuenta inactiva no puede iniciar sesión.\\
+fecha\_creacion & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de creación de la cuenta.\\
+\end{xltabular}
+
+\tablabd{roles}{Catálogo de roles: Superintendente Contratista, Supervisor, Residente, Directivo y Administrador.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+nombre & VARCHAR(50) & obligatorio, único & Nombre del rol.\\
+\end{xltabular}
+
+\tablabd{usuarios\_proyectos\_roles}{Rol de cada usuario en cada obra (una persona puede tener varios).}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+usuario\_id & UUID & PK, FK → usuarios, obligatorio & Referencia a usuarios.\\
+obra\_id & UUID & PK, FK → obras, obligatorio & Referencia a obras.\\
+rol\_id & UUID & PK, FK → roles, obligatorio & Referencia a roles.\\
+\end{xltabular}
+
+\section{Módulo de operación}
+Información que se genera en la obra: estimaciones, reportes diarios y mensuales y bitácora.
+
+\tablabd{estimaciones}{Estimación de trabajos ejecutados en un periodo. Los totales los calculan disparadores.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+contrato\_id & UUID & FK → contratos, obligatorio & Referencia a contratos.\\
+superintendente\_id & UUID & FK → usuarios, obligatorio & Superintendente que la registró.\\
+numero\_estimacion & INTEGER & obligatorio & Número consecutivo por contrato.\\
+folio & VARCHAR(50) & obligatorio & Folio EST-001, EST-002… único por contrato.\\
+tipo & VARCHAR(20) & obligatorio, por omisión 'Ordinaria', valores: Ordinaria, Extraordinaria, Finiquito & Tipo de estimación (Reglamento art. 130).\\
+periodo\_inicio & DATE & obligatorio & Inicio del periodo estimado.\\
+fecha\_corte & DATE & obligatorio & Fecha de corte del periodo (máximo un mes).\\
+fecha\_presentacion & DATE &  & Fecha en que se presentó a revisión.\\
+subtotal & NUMERIC(15,2) & obligatorio, por omisión 0 & Importe de los trabajos (suma de renglones).\\
+amortizacion\_anticipo & NUMERIC(15,2) & obligatorio, por omisión 0 & Importe por porcentaje de anticipo (Reglamento art. 143).\\
+retencion & NUMERIC(15,2) & obligatorio, por omisión 0 & Retención por derechos (calculada).\\
+iva & NUMERIC(15,2) & obligatorio, por omisión 0 & IVA sobre el importe menos la amortización (calculado).\\
+monto\_neto & NUMERIC(15,2) & obligatorio, por omisión 0 & Neto a pagar (calculado).\\
+retencion\_atraso & NUMERIC(15,2) & obligatorio, por omisión 0 & Retención económica por atraso al corte.\\
+devolucion\_retencion & NUMERIC(15,2) & obligatorio, por omisión 0 & Devolución de retenciones anteriores al regularizarse.\\
+dias\_atraso & INTEGER &  & Días de atraso al corte respecto del programa.\\
+atraso\_no\_imputable & BOOLEAN & obligatorio, por omisión false & El Superintendente justifica que el atraso no le es imputable.\\
+justificacion\_atraso & TEXT &  & Justificación del atraso no imputable.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio, por omisión 1 & Estatus vigente (catálogo de estatus).\\
+observaciones & TEXT &  & Observaciones en texto libre.\\
+fecha\_envio & TIMESTAMPTZ &  & Fecha y hora en que se envió a revisión.\\
+fecha\_modificacion & TIMESTAMPTZ &  & Fecha y hora de la última corrección.\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\tablabd{estimaciones\_detalles}{Renglones de la estimación: cantidad ejecutada por concepto.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+estimacion\_id & UUID & FK → estimaciones, obligatorio & Referencia a estimaciones.\\
+concepto\_id & UUID & FK → catalogo\_conceptos, obligatorio & Referencia a catalogo\_conceptos.\\
+cantidad\_ejecutada & NUMERIC(14,4) & obligatorio & Cantidad ejecutada en el periodo.\\
+cantidad\_acumulada\_anterior & NUMERIC(14,4) & obligatorio, por omisión 0 & Cantidad estimada en estimaciones anteriores (disparador).\\
+cantidad\_acumulada & NUMERIC(14,4) & calculado & Acumulado anterior más el periodo (calculado).\\
+precio\_unitario & NUMERIC(15,2) & obligatorio & Precio unitario; si va vacío se toma el del catálogo (disparador).\\
+importe & NUMERIC(15,2) & calculado & Cantidad por precio unitario (calculado).\\
+es\_excedente & BOOLEAN & obligatorio, por omisión false & Verdadero si el acumulado rebasa lo contratado (disparador).\\
+numero\_generador & VARCHAR(50) &  & Número del generador que respalda la cantidad.\\
+observaciones & TEXT &  & Observaciones en texto libre.\\
+nota\_bitacora\_id & UUID & FK → notas\_bitacora & Nota de bitácora firmada que autorizó el excedente (Reglamento art. 118).\\
+\end{xltabular}
+
+\tablabd{reportes\_diarios}{Reporte diario del Supervisor con el avance físico real.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+supervisor\_id & UUID & FK → usuarios, obligatorio & Supervisor que elaboró el reporte.\\
+fecha\_reporte & DATE & obligatorio & Fecha del reporte (uno por obra y fecha).\\
+jornada\_inicio & TIME &  & Hora de inicio de la jornada.\\
+jornada\_fin & TIME &  & Hora de fin de la jornada.\\
+clima & VARCHAR(20) & valores: Soleado, Nublado, Lluvia, Tormenta, Viento fuerte, Otro & Condición del clima.\\
+temperatura\_c & NUMERIC(4,1) &  & Temperatura en grados Celsius.\\
+actividades\_realizadas & TEXT & obligatorio & Actividades realizadas en el día.\\
+incidencias & TEXT &  & Incidencias del día.\\
+incidentes\_seguridad & TEXT &  & Incidentes de seguridad del día.\\
+avance\_fisico\_real\_porcentaje & NUMERIC(5,2) & obligatorio & Avance físico real acumulado (0 a 100).\\
+observaciones & TEXT &  & Observaciones en texto libre.\\
+atraso\_causa & TEXT &  & Causa del atraso crítico (1 día o más).\\
+atraso\_solicitud & VARCHAR(20) &  & Solicitud ante el atraso crítico.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio, por omisión 1 & Estatus vigente (catálogo de estatus).\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+\end{xltabular}
+
+\tablabd{reportes\_diarios\_notas}{Notas de bitácora vinculadas a un reporte diario.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+reporte\_diario\_id & UUID & FK → reportes\_diarios, obligatorio & Referencia a reportes\_diarios.\\
+nota\_bitacora\_id & UUID & FK → notas\_bitacora, obligatorio & Referencia a notas\_bitacora.\\
+\end{xltabular}
+
+\tablabd{reportes\_mensuales}{Reporte mensual que consolida los reportes diarios del mes.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+supervisor\_id & UUID & FK → usuarios, obligatorio & Supervisor que elaboró el reporte.\\
+anio & SMALLINT & obligatorio & Año del periodo.\\
+mes & SMALLINT & obligatorio & Mes del periodo (1 a 12).\\
+fecha\_corte & DATE & obligatorio & Fecha de corte, dentro del mes reportado.\\
+resumen & TEXT &  & Resumen del mes redactado por el Supervisor.\\
+observaciones & TEXT &  & Observaciones en texto libre.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio, por omisión 1 & Estatus vigente (catálogo de estatus).\\
+consolidado & JSONB &  & Cifras del mes congeladas al aprobarse (JSON).\\
+fecha\_registro & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora del registro.\\
+fecha\_modificacion & TIMESTAMPTZ &  & Fecha y hora de la última corrección.\\
+\end{xltabular}
+
+\tablabd{notas\_bitacora}{Notas de la bitácora de obra con folio consecutivo por obra.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+folio & INTEGER & obligatorio, por omisión 0 & Folio consecutivo por obra; nunca se reutiliza.\\
+tipo\_id & SMALLINT & FK → catalogo\_tipos\_nota, obligatorio, por omisión 7 & Tipo de nota (catálogo).\\
+usuario\_creador\_id & UUID & FK → usuarios, obligatorio & Autor de la nota.\\
+fecha\_nota & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la nota.\\
+fecha\_modificacion & TIMESTAMPTZ &  & Fecha y hora de la última corrección.\\
+descripcion & TEXT & obligatorio & Descripción en texto libre.\\
+nota\_relacionada\_id & UUID & FK → notas\_bitacora & Nota a la que responde.\\
+estado\_firma & VARCHAR(20) & obligatorio, por omisión 'Pendiente', valores: Pendiente, Firmada, Rechazada & Pendiente, Firmada o Rechazada.\\
+\end{xltabular}
+
+\section{Módulo de auditoría y archivos}
+Catálogos de estatus, historial no editable de validaciones y firmas, y repositorio de documentos y evidencias.
+
+\tablabd{catalogo\_estatus\_validacion}{Estatus: Pendiente, Aprobado, Rechazado, En revisión, Borrador y Con observaciones.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & SMALLINT & PK, calculado, por omisión AS & Identificador del catálogo.\\
+nombre & VARCHAR(50) & obligatorio, único & Nombre del estatus.\\
+descripcion & TEXT &  & Descripción en texto libre.\\
+\end{xltabular}
+
+\tablabd{catalogo\_tipos\_nota}{Tipos de nota de bitácora: Apertura, Instrucción, Solicitud, Avance, Incidencia, Cierre y Otra.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & SMALLINT & PK, calculado, por omisión AS & Identificador del catálogo.\\
+nombre & VARCHAR(50) & obligatorio, único & Nombre del tipo de nota.\\
+descripcion & TEXT &  & Descripción en texto libre.\\
+\end{xltabular}
+
+\tablabd{validaciones\_reportes\_diarios}{Historial de decisiones sobre los reportes diarios.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+reporte\_diario\_id & UUID & FK → reportes\_diarios, obligatorio & Referencia a reportes\_diarios.\\
+usuario\_validador\_id & UUID & FK → usuarios, obligatorio & Usuario que registró la decisión.\\
+rol\_validador & VARCHAR(40) & valores: Residente, Superintendente Contratista & Rol con el que se decidió.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio & Estatus vigente (catálogo de estatus).\\
+fecha\_validacion & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la decisión.\\
+comentarios & TEXT &  & Comentarios o motivo de la decisión.\\
+\end{xltabular}
+
+\tablabd{validaciones\_reportes\_mensuales}{Historial de decisiones sobre los reportes mensuales.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+reporte\_mensual\_id & UUID & FK → reportes\_mensuales, obligatorio & Referencia a reportes\_mensuales.\\
+usuario\_validador\_id & UUID & FK → usuarios, obligatorio & Usuario que registró la decisión.\\
+rol\_validador & VARCHAR(40) & obligatorio, valores: Residente, Superintendente Contratista & Rol con el que se decidió.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio & Estatus vigente (catálogo de estatus).\\
+fecha\_validacion & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la decisión.\\
+comentarios & TEXT &  & Comentarios o motivo de la decisión.\\
+\end{xltabular}
+
+\tablabd{validaciones\_estimaciones}{Historial de decisiones del Supervisor y del Residente sobre las estimaciones.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+estimacion\_id & UUID & FK → estimaciones, obligatorio & Referencia a estimaciones.\\
+usuario\_validador\_id & UUID & FK → usuarios, obligatorio & Usuario que registró la decisión.\\
+estatus\_id & SMALLINT & FK → catalogo\_estatus\_validacion, obligatorio & Estatus vigente (catálogo de estatus).\\
+fecha\_validacion & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la decisión.\\
+comentarios & TEXT &  & Comentarios o motivo de la decisión.\\
+rol\_validador & VARCHAR(40) & valores: Supervisor, Residente & Rol con el que se decidió.\\
+\end{xltabular}
+
+\tablabd{firmas\_notas\_bitacora}{Historial de firmas de cada rol sobre las notas de bitácora.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+nota\_bitacora\_id & UUID & FK → notas\_bitacora, obligatorio & Referencia a notas\_bitacora.\\
+usuario\_firmante\_id & UUID & FK → usuarios, obligatorio & Usuario que firmó.\\
+rol\_firmante & VARCHAR(40) & obligatorio, valores: Residente, Supervisor, Superintendente Contratista & Rol con el que se firmó.\\
+decision & VARCHAR(20) & obligatorio, valores: Firmada, Rechazada, Pendiente & Firmada, Rechazada o Pendiente (reinicio).\\
+fecha\_firma & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la firma.\\
+comentarios & TEXT &  & Comentarios o motivo de la decisión.\\
+\end{xltabular}
+
+\tablabd{documentos}{Repositorio de documentos de la obra y soporte de estimaciones.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+obra\_id & UUID & FK → obras, obligatorio & Referencia a obras.\\
+usuario\_subida\_id & UUID & FK → usuarios, obligatorio & Usuario que lo subió.\\
+nombre\_archivo & VARCHAR(255) & obligatorio & Nombre del documento.\\
+ruta\_almacenamiento & VARCHAR(500) & obligatorio & Ruta del archivo en Supabase Storage.\\
+tipo\_archivo & VARCHAR(50) &  & Formato del archivo (PDF, DOCX, XLSX, imagen o DWG).\\
+descripcion & TEXT &  & Descripción en texto libre.\\
+fecha\_subida & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la carga.\\
+categoria & VARCHAR(40) & obligatorio, por omisión 'Otro' & Tipo de documento.\\
+estimacion\_id & UUID & FK → estimaciones & Estimación de la que es soporte (opcional).\\
+\end{xltabular}
+
+\tablabd{evidencias}{Fotografías y PDF de un reporte diario, un reporte mensual o una nota de bitácora.}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\footnotesize}p{4.9cm}>{\ttfamily\footnotesize}p{2.4cm}>{\raggedright\arraybackslash\footnotesize}p{3.3cm}>{\footnotesize}X@{}}
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endfirsthead
+\toprule\normalfont\sffamily\bfseries\footnotesize Campo & \normalfont\sffamily\bfseries\footnotesize Tipo & \sffamily\bfseries Restricciones & \sffamily\bfseries Descripción\\\midrule\endhead
+\bottomrule\endfoot
+id & UUID & PK & Identificador único (UUID versión 4).\\
+ruta & VARCHAR(500) & obligatorio & Ruta del archivo en Supabase Storage.\\
+tipo & VARCHAR(50) &  & Tipo de contenido (imagen o PDF).\\
+descripcion & TEXT &  & Descripción en texto libre.\\
+usuario\_subida\_id & UUID & FK → usuarios, obligatorio & Usuario que la subió.\\
+fecha\_subida & TIMESTAMPTZ & obligatorio, por omisión now() & Fecha y hora de la carga.\\
+reporte\_diario\_id & UUID & FK → reportes\_diarios & Referencia a reportes\_diarios.\\
+reporte\_mensual\_id & UUID & FK → reportes\_mensuales & Referencia a reportes\_mensuales.\\
+nota\_bitacora\_id & UUID & FK → notas\_bitacora & Referencia a notas\_bitacora.\\
+\end{xltabular}

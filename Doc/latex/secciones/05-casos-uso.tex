@@ -1,0 +1,353 @@
+\chapter{Casos de uso}
+
+El diagrama de casos de uso (\cref{fig:casos-uso}) muestra qué puede hacer cada actor. El Superintendente registra el catálogo de conceptos y las estimaciones, y valida los reportes. El Supervisor elabora los reportes diarios y mensuales y revisa las estimaciones del Superintendente. El Residente valida los reportes y da la validación final de las estimaciones. El Administrador crea las cuentas y puede cambiar el estatus de las validaciones. El Directivo solo consulta. Las notas de bitácora, la carga de documentos y la consulta del proyecto las comparten varios actores.
+
+\begin{figure}[h]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  cu/.style={ellipse,draw=guinda!70,fill=guindaclaro,line width=0.5pt,text width=2.9cm,align=center,
+             font=\sffamily\scriptsize,inner sep=1.2pt,minimum height=0.95cm},
+  actor/.style={font=\sffamily\scriptsize\bfseries,align=center},
+  enlace/.style={draw=black!45,line width=0.35pt}]
+  % actores (monigote)
+  \newcommand{\monigote}[3]{%
+    \begin{scope}[shift={(#1)}]
+      \draw[line width=0.7pt] (0,0.55) circle (0.18);
+      \draw[line width=0.7pt] (0,0.37) -- (0,-0.15) (-0.3,0.2) -- (0.3,0.2) (0,-0.15) -- (-0.22,-0.55) (0,-0.15) -- (0.22,-0.55);
+      \node[actor,below] at (0,-0.6) {#2};
+      \coordinate (#3) at (0,0);
+    \end{scope}}
+  \monigote{-8.2,-2.4}{Superintendente\\(contratista)}{SI}
+  \monigote{-8.2,-8.4}{Residente}{RE}
+  \monigote{-8.2,-13.2}{Directivo}{DI}
+  \monigote{8.2,-2.4}{Supervisor}{SU}
+  \monigote{8.2,-12.2}{Administrador}{AD}
+  % límite del sistema
+  \begin{pgfonlayer}{background}
+    \draw[rounded corners=6pt,draw=black!35,fill=grisfondo] (-5.6,0.3) rectangle (5.6,-15.6);
+  \end{pgfonlayer}
+  \node[font=\sffamily\small\bfseries,anchor=north west,text=black!60] at (-5.45,0.2) {Sistema de Obras};
+  % columna izquierda
+  \node[cu] (c01) at (-3.6,-1.1) {CU-01 Crear catálogo de conceptos};
+  \node[cu] (c02) at (-3.6,-2.5) {CU-02 Crear estimaciones};
+  \node[cu] (c06) at (-3.6,-7.3) {CU-06 Validar reportes diarios};
+  \node[cu] (c07) at (-3.6,-8.7) {CU-07 Validar reportes mensuales};
+  \node[cu] (c08) at (-3.6,-10.1) {CU-08 Validar estimaciones del Supervisor};
+  % columna central
+  \node[cu] (c09) at (0,-3.9) {CU-09 Hacer notas de bitácora};
+  \node[cu] (c10) at (0,-5.3) {CU-10 Firmar notas de bitácora};
+  \node[cu] (c11) at (0,-6.7) {CU-11 Subir documentos al repositorio};
+  \node[cu] (c12) at (0,-11.9) {CU-12 Consultar información del proyecto};
+  % columna derecha
+  \node[cu] (c03) at (3.6,-1.1) {CU-03 Crear reportes diarios};
+  \node[cu] (c04) at (3.6,-2.5) {CU-04 Crear reportes mensuales};
+  \node[cu] (c05) at (3.6,-3.9) {CU-05 Validar estimaciones del Superintendente};
+  \node[cu] (c13) at (3.6,-8.7) {CU-13 Crear cuentas para cada rol};
+  \node[cu] (c14) at (3.6,-10.1) {CU-14 Cambiar estatus de reportes diarios};
+  \node[cu] (c15) at (3.6,-11.5) {CU-15 Cambiar estatus de reportes mensuales};
+  \node[cu] (c16) at (3.6,-12.9) {CU-16 Cambiar estatus de estimaciones (Supervisor)};
+  \node[cu] (c17) at (3.6,-14.3) {CU-17 Cambiar estatus de estimaciones (Residente)};
+  % enlaces: entre el recuadro (fondo) y los casos de uso
+  \begin{pgfonlayer}{lineas}
+  \foreach \c in {c01,c02,c06,c07,c09,c10,c11,c12} \draw[enlace] ([xshift=0.35cm]SI) -- (\c);
+  \foreach \c in {c06,c07,c08,c09,c10,c11,c12} \draw[enlace] ([xshift=0.35cm]RE) -- (\c);
+  \draw[enlace] ([xshift=0.35cm]DI) -- (c12);
+  \foreach \c in {c03,c04,c05,c09,c10,c11,c12} \draw[enlace] ([xshift=-0.35cm]SU) -- (\c);
+  \foreach \c in {c12,c13,c14,c15,c16,c17} \draw[enlace] ([xshift=-0.35cm]AD) -- (\c);
+  \end{pgfonlayer}
+\end{tikzpicture}}
+\caption{Diagrama de casos de uso}\label{fig:casos-uso}
+\end{figure}
+
+\begin{aclaracion}[Cambio respecto a la versión anterior]
+Por decisión del equipo, los reportes diarios y mensuales los validan el Residente \emph{y} el Superintendente (CU-06 y CU-07). El diagrama refleja esa doble validación.
+\end{aclaracion}
+
+\section{Índice de casos de uso}
+Del diagrama se obtienen 17 casos de uso (\cref{tab:indice-cu}). Los identificadores siguen el orden de las funciones de cada rol, del Superintendente al Administrador; las funciones compartidas se describen una sola vez.
+
+\begin{table}[h]
+\centering\small
+\caption{Índice de casos de uso}\label{tab:indice-cu}
+\renewcommand{\arraystretch}{1.12}
+\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{guinda}}lX>{\raggedright\arraybackslash}p{5.4cm}@{}}
+\toprule
+\normalfont\sffamily\bfseries ID & \sffamily\bfseries Caso de uso & \sffamily\bfseries Actores\\\midrule
+CU-01 & Crear catálogo de conceptos & Superintendente\\
+CU-02 & Crear estimaciones & Superintendente\\
+CU-03 & Crear reportes diarios & Supervisor\\
+CU-04 & Crear reportes mensuales & Supervisor\\
+CU-05 & Validar estimaciones del Superintendente & Supervisor\\
+CU-06 & Validar reportes diarios & Residente, Superintendente\\
+CU-07 & Validar reportes mensuales & Residente, Superintendente\\
+CU-08 & Validar estimaciones del Supervisor & Residente\\
+CU-09 & Hacer notas de bitácora & Superintendente, Supervisor, Residente\\
+CU-10 & Firmar notas de bitácora & Superintendente, Supervisor, Residente\\
+CU-11 & Subir documentos al repositorio & Superintendente, Supervisor, Residente\\
+CU-12 & Consultar información del proyecto & Todos los roles\\
+CU-13 & Crear cuentas para cada rol & Administrador\\
+CU-14 & Cambiar estatus de validaciones de reportes diarios & Administrador\\
+CU-15 & Cambiar estatus de validaciones de reportes mensuales & Administrador\\
+CU-16 & Cambiar estatus de validaciones de estimaciones del Superintendente & Administrador\\
+CU-17 & Cambiar estatus de validaciones de estimaciones del Residente & Administrador\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Descripción de los casos de uso}
+Cada caso de uso se describe con el mismo formato: actores, requerimientos que atiende, descripción, flujo principal (el recorrido normal), flujos alternativos (datos incompletos, rechazos, atrasos o cambios autorizados), precondiciones y postcondiciones.
+
+\casouso{CU-01}{Superintendente}{Crear catálogo de conceptos}
+{Permite registrar el catálogo de conceptos de la obra (clave, capítulo, descripción, unidad, cantidad y precio unitario), que sirve de base para el seguimiento de los trabajos y las estimaciones.}
+{\item El Superintendente abre el catálogo de la obra.
+ \item El sistema muestra el contrato y la tabla de captura.
+ \item El Superintendente captura cada concepto; el sistema calcula el importe de cada renglón y el total.
+ \item El Superintendente confirma el registro.
+ \item El sistema valida los datos, guarda el catálogo y lo asocia a la obra; muestra la diferencia entre el total del catálogo y el monto del contrato.}
+{\item \textbf{4a. Datos incompletos o inválidos:} el sistema marca los campos con error y no guarda hasta que se corrijan.
+ \item \textbf{4b. Clave repetida:} el sistema avisa que la clave ya existe y solicita otra.
+ \item \textbf{Catálogo en uso:} si ya hay estimaciones con el catálogo, no se puede modificar; los cambios se tramitan como reprogramación o trabajo adicional, sin modificar los montos del contrato.}
+{\item Sesión activa con rol de Superintendente.
+ \item La obra y su contrato están registrados.}
+{\item El catálogo queda guardado y asociado a la obra.
+ \item Los conceptos quedan disponibles para las estimaciones.}
+{RF-07, RF-08}
+
+\casouso{CU-02}{Superintendente}{Crear estimaciones}
+{Permite registrar una estimación de trabajos ejecutados en un periodo, con sus documentos de soporte, para que la revise el Supervisor y la valide el Residente.}
+{\item El Superintendente elige crear una estimación; el sistema propone el periodo siguiente a la última estimación.
+ \item El sistema muestra los conceptos del catálogo con lo contratado y lo estimado antes.
+ \item El Superintendente captura las cantidades ejecutadas; el sistema calcula en pantalla importes y acumulados.
+ \item Al guardar, el sistema calcula importe, amortización del anticipo, IVA, retención por derechos y, si la obra va atrasada a la fecha de corte, la retención por atraso (\cref{cap:reglas}). La estimación queda como \estatus{Borrador} con folio \cod{EST-001}, \cod{EST-002}\ldots
+ \item El Superintendente adjunta los documentos de soporte; los números generadores son obligatorios.
+ \item El Superintendente revisa los importes y la envía; queda \estatus{Pendiente} y se avisa al Supervisor.}
+{\item \textbf{3a. Concepto excedente:} si el acumulado rebasa lo contratado, el renglón debe citar la nota de bitácora firmada que autorizó el excedente (\reg, art.~118).
+ \item \textbf{3b. Atraso no imputable al contratista:} el Superintendente lo indica con su justificación y evidencia; no se aplica la retención por atraso y queda a revisión de los validadores.
+ \item \textbf{Periodo mayor a un mes o traslapado:} el sistema no lo acepta (\ley, art.~54).
+ \item \textbf{Falta soporte:} sin números generadores el sistema no permite enviarla.
+ \item \textbf{Estimación rechazada o con observaciones:} el Superintendente la corrige y la reenvía; las decisiones previas se reinician.}
+{\item Sesión activa con rol de Superintendente.
+ \item El contrato está formalizado y tiene catálogo de conceptos.
+ \item No hay otra estimación abierta (sin aprobar) del contrato.}
+{\item La estimación queda \estatus{Pendiente} y se avisa al Supervisor.
+ \item Sus volúmenes quedan bloqueados mientras está en validación.}
+{RF-10, RF-14}
+
+\casouso{CU-03}{Supervisor}{Crear reportes diarios}
+{Permite registrar el reporte diario de la obra con el avance físico real, la jornada, el clima, las actividades, las incidencias, las notas de bitácora del día y las evidencias.}
+{\item El Supervisor abre los reportes diarios de la obra y elige uno nuevo.
+ \item El sistema muestra el formulario con la fecha del día.
+ \item El Supervisor captura el avance físico real, las actividades y las observaciones, y vincula las notas de bitácora del día.
+ \item El sistema calcula la desviación contra el programa (atraso o adelanto, en puntos y en días) y el resumen financiero.
+ \item El Supervisor guarda el borrador, adjunta evidencias y lo envía a revisión.
+ \item El sistema lo guarda como \estatus{Pendiente}, avisa al Residente y al Superintendente y permite descargar el PDF.}
+{\item \textbf{4a. Atraso crítico:} si el avance va un día o más detrás del programa, el sistema exige documentar la causa y si se solicita reprogramación o retención.
+ \item \textbf{6a. Información incompleta:} el sistema indica los campos faltantes; el Supervisor los completa o guarda el reporte como borrador.
+ \item \textbf{Fecha repetida:} solo hay un reporte por obra y fecha.}
+{\item Sesión activa con rol de Supervisor.
+ \item La obra está registrada; para calcular la desviación, tiene programa de obra.}
+{\item El reporte queda en el historial de la obra y se avisa a los validadores.
+ \item Al aprobarse, el avance físico actualiza el seguimiento del contrato.}
+{RF-09, RF-11, RF-16, RF-22}
+
+\casouso{CU-04}{Supervisor}{Crear reportes mensuales}
+{Permite consolidar los reportes diarios de un mes en un reporte mensual con el avance acumulado, las estimaciones y la bitácora del periodo.}
+{\item El Supervisor elige el mes a reportar.
+ \item El sistema consolida los reportes diarios, el avance físico y financiero acumulado, las estimaciones y las notas de bitácora del periodo, y muestra las advertencias.
+ \item El Supervisor agrega el resumen, las observaciones y las evidencias.
+ \item El Supervisor revisa la vista previa y lo envía.
+ \item El sistema lo guarda como \estatus{Pendiente}, avisa a los validadores y permite descargar el PDF. Al aprobarse, las cifras quedan congeladas.}
+{\item \textbf{2a. Faltan reportes diarios en el periodo:} el sistema lo advierte con los días faltantes; el Supervisor decide si los completa antes de continuar.
+ \item \textbf{3a. Información incompleta:} el Supervisor completa los datos o guarda el reporte como borrador.}
+{\item Sesión activa con rol de Supervisor.
+ \item Existen reportes diarios registrados en el mes.}
+{\item El reporte mensual queda \estatus{Pendiente} y se avisa a los validadores.}
+{RF-16, RF-19}
+
+\casouso{CU-05}{Supervisor}{Validar estimaciones del Superintendente}
+{Permite al Supervisor revisar las estimaciones enviadas por el Superintendente y aprobarlas, regresarlas con observaciones o rechazarlas, antes de que pasen al Residente.}
+{\item El Supervisor abre una estimación \estatus{Pendiente} desde su bandeja.
+ \item El sistema muestra conceptos, cantidades, importes, documentos de soporte, avance y plazos de revisión.
+ \item El Supervisor verifica la información contra el avance real y la bitácora.
+ \item El Supervisor elige el resultado y escribe sus comentarios.
+ \item El sistema registra la validación con usuario, rol, fecha y comentarios.}
+{\item \textbf{4a. Con observaciones:} la estimación regresa al Superintendente para corregirla sin que cuente como rechazo.
+ \item \textbf{4b. Rechazada:} regresa al Superintendente con el motivo.
+ \item \textbf{Plazo vencido:} el sistema avisa que pasaron los 15 días de revisión, sin autorizarla en automático.}
+{\item Sesión activa con rol de Supervisor.
+ \item Existe una estimación \estatus{Pendiente}.}
+{\item Aprobada, queda \estatus{En revisión} y se avisa al Superintendente y al Residente.
+ \item Con observaciones o rechazada, se avisa al Superintendente.}
+{RF-15}
+
+\casouso{CU-06}{Residente, Superintendente}{Validar reportes diarios}
+{Permite al Residente y al Superintendente revisar los reportes diarios del Supervisor y aprobarlos o rechazarlos; cada uno decide una vez.}
+{\item El validador abre un reporte \estatus{Pendiente} desde su bandeja.
+ \item El sistema muestra avance, desviación, actividades, notas vinculadas y evidencias.
+ \item El validador revisa la información.
+ \item El validador aprueba o rechaza con comentarios.
+ \item El sistema registra la decisión con usuario, rol, fecha y comentarios.}
+{\item \textbf{4a. Reporte rechazado:} regresa al Supervisor con el motivo; al corregirlo vuelve a revisión.}
+{\item Sesión activa con rol de Residente o Superintendente.
+ \item Existe un reporte diario enviado a revisión.}
+{\item Con una aprobación queda \estatus{En revisión}; con las dos, \estatus{Aprobado}; con un rechazo, \estatus{Rechazado}.
+ \item Se avisa al Supervisor del resultado.}
+{RF-17}
+
+\casouso{CU-07}{Residente, Superintendente}{Validar reportes mensuales}
+{Permite al Residente y al Superintendente revisar y validar los reportes mensuales del Supervisor.}
+{\item El validador abre un reporte mensual pendiente.
+ \item El sistema muestra el consolidado del mes, las observaciones y las evidencias.
+ \item El validador revisa la información.
+ \item El validador aprueba o rechaza con comentarios.
+ \item El sistema registra la decisión con usuario, rol, fecha y comentarios.}
+{\item \textbf{4a. Reporte rechazado:} regresa al Supervisor con el motivo para su corrección.}
+{\item Sesión activa con rol de Residente o Superintendente.
+ \item Existe un reporte mensual enviado a revisión.}
+{\item El reporte queda \estatus{Aprobado} o \estatus{Rechazado}; al aprobarse se congelan sus cifras.
+ \item Se avisa al Supervisor y, si se aprueba, a los Directivos.}
+{RF-17}
+
+\casouso{CU-08}{Residente}{Validar estimaciones del Supervisor}
+{Permite al Residente dar la validación final a las estimaciones ya aprobadas por el Supervisor.}
+{\item El Residente abre una estimación \estatus{En revisión} desde su bandeja.
+ \item El sistema muestra la estimación, la revisión del Supervisor y sus comentarios.
+ \item El Residente revisa la información.
+ \item El Residente aprueba o rechaza con comentarios.
+ \item El sistema registra la validación con usuario, rol, fecha y comentarios.}
+{\item \textbf{4a. Estimación rechazada:} regresa al Superintendente con el motivo.}
+{\item Sesión activa con rol de Residente.
+ \item La estimación fue aprobada previamente por el Supervisor.}
+{\item La estimación queda \estatus{Aprobado} o \estatus{Rechazado}; aprobada, cuenta para el avance financiero.
+ \item Se avisa al Superintendente y al Supervisor.}
+{RF-15}
+
+\casouso{CU-09}{Superintendente, Supervisor, Residente}{Hacer notas de bitácora}
+{Permite registrar notas en la bitácora de la obra (instrucciones, solicitudes, avances, incidencias y otras), con su tipo, nota relacionada y evidencias.}
+{\item El usuario abre la bitácora de la obra y elige una nota nueva.
+ \item El usuario captura el tipo, la descripción y, si responde a otra, la nota relacionada.
+ \item El usuario confirma el registro.
+ \item El sistema asigna el folio consecutivo, guarda la nota firmada por su autor y queda pendiente de las demás firmas.}
+{\item \textbf{3a. Datos incompletos:} el sistema indica la información faltante y no guarda la nota.
+ \item \textbf{3b. Evidencia no permitida:} el sistema rechaza el archivo e indica el motivo.
+ \item \textbf{Corrección:} el autor puede editarla o borrarla mientras nadie más la haya firmado; el folio borrado no se reutiliza.}
+{\item Sesión activa con rol de Superintendente, Supervisor o Residente.
+ \item La obra está registrada.}
+{\item La nota queda en la bitácora con estado \estatus{Pendiente}.
+ \item Se avisa a los demás firmantes.}
+{RF-12, RF-22}
+
+\casouso{CU-10}{Superintendente, Supervisor, Residente}{Firmar notas de bitácora}
+{Permite firmar o rechazar una nota de bitácora para dejar constancia de que se revisó y si se está de acuerdo con su contenido.}
+{\item El usuario consulta las notas pendientes de firma.
+ \item El usuario abre una nota y revisa su contenido.
+ \item El usuario firma o la rechaza con motivo.
+ \item El sistema registra la firma con usuario, rol, fecha y hora, y actualiza el estado.}
+{\item \textbf{3a. Usuario no autorizado:} el sistema no permite firmar e informa el motivo.
+ \item \textbf{3b. Nota rechazada:} regresa al autor; al corregirla se reinician las firmas.
+ \item \textbf{Firma pendiente:} la nota permanece \estatus{Pendiente} y sigue en la bandeja de quien debe firmar.}
+{\item Sesión activa con rol de Superintendente, Supervisor o Residente.
+ \item Existe una nota pendiente de firma.}
+{\item Con todas las firmas queda \estatus{Firmada} y ya no puede modificarse.
+ \item Cada firma queda en el historial.}
+{RF-13}
+
+\casouso{CU-11}{Superintendente, Supervisor, Residente}{Subir documentos al repositorio}
+{Permite cargar documentos y archivos (contratos, reportes, documentos técnicos, planos, fotografías, facturas y evidencias) y asociarlos a la obra.}
+{\item El usuario abre el repositorio de documentos de la obra.
+ \item El usuario elige el archivo y captura tipo, nombre y descripción.
+ \item El usuario confirma la carga.
+ \item El sistema valida el formato y el tamaño, guarda el archivo y lo asocia a la obra con usuario y fecha.}
+{\item \textbf{3a. Archivo no permitido o demasiado grande:} el sistema rechaza la carga e indica el motivo (se aceptan PDF, Word, Excel, imágenes y DWG de hasta 20\,MB, reconocidos por su contenido).
+ \item \textbf{3b. Falla de carga:} el sistema informa el error y permite reintentar.
+ \item \textbf{Borrar un documento:} solo quien lo subió o el Administrador; queda registrado en el historial.}
+{\item Sesión activa con rol de Superintendente, Supervisor o Residente.
+ \item La obra está registrada.}
+{\item El documento queda disponible en el repositorio de la obra.
+ \item La carga queda registrada en el historial de la obra.}
+{RF-06, RF-20, RF-25}
+
+\casouso{CU-12}{Todos los roles}{Consultar información del proyecto}
+{Permite consultar el expediente de una obra: contrato, catálogo, reportes, estimaciones, bitácora, avances y documentos. Es el único caso de uso del Directivo, que solo consulta.}
+{\item El usuario ingresa al módulo de obras y busca por nombre, identificador, contrato, contratista o estado.
+ \item El sistema muestra las obras que coinciden con su avance real contra el programado.
+ \item El usuario selecciona una obra.
+ \item El sistema muestra el expediente con los indicadores y la gráfica de avance físico y financiero (programado contra real), según los permisos del rol.}
+{\item \textbf{2a. Sin resultados:} el sistema informa que no hay coincidencias.
+ \item \textbf{4a. Información restringida para el rol:} el sistema oculta lo que el usuario no puede ver (por ejemplo, borradores ajenos).
+ \item \textbf{4b. Error al cargar la información:} la sección afectada muestra un aviso y permite reintentar sin afectar al resto.}
+{\item Sesión activa.
+ \item Existen obras con información capturada.}
+{\item El usuario visualiza la información; no se modifican datos.}
+{RF-02, RF-05, RF-11, RF-18, RF-21}
+
+\casouso{CU-13}{Administrador}{Crear cuentas para cada rol}
+{Permite crear cuentas, asignar su rol en cada obra y definir la contraseña inicial; también modificar o desactivar cuentas.}
+{\item El Administrador abre el módulo de usuarios y elige una cuenta nueva.
+ \item Captura nombre, apellidos, correo, contraseña inicial y, opcionalmente, la obra y el rol.
+ \item Confirma.
+ \item El sistema valida los datos, guarda la cuenta, aplica los permisos del rol y registra la acción.}
+{\item \textbf{3a. Correo ya registrado o datos inválidos:} el sistema indica el error y no guarda la cuenta.
+ \item \textbf{Modificar o desactivar:} el Administrador cambia datos, roles o estado; una cuenta desactivada ya no puede iniciar sesión.}
+{\item Sesión activa con rol de Administrador.}
+{\item La cuenta queda creada o actualizada con los permisos de su rol.
+ \item La acción queda en el historial de la cuenta.}
+{RF-23, RF-24}
+
+\casouso{CU-14}{Administrador}{Cambiar estatus de validaciones de reportes diarios}
+{Permite cambiar el estatus de la validación de un reporte diario (Pendiente, Aprobado o Rechazado, por rol) sin modificar su contenido.}
+{\item El Administrador abre el módulo de validaciones, pestaña de reportes diarios.
+ \item El sistema muestra los reportes con la decisión vigente de cada validador.
+ \item El Administrador elige un reporte, el rol y el nuevo estatus.
+ \item Captura el motivo y confirma.
+ \item El sistema registra la decisión con usuario, fecha y motivo, y recalcula el estatus del reporte.}
+{\item \textbf{4a. Falta el motivo:} el sistema no permite continuar hasta capturarlo.}
+{\item Sesión activa con rol de Administrador.
+ \item Existe al menos un reporte enviado a revisión.}
+{\item El estatus queda actualizado y el cambio en el historial.
+ \item Se avisa al Supervisor y a los validadores.}
+{RF-25}
+
+\casouso{CU-15}{Administrador}{Cambiar estatus de validaciones de reportes mensuales}
+{Permite cambiar el estatus de la validación de un reporte mensual sin modificar su contenido; al regresarlo a revisión se liberan sus cifras congeladas.}
+{\item El Administrador abre el módulo de validaciones, pestaña de reportes mensuales.
+ \item El sistema muestra los reportes con la decisión vigente de cada validador.
+ \item El Administrador elige un reporte, el rol y el nuevo estatus.
+ \item Captura el motivo y confirma.
+ \item El sistema registra la decisión con usuario, fecha y motivo, y recalcula el estatus.}
+{\item \textbf{4a. Falta el motivo:} el sistema no permite continuar hasta capturarlo.}
+{\item Sesión activa con rol de Administrador.
+ \item Existe al menos un reporte mensual enviado a revisión.}
+{\item El estatus queda actualizado y el cambio en el historial.
+ \item Se avisa al Supervisor y a los validadores.}
+{RF-25}
+
+\casouso{CU-16}{Administrador}{Cambiar estatus de validaciones de estimaciones del Superintendente}
+{Permite cambiar la decisión que el Supervisor registró sobre una estimación (Pendiente, Aprobado, Con observaciones o Rechazado), sin modificar la estimación.}
+{\item El Administrador abre el módulo de validaciones, pestaña de estimaciones.
+ \item El sistema muestra las estimaciones con la decisión del Supervisor y del Residente.
+ \item El Administrador elige una estimación, el rol Supervisor y el nuevo estatus.
+ \item Captura el motivo y confirma.
+ \item El sistema registra la decisión con usuario, fecha y motivo, y recalcula el estatus.}
+{\item \textbf{4a. Falta el motivo:} el sistema no permite continuar hasta capturarlo.}
+{\item Sesión activa con rol de Administrador.
+ \item Existe al menos una estimación enviada a revisión.}
+{\item El estatus queda actualizado y el cambio en el historial.
+ \item Se avisa al Superintendente, al Supervisor y al Residente.}
+{RF-25}
+
+\casouso{CU-17}{Administrador}{Cambiar estatus de validaciones de estimaciones del Residente}
+{Permite cambiar la decisión que el Residente registró sobre una estimación, sin modificar la estimación.}
+{\item El Administrador abre el módulo de validaciones, pestaña de estimaciones.
+ \item El sistema muestra las estimaciones con la decisión de cada validador.
+ \item El Administrador elige una estimación, el rol Residente y el nuevo estatus.
+ \item Captura el motivo y confirma.
+ \item El sistema registra la decisión con usuario, fecha y motivo, y recalcula el estatus.}
+{\item \textbf{4a. Falta el motivo:} el sistema no permite continuar hasta capturarlo.}
+{\item Sesión activa con rol de Administrador.
+ \item Existe al menos una estimación con decisión del Residente.}
+{\item El estatus queda actualizado y el cambio en el historial.
+ \item Se avisa al Residente, al Superintendente y al Supervisor.}
+{RF-25}

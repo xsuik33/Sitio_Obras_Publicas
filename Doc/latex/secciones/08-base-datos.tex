@@ -1,0 +1,106 @@
+\chapter{Base de datos}
+
+\section{Descripción general}
+La base de datos relacional organiza, centraliza y relaciona de forma segura la información generada durante el ciclo de vida de una obra. Está diseñada para PostgreSQL y se define en el script \cod{db/esquema\_obras.sql}; los cambios sobre una base con datos se aplican con scripts incrementales (\cod{db/cu*.sql}) que pueden ejecutarse más de una vez y no borran información.
+
+\subsection*{Decisiones de diseño}
+\begin{itemize}
+  \item \textbf{Identificadores UUID versión 4} como llave primaria en todas las tablas operativas. A diferencia de un contador, no revelan cuántos registros existen ni permiten adivinar identificadores ajenos (ataques IDOR). Los catálogos pequeños usan identificadores numéricos.
+  \item \textbf{Integridad en la base de datos:} llaves foráneas, restricciones \cod{CHECK} y \cod{UNIQUE} y columnas calculadas garantizan la consistencia aunque falle la aplicación.
+  \item \textbf{Disparadores} calculan los totales de las estimaciones y asignan el folio de la bitácora, de modo que no dependen de la aplicación.
+  \item \textbf{Historial no editable:} las decisiones sobre reportes, estimaciones y notas se agregan como renglones nuevos; nunca se modifica una decisión anterior.
+  \item \textbf{Esquema administrado por SQL:} los modelos de Django usan \cod{managed = False}, así que Django lee y escribe pero no altera la estructura.
+  \item \textbf{Seguridad en Supabase:} la aplicación se conecta con un rol propio con permisos limitados y seguridad a nivel de renglón habilitada.
+\end{itemize}
+
+\section{Diagrama relacional}
+\begin{sidewaysfigure}
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  tabla/.style={rectangle,rounded corners=2pt,draw=#1,fill=#1!8,line width=0.6pt,font=\ttfamily\scriptsize,minimum width=3.3cm,minimum height=0.62cm},
+  fk/.style={-{Stealth[length=1.8mm]},draw=black!50,line width=0.45pt},
+  grupo/.style={rectangle,rounded corners=6pt,draw=#1!40,dashed,line width=0.5pt,inner sep=7pt},
+  etiq/.style={font=\sffamily\scriptsize\bfseries,text=#1}]
+  % núcleo
+  \node[tabla=guinda] (obras) at (-1.5,0) {obras};
+  \node[tabla=guinda] (contratos) at (4,0) {contratos};
+  \node[tabla=guinda] (anticipos) at (9.5,0) {anticipos};
+  \node[tabla=guinda] (conceptos) at (4,-1.5) {catalogo\_conceptos};
+  \node[tabla=guinda] (programa) at (-1.5,-1.5) {programa\_obra};
+  % seguridad
+  \node[tabla=azulinfo] (usuarios) at (-7,0) {usuarios};
+  \node[tabla=azulinfo] (roles) at (-7,-3) {roles};
+  \node[tabla=azulinfo] (upr) at (-7,-1.5) {usuarios\_proyectos\_roles};
+  % operación
+  \node[tabla=verdeok] (estim) at (9.5,-3.4) {estimaciones};
+  \node[tabla=verdeok] (detalle) at (9.5,-5) {estimaciones\_detalles};
+  \node[tabla=verdeok] (diarios) at (-1.5,-3.4) {reportes\_diarios};
+  \node[tabla=verdeok] (rdn) at (1.6,-5) {reportes\_diarios\_notas};
+  \node[tabla=verdeok] (mensuales) at (-7,-5) {reportes\_mensuales};
+  \node[tabla=verdeok] (notas) at (4,-3.4) {notas\_bitacora};
+  % auditoría
+  \node[tabla=ambar] (vest) at (15,-3.4) {validaciones\_estimaciones};
+  \node[tabla=ambar] (vrd) at (-1.6,-6.6) {validaciones\_reportes\_diarios};
+  \node[tabla=ambar] (vrm) at (-7,-6.6) {validaciones\_reportes\_mensuales};
+  \node[tabla=ambar] (firmas) at (7.6,-6.6) {firmas\_notas\_bitacora};
+  \node[tabla=ambar] (docs) at (15,-5) {documentos};
+  \node[tabla=ambar] (evid) at (3.4,-6.6) {evidencias};
+  \node[tabla=ambar] (est) at (-2.5,-8.2) {catalogo\_estatus\_validacion};
+  \node[tabla=ambar] (tipos) at (12.2,-6.6) {catalogo\_tipos\_nota};
+  % relaciones (flecha hacia la tabla referenciada)
+  \draw[fk] (contratos) -- (obras);
+  \draw[fk] (anticipos) -- (contratos);
+  \draw[fk] (conceptos) -- (obras);
+  \draw[fk] (programa) -- (obras);
+  \draw[fk] (upr) -- (usuarios);
+  \draw[fk] (upr) -- (roles);
+  \draw[fk] (upr.east) -- (obras.south west);
+  \draw[fk] (estim) -- (contratos.south east);
+  \draw[fk] (detalle) -- (estim);
+  \draw[fk] (detalle.north west) -- (conceptos.south east);
+  \draw[fk] (detalle.west) -- (notas.south east);
+  \draw[fk,dashed] (diarios) -- (programa);
+  \draw[fk] (rdn) -- (diarios);
+  \draw[fk] (rdn) -- (notas);
+  \draw[fk,dashed] (mensuales) -- (diarios.south west);
+  \draw[fk] (notas.north west) -- (obras.south east);
+  \draw[fk] (vest) -- (estim);
+  \draw[fk] (vrd) -- (diarios);
+  \draw[fk] (vrm) -- (mensuales);
+  \draw[fk] (firmas) -- (notas);
+  \draw[fk] (docs) -- (estim);
+  \draw[fk] (docs.north) to[bend right=12] (obras.north east);
+  \draw[fk] (evid) -- (diarios);
+  \draw[fk] (evid) -- (mensuales);
+  \draw[fk] (evid) -- (notas);
+  \draw[fk] (notas) -- (tipos);
+  % grupos
+  \begin{scope}[on background layer]
+    \node[grupo=guinda,fit=(obras)(contratos)(anticipos)(conceptos)(programa)] (gn) {};
+    \node[grupo=azulinfo,fit=(usuarios)(upr)(roles)] (gs) {};
+  \end{scope}
+  \node[etiq=guinda,anchor=south west] at (gn.north west) {Núcleo};
+  \node[etiq=azulinfo,anchor=south west] at (gs.north west) {Seguridad};
+  \node[etiq=verdeok,anchor=west] at (13.2,-7.6) {\textcolor{verdeok}{$\blacksquare$} Operación};
+  \node[etiq=ambar,anchor=west] at (13.2,-8.1) {\textcolor{ambar}{$\blacksquare$} Auditoría y archivos};
+\end{tikzpicture}}
+\caption[Diagrama relacional]{Diagrama relacional. Las flechas apuntan a la tabla referenciada. Por legibilidad se omiten las referencias a \cod{usuarios} (autor, validador, firmante) y a \cod{catalogo\_estatus\_validacion}, presentes en casi todas las tablas de operación y auditoría. La relación de \cod{reportes\_diarios} con \cod{programa\_obra} y de \cod{reportes\_mensuales} con \cod{reportes\_diarios} es lógica (por obra y fecha), no una llave foránea.}\label{fig:relacional}
+\end{sidewaysfigure}
+
+\section{Disparadores}
+\begin{xltabular}{\linewidth}{@{}>{\ttfamily\small}p{5.4cm}>{\small}X@{}}
+\caption{Disparadores de la base de datos}\label{tab:disparadores}\\
+\toprule
+\normalfont\sffamily\bfseries Disparador & \sffamily\bfseries Función\\\midrule\endfirsthead
+\bottomrule\endfoot
+trg\_detalle\_preparar & Antes de guardar un renglón de estimación: verifica que el concepto sea de la obra del contrato, toma el precio unitario del catálogo si no se indica, calcula el acumulado anterior y marca si es excedente.\\
+trg\_detalle\_subtotal & Después de cambiar los renglones: recalcula el subtotal de la estimación.\\
+trg\_estimacion\_totales & Antes de guardar la estimación: calcula retención por derechos, IVA y monto neto.\\
+trg\_nota\_folio & Antes de insertar una nota: asigna el folio consecutivo por obra bloqueando la fila de la obra, sin choques entre usuarios.\\
+\end{xltabular}
+
+\chapter{Diccionario de datos}
+El diccionario de datos se genera automáticamente desde \cod{db/esquema\_obras.sql} con el script \cod{generar\_diccionario.py}, por lo que coincide con la base de datos implementada. \emph{PK}: llave primaria; \emph{FK}: llave foránea; \emph{calculado}: columna generada por la base de datos.
+
+\input{secciones/diccionario}

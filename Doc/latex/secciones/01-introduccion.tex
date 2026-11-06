@@ -1,0 +1,53 @@
+\chapter{Introducción}
+
+\section*{Resumen}
+El presente proyecto plantea el diseño y desarrollo de un sistema web que apoya la administración, supervisión y seguimiento de obras públicas en México. La propuesta surge de la necesidad de contar con una herramienta que organice y centralice la información generada durante la ejecución de una obra, y que facilite su consulta, seguimiento y control por parte de los distintos actores. El sistema considera las responsabilidades de cada parte que interviene en una obra pública y el marco normativo mexicano aplicable, con el propósito de mejorar la gestión de la información y la supervisión de los proyectos.
+
+\section{Contexto}
+La ejecución de obras públicas es una actividad relevante para el desarrollo de la infraestructura del país: comprende la construcción, ampliación, rehabilitación, mantenimiento y conservación de bienes destinados a necesidades de carácter público. En México intervienen en ella las dependencias y entidades de la Administración Pública, las empresas contratistas que ejecutan los trabajos y el personal que supervisa que las actividades se realicen conforme a lo pactado.
+
+Una obra requiere el seguimiento continuo de aspectos técnicos, administrativos, financieros y documentales. Desde la contratación hasta la conclusión de los trabajos se genera información que debe registrarse, organizarse y consultarse: datos generales de la obra, contrato, programa de ejecución, avances físicos, reportes de supervisión, incidencias, estimaciones, evidencias fotográficas, documentación técnica y comunicaciones.
+
+El seguimiento exige además la coordinación de varios actores. La entidad contratante necesita conocer el estado de los trabajos y verificar que se desarrollen conforme a las condiciones pactadas; la contratista debe ejecutarlos según el proyecto, las especificaciones y el programa; y la supervisión vigila y documenta las condiciones observadas y los acontecimientos relevantes.
+
+Tradicionalmente esta información se encuentra dispersa en documentos físicos, archivos digitales, hojas de cálculo, fotografías y comunicaciones. Su uso aislado dificulta integrar la información y dar seguimiento general al proyecto, sobre todo cuando participan muchas personas y la obra genera datos todos los días. Las tecnologías de información permiten centralizar esos datos, automatizar cálculos, controlar el acceso y generar reportes; este proyecto aprovecha esas capacidades en una herramienta auxiliar para las obras públicas.
+
+El sistema contempla cinco perfiles con responsabilidades y niveles de acceso diferenciados: Superintendente de la contratista, Supervisor, Residente de obra, Directivo y Administrador. La propuesta no sustituye las responsabilidades legales, administrativas o técnicas de las personas e instituciones involucradas: es una herramienta de apoyo que mejora la disponibilidad, organización y trazabilidad de la información.
+
+\section{Objetivo general}
+Desarrollar un sistema web de información que centralice, organice y dé seguimiento a la información generada durante la ejecución de obras públicas ---documentación, avances, supervisión, estimaciones y reportes---, con funciones y controles de acceso acordes con las responsabilidades de cada actor y considerando las disposiciones aplicables de la Ley de Obras Públicas y Servicios Relacionados con las Mismas y su Reglamento, con el propósito de mejorar la disponibilidad, organización y trazabilidad de la información de las obras.
+
+\section{Objetivos específicos}
+\begin{enumerate}
+  \item Registrar cada obra con su contrato, catálogo de conceptos y programa de ejecución.
+  \item Permitir que el Supervisor registre reportes diarios y mensuales con su avance físico y evidencias, y que el Residente y el Superintendente los validen.
+  \item Permitir que el Superintendente registre estimaciones y que el Supervisor y el Residente las revisen y validen, calculando automáticamente importes, amortización del anticipo, IVA y retenciones.
+  \item Llevar la bitácora electrónica de la obra con folio consecutivo y firmas por rol.
+  \item Comparar el avance físico y financiero programado contra el real y presentarlo en tableros.
+  \item Conservar un repositorio de documentos por obra y el historial de las acciones relevantes.
+  \item Notificar por correo a cada actor cuando una acción requiere su intervención.
+\end{enumerate}
+
+\section{Alcance}
+El sistema es un portal web que auxilia en la administración, supervisión y seguimiento de obras públicas en México. Centraliza la información generada durante la ejecución de una obra y facilita su registro, consulta, actualización y seguimiento. Comprende información de obras, contratos, catálogo de conceptos, programa de obra, reportes diarios y mensuales, estimaciones, bitácora, evidencias fotográficas y documentos, con la Ley de Obras Públicas y Servicios Relacionados con las Mismas y su Reglamento como referencia.
+
+\subsection{Incluido}
+\begin{itemize}
+  \item Administración de cuentas y asignación de roles por obra.
+  \item Registro de obras, contratos, anticipos, catálogo de conceptos y programa de obra.
+  \item Reportes diarios y mensuales con flujo de validación y PDF descargable.
+  \item Estimaciones con validación en dos etapas (Supervisor y Residente) y cálculos conforme a la normativa.
+  \item Bitácora de obra con firmas, repositorio de documentos y evidencias.
+  \item Consulta del expediente de la obra con tablero de avance físico y financiero.
+  \item Avisos por correo, bandeja de pendientes, módulo de validaciones del administrador e historial.
+\end{itemize}
+
+\subsection{Fuera de alcance}
+El sistema tiene carácter auxiliar: no sustituye facultades, obligaciones, procedimientos administrativos ni responsabilidades legales de las dependencias, entidades, contratistas o supervisores. Quedan fuera de su alcance:
+\begin{itemize}
+  \item La realización directa de pagos, la emisión de facturas y la modificación jurídica de contratos.
+  \item El proceso de licitación: el sistema parte de una licitación concluida y un contrato formalizado.
+  \item La emisión de resoluciones administrativas y la determinación de responsabilidades legales.
+  \item La aplicación de penas convencionales y el finiquito (previstos para una versión posterior).
+  \item La operación sin conexión (RNF-18), que se reserva para una etapa posterior.
+\end{itemize}

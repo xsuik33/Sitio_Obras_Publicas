@@ -1,0 +1,109 @@
+\chapter{Requerimientos}
+
+\section{Requerimientos no funcionales}
+Los requerimientos no funcionales establecen las características de calidad, restricciones y condiciones bajo las cuales opera el sistema: rendimiento, seguridad, disponibilidad, usabilidad, confiabilidad, mantenimiento y cumplimiento normativo. Se conservan los identificadores de la versión anterior para mantener la trazabilidad; cada uno indica cómo lo cumple el sistema implementado.
+
+\newcommand{\rnf}[3]{\req{#1}{#2}{#3}}
+\newcommand{\cumple}[1]{\newline{\color{gristexto}\small\textit{En el sistema:} #1}}
+
+\subsection{Requerimientos del producto}
+\subsubsection{Usabilidad}
+\rnf{RNF-01}{Facilidad de uso}{La interfaz es comprensible y permite a cada actor realizar sus operaciones.\cumple{navegación por obra con ruta de migas, formularios con ayuda contextual y bandeja de pendientes.}}
+\rnf{RNF-02}{Consistencia de interfaz}{La estructura visual, de navegación e interacción es consistente entre módulos.\cumple{una sola hoja de estilos con encabezado, tarjetas, etiquetas de estado y botones comunes en todas las páginas.}}
+\rnf{RNF-03}{Acceso por rol}{Cada usuario ve únicamente las funciones de su rol.\cumple{los botones y formularios se muestran según los permisos del rol en la obra (\cref{tab:permisos}).}}
+\rnf{RNF-04}{Mensajes del sistema}{El sistema informa con claridad cuando una operación se realiza, cuando ocurre un error o cuando se requiere una acción.\cumple{mensajes de éxito y error en cada operación y franja de estado en cada reporte, nota o estimación.}}
+
+\subsubsection{Rendimiento}
+\rnf{RNF-06}{Consultas de información}{Las consultas de obras, reportes, avances, incidencias y documentos son eficientes según el permiso de cada rol.\cumple{índices en las llaves foráneas y consultas acotadas por obra.}}
+\rnf{RNF-07}{Gestión de archivos}{La carga y consulta de evidencias y documentos no afecta el funcionamiento de los demás módulos.\cumple{archivos en Supabase Storage, fuera de la base de datos, con descarga mediante URL firmada.}}
+
+\subsubsection{Confiabilidad}
+\rnf{RNF-08}{Integridad de la información}{Se evita la pérdida, corrupción o modificación no autorizada de la información.\cumple{identificadores UUID versión 4, restricciones e integridad referencial en PostgreSQL, operaciones en transacción con bloqueo de fila y respaldos de la base de datos.}}
+\rnf{RNF-09}{Persistencia de información}{La información confirmada permanece disponible para su consulta según los permisos.\cumple{los registros validados no se borran; las correcciones quedan en el historial.}}
+
+\subsubsection{Seguridad}
+\rnf{RNF-11}{Autenticación}{Se requiere iniciar sesión para acceder a las funciones restringidas.\cumple{autenticación de Django con contraseñas almacenadas como hash.}}
+\rnf{RNF-12}{Control de acceso}{El acceso a funciones e información se restringe por rol y permisos.\cumple{cada vista verifica el permiso del rol en la obra; un usuario sin rol en la obra no la ve.}}
+\rnf{RNF-13}{Gestión de sesiones}{Se evita el acceso no autorizado cuando una sesión expira o se cierra.\cumple{sesiones de Django con cookies seguras en producción y protección CSRF.}}
+
+\subsubsection{Eficiencia}
+\rnf{RNF-16}{Uso eficiente de recursos}{Se evitan procesos que consuman memoria, almacenamiento, procesamiento o ancho de banda en exceso.\cumple{límites de tamaño en archivos (10\,MB evidencias, 20\,MB documentos) y cálculos de totales en la base de datos.}}
+\rnf{RNF-17}{Optimización de recursos}{Las consultas, el almacenamiento y la transferencia de información están optimizados.\cumple{archivos estáticos comprimidos y consultas con \cod{select\_related}.}}
+\rnf{RNF-18}{Operación con conectividad limitada}{Si forma parte del alcance definitivo, el sistema almacenará temporalmente la información de supervisión sin conexión para sincronizarla después.\cumple{fuera del alcance de esta versión; los borradores permiten capturar por partes.}}
+
+\subsection{Requerimientos de la organización}
+\subsubsection{Ambientales}
+\rnf{RNF-19}{Diversidad de entornos}{El sistema se usa desde computadoras y dispositivos móviles con navegadores actuales.\cumple{aplicación web sin instalación.}}
+\rnf{RNF-20}{Condiciones de conectividad}{Se considera que la supervisión puede realizarse con conexión limitada.\cumple{páginas ligeras y borradores que se guardan antes de enviar.}}
+\rnf{RNF-21}{Adaptabilidad de interfaz}{La interfaz se adapta a distintos tamaños de pantalla.\cumple{diseño adaptable y modo claro u oscuro.}}
+
+\subsubsection{Operacionales}
+\rnf{RNF-22}{Gestión de usuarios}{La creación, modificación, desactivación y asignación de roles la realiza exclusivamente el Administrador.\cumple{módulo de cuentas restringido a administradores (CU-13).}}
+\rnf{RNF-23}{Administración de permisos}{Los permisos se asocian a los roles del sistema: Superintendente, Supervisor, Residente, Directivo y Administrador.\cumple{\cref{tab:permisos}.}}
+\rnf{RNF-24}{Respaldo de información}{Existen mecanismos de respaldo según las políticas de operación.\cumple{respaldos de la base de datos administrada en Supabase.}}
+\rnf{RNF-25}{Auditoría}{Las operaciones relevantes conservan información suficiente para su revisión.\cumple{historial de validaciones, firmas, cuentas y de cada obra (quién, cuándo y qué).}}
+
+\subsubsection{Desarrollo}
+\rnf{RNF-26}{Arquitectura modular}{Los componentes principales están separados para facilitar el mantenimiento.\cumple{reglas de negocio por módulo, separadas de las vistas (\cref{cap:arquitectura}).}}
+\rnf{RNF-27}{Mantenibilidad}{El código está organizado y documentado.\cumple{cada módulo documenta sus reglas en su encabezado.}}
+\rnf{RNF-28}{Control de versiones}{El código y los artefactos se gestionan con control de versiones.\cumple{repositorios Git en GitHub.}}
+\rnf{RNF-29}{Pruebas}{Los módulos se someten a pruebas que verifican los requerimientos.\cumple{pruebas automatizadas contra PostgreSQL y recorrido de pruebas con cuentas reales por rol.}}
+\rnf{RNF-30}{Documentación técnica}{Hay documentación para instalar, configurar, mantener y evolucionar el sistema.\cumple{este documento, el archivo README y los scripts SQL comentados.}}
+
+\subsection{Requerimientos externos, regulatorios y normativos}
+\rnf{RNF-31}{Cumplimiento del marco jurídico}{El diseño considera las disposiciones legales aplicables a la ejecución, supervisión y seguimiento de obras públicas.\cumple{\cref{tab:articulos}.}}
+\rnf{RNF-32}{Ley de Obras Públicas}{La administración y el seguimiento de las obras consideran la \ley.}
+\rnf{RNF-33}{Reglamento aplicable}{La ejecución, supervisión, documentación y seguimiento consideran el \reg\ y demás ordenamientos.}
+\rnf{RNF-34}{Protección de información}{Los datos personales se tratan conforme a la legislación de protección de datos personales.\cumple{solo se guardan nombre, apellidos, correo y rol.}}
+\rnf{RNF-35}{Normas aplicables}{Se consideran las normas técnicas y administrativas aplicables a los procesos soportados.}
+\rnf{RNF-36}{Calidad del software}{El desarrollo y la evaluación consideran criterios reconocidos de calidad.}
+\rnf{RNF-37}{ISO/IEC 25010}{Se toma como referencia el modelo de calidad del producto ISO/IEC 25010, del que derivan los requerimientos RNF-38 a RNF-45.}
+\rnf{RNF-38}{Adecuación funcional}{El sistema ofrece las funciones necesarias para administrar, supervisar y dar seguimiento a las obras.}
+\rnf{RNF-39}{Eficiencia del desempeño}{El sistema usa adecuadamente los recursos y responde acorde con las operaciones.}
+\rnf{RNF-40}{Compatibilidad}{El sistema es compatible con los navegadores y dispositivos definidos para el proyecto.}
+\rnf{RNF-41}{Capacidad de interacción}{La interfaz facilita la interacción según el rol y las actividades de cada usuario.}
+\rnf{RNF-42}{Fiabilidad}{El sistema funciona de forma estable y preserva la integridad de la información.}
+\rnf{RNF-43}{Seguridad}{El sistema protege la información y controla el acceso según los permisos.}
+\rnf{RNF-44}{Mantenibilidad}{El desarrollo facilita identificar errores y modificar componentes.}
+\rnf{RNF-45}{Portabilidad}{El sistema puede implementarse en los entornos tecnológicos compatibles definidos.\cumple{se despliega en Render con PostgreSQL de Supabase, y localmente con PostgreSQL.}}
+
+\section{Requerimientos funcionales}
+Un requerimiento funcional describe una función que el sistema debe realizar: qué permite hacer, qué información recibe, qué proceso realiza y qué resultado genera. La \cref{tab:rf} relaciona cada requerimiento con los casos de uso que lo atienden y su estado en el sistema implementado.
+
+\newcommand{\hecho}{\textcolor{verdeok}{\sffamily\bfseries Implementado}}
+\newcommand{\parcial}{\textcolor{ambar}{\sffamily\bfseries Parcial}}
+\newcommand{\fuera}{\textcolor{gristexto}{\sffamily\bfseries Fuera de alcance}}
+
+\begin{xltabular}{\linewidth}{@{}>{\sffamily\bfseries\small\color{guinda}}p{1.3cm}>{\small}X>{\small}p{2.1cm}>{\small}p{2.2cm}@{}}
+\caption{Requerimientos funcionales, casos de uso y estado}\label{tab:rf}\\
+\toprule
+\normalfont\sffamily\bfseries ID & \sffamily\bfseries Requerimiento & \sffamily\bfseries Casos de uso & \sffamily\bfseries Estado\\\midrule\endfirsthead
+\toprule
+\normalfont\sffamily\bfseries ID & \sffamily\bfseries Requerimiento & \sffamily\bfseries Casos de uso & \sffamily\bfseries Estado\\\midrule\endhead
+\bottomrule\endfoot
+RF-01 & \textbf{Registrar una obra.} Nombre, ubicación y fechas oficiales; el sistema valida y almacena el registro. Lo realizan los administradores del sistema. & Administración de obras & \hecho\\
+RF-02 & \textbf{Consultar obras} por nombre, identificador, contrato, contratista o estado; si no hay resultados, se informa. & CU-12 & \hecho\\
+RF-03 & \textbf{Modificar información de una obra}, con validación y registro en el historial. & Administración de obras & \hecho\\
+RF-04 & \textbf{Registrar el contrato}: número, contratista, fechas, monto, porcentajes de anticipo, IVA y retenciones, garantía y fianza; uno por obra. & Administración de obras & \hecho\\
+RF-05 & \textbf{Consultar el contrato} según los permisos del usuario. & CU-12 & \hecho\\
+RF-06 & \textbf{Almacenar documentos y archivos} asociados a la obra: contratos, reportes, documentos técnicos, planos, fotografías y evidencias (PDF, Word, Excel, imágenes y DWG de hasta 20\,MB). & CU-11 & \hecho\\
+RF-07 & \textbf{Registrar el catálogo de conceptos}: clave, descripción, unidad, cantidad y precio unitario. & CU-01 & \hecho\\
+RF-08 & \textbf{Consultar el catálogo de conceptos} como referencia para el seguimiento y las estimaciones. & CU-01, CU-12 & \hecho\\
+RF-09 & \textbf{Registrar el avance físico} con observaciones y evidencias, asociado a la obra y al periodo. & CU-03 & \hecho\\
+RF-10 & \textbf{Registrar el avance financiero}, para comparar lo programado con lo real. & CU-02 & \hecho\\
+RF-11 & \textbf{Comparar avance programado y real}, físico y financiero, identificando diferencias. & CU-03, CU-12 & \hecho\\
+RF-12 & \textbf{Registrar la bitácora de obra}: fecha, descripción, tipo de nota, notas relacionadas y evidencias. & CU-09 & \hecho\\
+RF-13 & \textbf{Consultar la bitácora} por estado de firma, tipo de nota o texto. & CU-10, CU-12 & \hecho\\
+RF-14 & \textbf{Registrar estimaciones} con conceptos ejecutados, cantidades, periodo, importes y documentos de soporte. & CU-02 & \hecho\\
+RF-15 & \textbf{Revisar estimaciones}: el Supervisor y el Residente consultan conceptos, cantidades, avances, importes y documentos. & CU-05, CU-08 & \hecho\\
+RF-16 & \textbf{Registrar reportes de obra} diarios y mensuales con documentos o evidencias. & CU-03, CU-04 & \hecho\\
+RF-17 & \textbf{Consultar reportes} por obra, fecha y estado; si no hay resultados, se informa. & CU-06, CU-07, CU-12 & \hecho\\
+RF-18 & \textbf{Generar tableros de control} con avance físico y financiero, programado y real, y sus diferencias. & CU-12 & \hecho\\
+RF-19 & \textbf{Generar reportes de información} de la obra. & CU-03, CU-04 & \parcial\ (PDF de reportes)\\
+RF-20 & \textbf{Buscar información de una obra} por nombre, identificador, contrato, fecha, tipo de documento o concepto. & CU-11, CU-12 & \parcial\\
+RF-21 & \textbf{Consultar el expediente} integrado de la obra, solo con la información permitida al usuario. & CU-12 & \hecho\\
+RF-22 & \textbf{Registrar evidencias} (fotografías y PDF) asociadas a reportes y notas de bitácora. & CU-03, CU-04, CU-09 & \hecho\\
+RF-23 & \textbf{Administrar usuarios}: registrar, modificar, consultar, desactivar y asignar roles. & CU-13 & \hecho\\
+RF-24 & \textbf{Administrar permisos de acceso} por rol y por obra. & CU-13 & \hecho\\
+RF-25 & \textbf{Consultar el historial} de acciones y modificaciones sobre la información de las obras. & CU-11, CU-14 a CU-17 & \parcial\\
+\end{xltabular}

@@ -1,0 +1,68 @@
+\chapter{Actores y levantamiento de información}
+
+\section{Actores}
+En una obra pública participan personas con responsabilidades diferenciadas. El sistema las representa con cinco roles; una misma cuenta puede tener uno o más roles en cada obra, y sus permisos se limitan a las obras en las que participa.
+
+\begin{xltabular}{\linewidth}{@{}>{\sffamily\bfseries\small}p{3.6cm}>{\small}X@{}}
+\caption{Actores del sistema}\label{tab:actores}\\
+\toprule
+\normalfont\sffamily\bfseries Actor & \sffamily\bfseries Función en la obra y en el sistema\\\midrule\endfirsthead
+\bottomrule\endfoot
+Superintendente (contratista) & Representa a la empresa contratista en la obra. Registra el catálogo de conceptos y las estimaciones, valida los reportes del Supervisor, hace y firma notas de bitácora y sube documentos.\\
+Supervisor & Verifica los trabajos realizados. Elabora los reportes diarios y mensuales, captura el programa de obra, revisa las estimaciones del Superintendente, hace y firma notas de bitácora y sube documentos.\\
+Residente de obra & Representa a la dependencia contratante. Valida los reportes y da la validación final de las estimaciones, hace y firma notas de bitácora y sube documentos.\\
+Directivo & Consulta los avances físicos y financieros mediante el expediente y el tablero de cada obra para tomar decisiones. Solo tiene acceso de consulta.\\
+Administrador & Administra cuentas, roles y la información base de cada obra (obra, contrato y anticipos), y puede cambiar el estatus de cualquier validación dejando el motivo. Los correos listados en la configuración (\cod{ADMIN\_EMAILS}) son administradores de todo el sistema y son los únicos que registran obras nuevas.\\
+\end{xltabular}
+
+\begin{aclaracion}[Roles]
+La versión anterior del documento nombraba en algunos requerimientos los perfiles \enquote{Gobierno} y \enquote{Contratista}. Se unificaron con los actores de los casos de uso: \enquote{Gobierno} corresponde al Residente y \enquote{Contratista} al Superintendente.
+\end{aclaracion}
+
+\section{Matriz de permisos}
+La \cref{tab:permisos} resume lo que puede hacer cada rol dentro de una obra. Los permisos están definidos en \cod{obras/permisos.py}.
+
+\begin{table}[h]
+\centering\small\sffamily
+\caption{Permisos por rol}\label{tab:permisos}
+\newcommand{\sip}{\textcolor{verdeok}{\textbf{\checkmark}}}
+\newcommand{\nop}{\textcolor{gristabla}{--}}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{@{}l*{5}{c}@{}}
+\toprule
+\textbf{Permiso} & \textbf{Superint.} & \textbf{Supervisor} & \textbf{Residente} & \textbf{Directivo} & \textbf{Admin.}\\\midrule
+Consultar la obra y su expediente & \sip & \sip & \sip & \sip & \sip\\
+Capturar y modificar el catálogo de conceptos & \sip & \nop & \nop & \nop & \sip\\
+Crear estimaciones & \sip & \nop & \nop & \nop & \sip\\
+Revisar y validar estimaciones & \nop & \sip & \sip & \nop & \sip\\
+Crear reportes diarios y mensuales & \nop & \sip & \nop & \nop & \sip\\
+Validar reportes diarios y mensuales & \sip & \nop & \sip & \nop & \sip\\
+Capturar el programa de obra & \nop & \sip & \nop & \nop & \sip\\
+Hacer y firmar notas de bitácora & \sip & \sip & \sip & \nop & \sip\\
+Subir documentos y evidencias & \sip & \sip & \sip & \nop & \sip\\
+Editar obra, contrato y anticipos & \nop & \nop & \nop & \nop & \sip\\
+Asignar roles en la obra & \nop & \nop & \nop & \nop & \sip\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Entrevista y requerimientos}
+Las respuestas obtenidas en la entrevista orientaron los requerimientos. La \cref{tab:entrevista} conserva cada pregunta con su respuesta y la forma en que el sistema la atiende.
+
+\begin{xltabular}{\linewidth}{@{}>{\small}p{4.2cm}>{\small}X>{\small}p{4.4cm}@{}}
+\caption{Entrevista y decisiones derivadas}\label{tab:entrevista}\\
+\toprule
+\sffamily\bfseries Pregunta & \sffamily\bfseries Respuesta & \sffamily\bfseries Cómo lo atiende el sistema\\\midrule\endfirsthead
+\toprule
+\sffamily\bfseries Pregunta & \sffamily\bfseries Respuesta & \sffamily\bfseries Cómo lo atiende el sistema\\\midrule\endhead
+\bottomrule\endfoot
+¿Cómo funciona el ciclo de convocatorias? & Necesidad de la obra, convocatoria, bases, juntas de aclaraciones, presentación y apertura de propuestas, evaluación, fallo y formalización del contrato. & El sistema inicia a partir del contrato formalizado.\\
+¿Qué datos deben venir en las estimaciones? & Datos del contrato y fiscales, anticipo, multas, facturas, monto del contrato y de fianzas, amortización, conceptos ejecutados, precio unitario y cantidad trabajada. & Estimación por conceptos del catálogo con amortización, retenciones e IVA; facturas como documento de soporte; fianza y garantía en el contrato.\\
+¿Qué información debe venir en el contrato? & El contratista verifica lo que se hace y lo registra en el reporte. & Contrato con número, contratista, fechas, monto, porcentajes y garantías.\\
+¿Qué requisitos deben cumplirse para avanzar de una etapa a otra? & El avance físico debe calcularse automáticamente según el tipo, la unidad (por ejemplo m\textsuperscript{3}) y lo construido. & Avance físico desde los reportes aprobados y desviación contra el programa calculados por el sistema.\\
+¿El sistema calcula el avance financiero o se captura? & Se calcula automáticamente con las estimaciones. & Avance financiero = estimaciones aprobadas entre el monto del contrato.\\
+¿Cómo se registran las modificaciones al contrato? & Con reprogramaciones cuando cambian fechas y con el registro de trabajos agregados. & Retención y justificación de atraso; excedentes con nota de bitácora. Los convenios de reprogramación quedan para una versión posterior.\\
+¿Quién modifica el catálogo? & El Superintendente. & Solo el Superintendente (y el Administrador) captura el catálogo; queda bloqueado cuando ya se usa en estimaciones.\\
+¿Qué sucede si una licitación se cancela? & El alcance contempla una licitación y un contrato cerrados. & Fuera de alcance.\\
+¿Qué ocurre si el contrato se modifica en una etapa posterior? & Puede haber reprogramaciones o trabajos adicionales, sin modificar montos; el Superintendente propone, el Supervisor revisa y el Residente autoriza. & Los montos del contrato se bloquean cuando existen estimaciones.\\
+\end{xltabular}

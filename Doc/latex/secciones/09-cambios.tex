@@ -1,0 +1,22 @@
+\chapter{Cambios respecto a la versión anterior}
+Esta versión actualiza el documento al sistema implementado. Los cambios de fondo son los siguientes:
+
+\begin{xltabular}{\linewidth}{@{}>{\sffamily\small\bfseries}p{3.4cm}>{\small}X@{}}
+\caption{Cambios de la versión 2.0}\label{tab:cambios}\\
+\toprule
+\normalfont\sffamily\bfseries Tema & \sffamily\bfseries Cambio\\\midrule\endfirsthead
+\toprule
+\normalfont\sffamily\bfseries Tema & \sffamily\bfseries Cambio\\\midrule\endhead
+\bottomrule\endfoot
+Validación de reportes & CU-06 y CU-07 incluyen al Superintendente: los reportes los validan el Residente y el Superintendente.\\
+Estimaciones & Se agrega el estatus \estatus{Con observaciones} (CU-05), la regla de una estimación abierta por contrato, los cálculos de amortización y retenciones conforme a la \ley\ y el \reg, y la exigencia de números generadores.\\
+Reporte diario & El atraso se mide también en días; con un día o más se documenta causa y solicitud (flujo 4a de CU-03). Se vinculan las notas de bitácora del día.\\
+Validaciones del Administrador & Se describe el módulo de validaciones (CU-14 a CU-17) con motivo obligatorio y aviso a los involucrados.\\
+Documentos & Se definen formatos (PDF, Word, Excel, imágenes y DWG), tamaño máximo (20\,MB), tipos de documento y quién puede borrar (CU-11), y el historial de la obra.\\
+Obras y contratos & Se agregan las pantallas de registro de obra, contrato y anticipos, con garantía, fianza y retención por atraso; los montos se bloquean cuando existen estimaciones.\\
+Roles & Se unifican los perfiles \enquote{Gobierno} y \enquote{Contratista} con Residente y Superintendente, y se agrega la matriz de permisos.\\
+Requerimientos & Se corrige la redacción de RNF-08 (los UUID no son un mecanismo de cifrado), se indica cómo cumple el sistema cada requerimiento y el estado de cada RF.\\
+Marco legal & Se relacionan los artículos de la Ley y el Reglamento con las reglas del sistema.\\
+Arquitectura & Se agregan los diagramas de capas, despliegue y clases, que estaban vacíos.\\
+Base de datos & El diagrama relacional y el diccionario de datos reflejan el esquema implementado; la versión anterior tenía tipos incorrectos (por ejemplo, nombres como UUID y fechas como NUMERIC).\\
+\end{xltabular}

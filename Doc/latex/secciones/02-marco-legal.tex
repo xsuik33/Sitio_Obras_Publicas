@@ -1,0 +1,41 @@
+\chapter{Marco legal}
+El sistema se fundamenta en el marco jurídico mexicano aplicable a la ejecución y administración de obras públicas, y se plantea como herramienta de apoyo para registrar, organizar, consultar y dar seguimiento a la información que se genera durante las obras.
+
+\section{Ordenamientos de referencia}
+\begin{description}[style=nextline,leftmargin=1.2em,font=\sffamily\bfseries\color{guinda}]
+  \item[Constitución Política de los Estados Unidos Mexicanos, artículo 134]
+    Establece que los recursos públicos se administren con eficiencia, eficacia, economía, transparencia y honradez, y regula los procedimientos de contratación.
+  \item[Ley de Obras Públicas y Servicios Relacionados con las Mismas (\ley)]
+    Regula la planeación, programación, presupuestación, contratación, ejecución y control de las obras públicas. Es la principal referencia para los procesos e información del sistema.
+  \item[Reglamento de la \ley]
+    Desarrolla la aplicación de la Ley en la ejecución, supervisión, seguimiento, documentación y control de los trabajos.
+  \item[Ley Federal de Protección de Datos Personales y normativa aplicable]
+    Rige el tratamiento de los datos personales de los usuarios del sistema (RNF-34).
+\end{description}
+
+\section{Disposiciones aplicadas en el sistema}
+La \cref{tab:articulos} relaciona los artículos de la Ley y el Reglamento con la regla concreta que el sistema implementa.
+
+\begin{xltabular}{\linewidth}{@{}>{\sffamily\small\bfseries}p{2.6cm}>{\small}X>{\small}p{4.6cm}@{}}
+\caption{Disposiciones normativas y su aplicación en el sistema}\label{tab:articulos}\\
+\toprule
+\normalfont\sffamily\bfseries Artículo & \sffamily\bfseries Disposición & \sffamily\bfseries Regla del sistema\\\midrule
+\endfirsthead
+\toprule
+\normalfont\sffamily\bfseries Artículo & \sffamily\bfseries Disposición & \sffamily\bfseries Regla del sistema\\\midrule
+\endhead
+\bottomrule\endfoot
+\ley\ 46 Bis & Retenciones económicas por atraso durante la vigencia del programa, recuperables si se regulariza; penas convencionales con tope en la garantía de cumplimiento. & Retención por atraso en cada estimación (\% del contrato sobre el importe atrasado) y devolución automática. Penas: fuera de alcance.\\
+\ley\ 48 & Garantías de anticipo y de cumplimiento. & El contrato registra el monto de la garantía de cumplimiento, el número de fianza y la afianzadora.\\
+\ley\ 50 & Anticipo de hasta 30\,\% de la asignación del contrato. & El contrato no admite un anticipo mayor a 30\,\%; las ministraciones no pueden sumar más que el anticipo autorizado.\\
+\ley\ 52 Bis & Uso obligatorio de la bitácora. & Bitácora electrónica por obra con folio consecutivo y firmas.\\
+\ley\ 53; \reg\ 113 y 115 & Residencia de obra y supervisión con funciones definidas. & Roles Residente y Supervisor con permisos diferenciados.\\
+\ley\ 54 & Estimaciones con periodicidad no mayor de un mes; presentación dentro de 6 días naturales tras el corte; revisión en un plazo de 15 días. & Validación del periodo y avisos de plazo en cada estimación.\\
+\reg\ 118 & Los trabajos excedentes sin orden escrita no se pagan. & Un renglón excedente exige citar una nota de bitácora firmada.\\
+\reg\ 122 a 125 & Contenido y uso de la bitácora. & Tipos de nota, notas relacionadas, firmas por rol e historial.\\
+\reg\ 128 & Retención de derechos e impuestos aplicables. & Retención por derechos (\% del contrato) en cada estimación.\\
+\reg\ 130 & Tipos de estimación reconocidos. & Se implementa la estimación de trabajos ejecutados.\\
+\reg\ 132 & Documentos que acompañan a cada estimación: números generadores, notas de bitácora, croquis, pruebas, fotografías y cálculo de importes. & Documentos de soporte por estimación; los números generadores son obligatorios para enviarla.\\
+\reg\ 133 & Estimaciones no resueltas en plazo se tienen por autorizadas. & El sistema avisa del vencimiento, pero no autoriza de forma automática (decisión del equipo).\\
+\reg\ 143 & Amortización del anticipo proporcional al porcentaje otorgado. & Amortización = importe de la estimación $\times$ \% de anticipo.\\
+\end{xltabular}

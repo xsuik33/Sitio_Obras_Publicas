@@ -1,0 +1,133 @@
+\chapter{Arquitectura}\label{cap:arquitectura}
+
+\section{Arquitectura en capas}
+El sistema es una aplicación web en Django organizada en capas (\cref{fig:capas}). Las vistas atienden las peticiones y verifican permisos; las reglas de negocio viven en módulos independientes; los modelos representan las tablas, cuyo esquema define el script SQL; y los servicios externos se encapsulan en módulos propios.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  capa/.style={rectangle,rounded corners=4pt,draw=#1,fill=#1!7,line width=0.6pt,minimum width=15.2cm,minimum height=1.25cm,align=center},
+  caja/.style={rectangle,rounded corners=3pt,draw=black!30,fill=white,font=\sffamily\scriptsize,text width=11.4cm,align=center,minimum height=0.7cm,inner sep=3pt},
+  tit/.style={font=\sffamily\small\bfseries,anchor=west},
+  flecha/.style={-{Stealth[length=2.2mm]},line width=0.6pt,draw=black!55}]
+  \node[capa=azulinfo] (l1) at (0,0) {};
+  \node[tit] at ([xshift=4pt]l1.west) {Presentación};
+  \node[caja,anchor=east] at ([xshift=-6pt]l1.east) {Plantillas HTML · hoja de estilos · gráfica SVG · modo claro/oscuro · PDF (ReportLab)};
+  \node[capa=guinda] (l2) at (0,-1.55) {};
+  \node[tit] at ([xshift=4pt]l2.west) {Control};
+  \node[caja,anchor=east] at ([xshift=-6pt]l2.east) {\texttt{views.py} · \texttt{urls.py} · \texttt{forms.py} · \texttt{permisos.py} (rol por obra)};
+  \node[capa=verdeok] (l3) at (0,-3.1) {};
+  \node[tit] at ([xshift=4pt]l3.west) {Reglas de negocio};
+  \node[caja,anchor=east,text width=11.4cm] at ([xshift=-6pt]l3.east) {\texttt{reportes} · \texttt{mensuales} · \texttt{estimaciones} · \texttt{bitacora} · \texttt{consulta} · \texttt{evidencias} · \texttt{documentos} · \texttt{historial} · \texttt{cuentas}};
+  \node[capa=ambar] (l4) at (0,-4.65) {};
+  \node[tit] at ([xshift=4pt]l4.west) {Datos};
+  \node[caja,anchor=east] at ([xshift=-6pt]l4.east) {\texttt{models.py} (\texttt{managed = False}) · ORM de Django · disparadores y restricciones en PostgreSQL};
+  \node[capa=gristexto] (l5) at (0,-6.2) {};
+  \node[tit] at ([xshift=4pt]l5.west) {Servicios};
+  \node[caja,anchor=east] at ([xshift=-6pt]l5.east) {PostgreSQL (Supabase) · Supabase Storage (\texttt{almacenamiento.py}) · Brevo (\texttt{correo.py})};
+  \foreach \a/\b in {l1/l2,l2/l3,l3/l4,l4/l5} \draw[flecha] (\a.south) -- (\b.north);
+\end{tikzpicture}
+\caption{Arquitectura en capas}\label{fig:capas}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\caption{Módulos de reglas de negocio}\label{tab:modulos}
+\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}>{\ttfamily\small}lX@{}}
+\toprule
+\normalfont\sffamily\bfseries Módulo & \sffamily\bfseries Responsabilidad\\\midrule
+permisos.py & Permisos por rol y por obra; administradores del sistema.\\
+reportes.py & Reporte diario: decisiones, estados, programa, desviación y atraso en días (CU-03, CU-06).\\
+mensuales.py & Reporte mensual: consolidado del periodo, congelado al aprobarse (CU-04, CU-07).\\
+estimaciones.py & Estimaciones: validación en dos etapas, cálculos, retención por atraso y plazos (CU-02, CU-05, CU-08).\\
+bitacora.py & Bitácora: folio, firmas por rol, corrección y búsqueda (CU-09, CU-10).\\
+consulta.py & Búsqueda de obras y expediente con avance programado contra real (CU-12).\\
+evidencias.py & Evidencias de reportes y notas en Supabase Storage.\\
+documentos.py & Repositorio de documentos y soporte de estimaciones (CU-11).\\
+historial.py & Historial de cada obra.\\
+cuentas.py & Cuentas de usuario e historial de cuentas (CU-13).\\
+correo.py & Envío de avisos por Brevo con versión HTML.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Tecnologías}
+\begin{itemize}
+  \item \textbf{Lenguaje y marco de trabajo:} Python 3 y Django 5.2.
+  \item \textbf{Base de datos:} PostgreSQL administrado en Supabase; esquema definido en \cod{db/esquema\_obras.sql} y cambios incrementales en \cod{db/cu*.sql}.
+  \item \textbf{Archivos:} Supabase Storage en un bucket privado; los archivos se entregan mediante URL firmada de vigencia corta después de verificar permisos.
+  \item \textbf{Correo:} API HTTP de Brevo (el plan gratuito de Render bloquea SMTP).
+  \item \textbf{Despliegue:} Render con Gunicorn y WhiteNoise para archivos estáticos.
+  \item \textbf{Interfaz:} HTML y CSS propios, tipografía IBM Plex, gráfica de avance en SVG y PDF con ReportLab.
+  \item \textbf{Pruebas:} pruebas automatizadas de Django contra una base PostgreSQL de prueba que carga el esquema y los scripts incrementales.
+\end{itemize}
+
+\section{Despliegue}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  nodo/.style={rectangle,rounded corners=4pt,draw=#1,fill=#1!7,line width=0.6pt,font=\sffamily\small,align=center,minimum height=1.1cm,minimum width=3cm},
+  flecha/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]},line width=0.6pt,draw=black!55},
+  et/.style={font=\sffamily\scriptsize,text=black!65,fill=white,inner sep=1.5pt}]
+  \node[nodo=azulinfo] (nav) {Navegador\\\scriptsize computadora o móvil};
+  \node[nodo=guinda,right=1.8cm of nav] (app) {Render\\\scriptsize Django + Gunicorn};
+  \node[nodo=verdeok,right=1.8cm of app,yshift=1cm] (db) {Supabase\\\scriptsize PostgreSQL};
+  \node[nodo=verdeok,right=1.8cm of app,yshift=-1cm] (st) {Supabase\\\scriptsize Storage};
+  \node[nodo=ambar,below=1.2cm of app] (br) {Brevo\\\scriptsize correo};
+  \draw[flecha] (nav) -- node[et,above]{HTTPS} (app);
+  \draw[flecha] (app) -- node[et,above,sloped]{SQL / TLS} (db);
+  \draw[flecha] (app) -- node[et,below,sloped]{API} (st);
+  \draw[-{Stealth[length=2mm]},line width=0.6pt,draw=black!55] (app) -- node[et,right]{API} (br);
+  \draw[-{Stealth[length=2mm]},line width=0.6pt,draw=black!40,dashed] (st.south west) to[bend left=25] node[et,below]{URL firmada} (nav.south);
+\end{tikzpicture}
+\caption{Diagrama de despliegue}\label{fig:despliegue}
+\end{figure}
+
+Las credenciales (base de datos, Storage y Brevo) se configuran como variables de entorno en Render y nunca se guardan en el repositorio.
+
+\section{Diagrama de clases}
+La \cref{fig:clases} muestra las clases principales del dominio y sus relaciones. Por legibilidad se omiten los catálogos de estatus y de tipos de nota y las tablas de validaciones, que se detallan en el diccionario de datos.
+
+\begin{sidewaysfigure}
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  clase/.style={rectangle split,rectangle split parts=2,draw=guinda!80,fill=white,line width=0.6pt,
+    font=\ttfamily\scriptsize,align=left,rectangle split part fill={guindaclaro,white},text width=4.9cm,inner sep=3pt},
+  rel/.style={draw=black!55,line width=0.5pt},
+  mult/.style={font=\sffamily\tiny,text=black!70}]
+  \node[clase] (obra) at (0,0) {\textbf{\sffamily Obra}\nodepart{second}nombre, ubicacion\\fecha\_inicio\_oficial\\fecha\_fin\_oficial\\ultimo\_folio\_bitacora};
+  \node[clase] (contrato) at (7.5,0) {\textbf{\sffamily Contrato}\nodepart{second}numero\_contrato, contratista\\monto\_total\_contratado\\porcentaje\_anticipo, \_iva\\porcentaje\_retencion, \_atraso\\monto\_garantia\_cumplimiento};
+  \node[clase] (anticipo) at (15,0) {\textbf{\sffamily Anticipo}\nodepart{second}tipo, monto, estatus\\fecha\_programada, fecha\_pago};
+  \node[clase] (concepto) at (7.5,-4) {\textbf{\sffamily CatalogoConcepto}\nodepart{second}clave, capitulo, descripcion\\unidad\_medida\\volumen\_total\_contratado\\precio\_unitario};
+  \node[clase] (estimacion) at (15,-4) {\textbf{\sffamily Estimacion}\nodepart{second}folio, periodo\_inicio, fecha\_corte\\subtotal, amortizacion, iva\\retencion, retencion\_atraso\\monto\_neto, estatus};
+  \node[clase] (detalle) at (15,-8.4) {\textbf{\sffamily EstimacionDetalle}\nodepart{second}cantidad\_ejecutada\\precio\_unitario, importe\\es\_excedente};
+  \node[clase] (usuario) at (-7.5,0) {\textbf{\sffamily Usuario}\nodepart{second}nombre, apellidos, correo\\activo};
+  \node[clase] (upr) at (-7.5,-4) {\textbf{\sffamily UsuarioProyectoRol}\nodepart{second}usuario, obra, rol};
+  \node[clase] (diario) at (0,-4) {\textbf{\sffamily ReporteDiario}\nodepart{second}fecha\_reporte, clima\\avance\_fisico\_real\_porcentaje\\atraso\_causa, atraso\_solicitud\\estatus};
+  \node[clase] (mensual) at (0,-8.4) {\textbf{\sffamily ReporteMensual}\nodepart{second}anio, mes, fecha\_corte\\resumen, consolidado\\estatus};
+  \node[clase] (nota) at (7.5,-8.4) {\textbf{\sffamily NotaBitacora}\nodepart{second}folio, tipo, descripcion\\estado\_firma\\nota\_relacionada};
+  \node[clase] (doc) at (-7.5,-8.4) {\textbf{\sffamily Documento}\nodepart{second}nombre\_archivo, categoria\\ruta\_almacenamiento\\estimacion (opcional)};
+  \node[clase] (programa) at (0,3.6) {\textbf{\sffamily ProgramaObra}\nodepart{second}fecha\\avance\_programado\_porcentaje};
+  \node[clase] (evid) at (7.5,-12) {\textbf{\sffamily Evidencia}\nodepart{second}ruta, tipo, descripcion\\(reporte diario, mensual o nota)};
+  \draw[rel] (obra) -- node[mult,above,pos=0.15]{1} node[mult,above,pos=0.85]{0..1} (contrato);
+  \draw[rel] (contrato) -- node[mult,above,pos=0.15]{1} node[mult,above,pos=0.85]{*} (anticipo);
+  \draw[rel] (obra) -- node[mult,right,pos=0.15]{1} node[mult,right,pos=0.85]{*} (programa);
+  \draw[rel] (obra.south east) -- node[mult,above,pos=0.85]{*} (concepto);
+  \draw[rel] (contrato.south east) -- node[mult,right,pos=0.85]{*} (estimacion);
+  \draw[rel] (estimacion) -- node[mult,right,pos=0.15]{1} node[mult,right,pos=0.85]{*} (detalle);
+  \draw[rel] (concepto) |- node[mult,above,pos=0.9]{*} (detalle);
+  \draw[rel] (usuario) -- node[mult,right,pos=0.85]{*} (upr);
+  \draw[rel] (upr.north east) -- node[mult,below,pos=0.85]{*} (obra.south west);
+  \draw[rel] (obra) -- node[mult,right,pos=0.85]{*} (diario);
+  \draw[rel,dashed] (diario) -- node[mult,right]{consolida (por mes)} (mensual);
+  \draw[rel] (diario.south east) -- node[mult,above,pos=0.85]{*} (nota.north west);
+  \draw[rel] (obra.south west) -- node[mult,above,pos=0.9]{*} (doc.north east);
+  \draw[rel,dashed] (doc.east) -- ++(1.6,0) |- (estimacion.south west);
+  \draw[rel] (nota) -- node[mult,right,pos=0.85]{*} (evid);
+  \draw[rel] (mensual.south) |- (evid.west);
+  \draw[rel,dashed] (detalle.south) |- node[mult,below,pos=0.75]{excedente autorizado} (nota.east);
+\end{tikzpicture}}
+\caption{Diagrama de clases del dominio}\label{fig:clases}
+\end{sidewaysfigure}

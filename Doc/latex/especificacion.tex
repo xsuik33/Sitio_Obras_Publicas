@@ -1,0 +1,201 @@
+% =====================================================================
+% Documento de Especificación · Sistema Web para la Administración, Supervisión y
+% Seguimiento de Obras Públicas (ESCOM-IPN, Análisis y Diseño de Sistemas 5CV5)
+% Compilar:  latexmk -pdf especificacion.tex      (o: make)
+% =====================================================================
+\documentclass[11pt,letterpaper,oneside]{report}
+
+% --- Idioma y codificación -------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,mexico,es-tabla,es-noshorthands]{babel}
+\usepackage{csquotes}
+
+% --- Tipografía --------------------------------------------------------
+\usepackage{newtxtext,newtxmath}            % texto serif
+\usepackage[sfdefault=false]{plex-sans}     % títulos (misma familia que el sistema)
+\usepackage{plex-mono}                      % folios, tablas de BD, código
+\usepackage{microtype}
+
+% --- Página ------------------------------------------------------------
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm,headheight=14pt]{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[dotinlabels]{titletoc}
+\usepackage{setspace}
+\setstretch{1.12}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+
+% --- Color, tablas, listas, figuras -------------------------------------
+\usepackage[table]{xcolor}
+\definecolor{guinda}{HTML}{6C1D45}
+\definecolor{guindaclaro}{HTML}{F3E7EC}
+\definecolor{grisfondo}{HTML}{F4F3F1}
+\definecolor{gristexto}{HTML}{55575C}
+\definecolor{gristabla}{HTML}{E6E3DF}
+\definecolor{verdeok}{HTML}{127A3E}
+\definecolor{azulinfo}{HTML}{2F5F9E}
+\definecolor{ambar}{HTML}{8A5A00}
+\definecolor{rojo}{HTML}{B42318}
+\usepackage{array,tabularx,xltabular,booktabs,multirow,makecell}
+\usepackage{enumitem}
+\setlist{itemsep=0.15em,topsep=0.3em,leftmargin=1.4em}
+\usepackage{graphicx}
+\usepackage{caption}
+\captionsetup{font={small,sf},labelfont={bf,color=guinda},labelsep=period}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.multipart,arrows.meta,fit,backgrounds,calc,matrix}
+\pgfdeclarelayer{lineas}
+\pgfsetlayers{background,lineas,main}
+\usepackage{siunitx}
+\usepackage{needspace}
+\usepackage{rotating}
+\sisetup{group-separator={,},output-decimal-marker={.}}
+
+% --- Enlaces -------------------------------------------------------------
+\usepackage[hidelinks,pdfusetitle,bookmarksnumbered]{hyperref}
+\hypersetup{pdftitle={Documento de Especificación · Sistema de Obras},
+  pdfauthor={Alva León, González Ortiz, Hernández Ríos, Pérez Flores, Santiago Acosta}}
+\usepackage[spanish]{cleveref}
+
+% --- Estilo de títulos ----------------------------------------------------
+\titleformat{\chapter}[display]
+  {\sffamily\bfseries\color{guinda}}
+  {\normalsize\mdseries\color{gristexto}\MakeUppercase{\chaptertitlename}~\thechapter}
+  {0.2em}{\LARGE}[\vspace{0.3em}{\color{guinda}\titlerule[1.2pt]}]
+\titlespacing*{\chapter}{0pt}{-1.2em}{1.4em}
+\titleformat{\section}{\sffamily\bfseries\large\color{guinda}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\sffamily\bfseries\normalsize}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\sffamily\bfseries\small\color{gristexto}}{}{0pt}{}
+\titlespacing*{\subsubsection}{0pt}{0.9em}{0.2em}
+\titlespacing*{\section}{0pt}{1.4em}{0.5em}
+\titlespacing*{\subsection}{0pt}{1.0em}{0.3em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\footnotesize\color{gristexto}Sistema de Obras · Documento de Especificación}
+\fancyhead[R]{\sffamily\footnotesize\color{gristexto}\nouppercase{\leftmark}}
+\fancyfoot[R]{\sffamily\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{gristabla}\hrule width\headwidth height\headrulewidth}}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[R]{\sffamily\footnotesize\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% --- Macros del documento ---------------------------------------------------
+\newcommand{\sistema}{Sistema de Obras}
+\newcommand{\ley}{LOPSRM}
+\newcommand{\reg}{Reglamento de la LOPSRM}
+\newcommand{\cod}[1]{\texttt{\small #1}}
+\newcommand{\estatus}[1]{{\sffamily\small\bfseries #1}}
+\newcommand{\nota}[1]{{\color{gristexto}\small #1}}
+
+% Recuadro de requerimiento: \req{RF-01}{Nombre}{Texto}
+\newcommand{\req}[3]{%
+  \par\noindent\begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{guinda}}p{1.7cm}X@{}}
+  #1 & \textbf{#2.} #3
+  \end{tabularx}\par\vspace{0.25em}}
+
+% Recuadro de aclaración (diferencias con la versión anterior o notas de implementación)
+\newtcolorbox{aclaracion}[1][Aclaración]{enhanced,breakable,colback=guindaclaro,colframe=guinda,
+  boxrule=0pt,leftrule=3pt,arc=2pt,left=8pt,right=8pt,top=5pt,bottom=5pt,
+  fonttitle=\sffamily\bfseries\small,coltitle=guinda,title={#1},attach title to upper={\ \ },fontupper=\small}
+
+% Ficha de caso de uso:
+% \casouso{ID}{Actores}{Nombre}{Descripción}{Flujo principal (\item)}{Alternos (\item)}{Pre (\item)}{Post (\item)}{RF}
+\newcommand{\casouso}[9]{%
+\needspace{14\baselineskip}%
+\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=gristabla,boxrule=0.6pt,arc=2pt,
+  left=0pt,right=0pt,top=0pt,bottom=2pt,before skip=0.9em,after skip=0.9em]
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\linewidth}{@{\hspace{8pt}}>{\sffamily\bfseries\small}l X@{\hspace{8pt}}}
+\rowcolor{guinda}\multicolumn{2}{@{\hspace{8pt}}l}{\color{white}\sffamily\bfseries #1 \quad #3}\\
+Actores & #2 \\
+Requerimientos & {\small #9}\\
+\end{tabularx}
+\vspace{-2pt}
+\begin{tcolorbox}[enhanced,colback=white,frame hidden,left=8pt,right=8pt,top=0pt,bottom=0pt,boxsep=2pt]
+\small
+\textsf{\textbf{Descripción.}} #4
+
+\textsf{\textbf{\color{guinda}Flujo principal}}
+\begin{enumerate}[label=\arabic*.,leftmargin=1.6em,itemsep=0pt]#5\end{enumerate}
+\textsf{\textbf{\color{guinda}Flujos alternativos}}
+\begin{itemize}[leftmargin=1.4em,itemsep=0pt]#6\end{itemize}
+\begin{minipage}[t]{0.485\linewidth}
+\textsf{\textbf{\color{guinda}Precondiciones}}
+\begin{itemize}[leftmargin=1.2em,itemsep=0pt]#7\end{itemize}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\linewidth}
+\textsf{\textbf{\color{guinda}Postcondiciones}}
+\begin{itemize}[leftmargin=1.2em,itemsep=0pt]#8\end{itemize}
+\end{minipage}
+\end{tcolorbox}
+\end{tcolorbox}}
+
+% Encabezado de tabla de diccionario de datos
+\newcommand{\tablabd}[2]{\subsection*{\cod{#1}}\nota{#2}\par}
+
+\begin{document}
+
+% ======================================================================
+% PORTADA
+% ======================================================================
+\begin{titlepage}
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[black!85] (current page.north west) rectangle ([yshift=-1.6cm]current page.north east);
+  \fill[guinda] ([yshift=-2.2cm]current page.north west) -- ++(13.2,0) -- ++(1.6,-1.4) -- ++(-14.8,0) -- cycle;
+  \fill[black!85] ([xshift=13.6cm,yshift=-2.2cm]current page.north west) -- ++(8,0) -- ++(0,-1.4) -- ++(-6.4,0) -- cycle;
+  \fill[black!85] (current page.south east) -- ++(-6.5,0) -- ++(1.6,1.5) -- ++(4.9,0) -- cycle;
+  \fill[guinda] ([xshift=-7.2cm]current page.south east) -- ++(-2.2,0) -- ++(1.6,1.5) -- ++(2.2,0) -- cycle;
+\end{tikzpicture}
+\vspace*{3.4cm}
+\begin{minipage}[c]{0.6\linewidth}
+{\sffamily\bfseries\large INSTITUTO POLITÉCNICO NACIONAL\\[2pt]
+\normalsize ESCUELA SUPERIOR DE CÓMPUTO\\[2pt]
+INGENIERÍA EN SISTEMAS COMPUTACIONALES}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.32\linewidth}\raggedleft
+\includegraphics[width=\linewidth]{figuras/logos-ipn-escom.png}
+\end{minipage}
+
+\vspace{2.4cm}
+{\sffamily\small\color{guinda}\bfseries DOCUMENTO DE ESPECIFICACIÓN}\\[0.4em]
+{\sffamily\bfseries\LARGE\color{black!85}\setstretch{1.05}%
+Sistema Web para la Administración, Supervisión y Seguimiento de Obras Públicas\par}
+\vspace{0.6em}
+{\large conforme a la Ley de Obras Públicas y Servicios Relacionados con las Mismas\par}
+{\color{guinda}\rule{0.35\linewidth}{1.5pt}}
+
+\vspace{1.6cm}
+\begin{tabular}{@{}>{\sffamily\bfseries\small\color{gristexto}}ll@{}}
+Unidad de aprendizaje & Análisis y Diseño de Sistemas · 5CV5 \\[4pt]
+Integrantes & Alva León Leonardo Aldair \\
+            & González Ortiz Iker Saúl \\
+            & Hernández Ríos Cristian Sebastian \\
+            & Pérez Flores Arale \\
+            & Santiago Acosta Zareth Samai \\[4pt]
+Profesor & Ary Shared Rosas Castillo \\[4pt]
+Fecha & Diciembre de 2026 \\[4pt]
+Versión & 2.0 · actualizada al sistema implementado
+\end{tabular}
+\end{titlepage}
+
+\pagenumbering{roman}
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+\pagenumbering{arabic}
+
+\input{secciones/01-introduccion}
+\input{secciones/02-marco-legal}
+\input{secciones/03-actores}
+\input{secciones/04-requerimientos}
+\input{secciones/05-casos-uso}
+\input{secciones/06-reglas-negocio}
+\input{secciones/07-arquitectura}
+\input{secciones/08-base-datos}
+\input{secciones/09-cambios}
+
+\end{document}

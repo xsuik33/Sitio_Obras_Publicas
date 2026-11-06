@@ -1,0 +1,126 @@
+\chapter{Reglas de negocio}\label{cap:reglas}
+Este capítulo concentra las reglas que el sistema aplica de forma automática. Cada una se implementa en un módulo del código (\cref{tab:modulos}) para que pueda revisarse y modificarse en un solo lugar.
+
+\section{Estados de los reportes}
+Los reportes diarios y mensuales siguen el mismo ciclo (\cref{fig:estados-reporte}). El Residente y el Superintendente deciden por separado y una sola vez; el estatus del reporte se deriva siempre de sus decisiones.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.2cm and 1.5cm,
+  est/.style={rectangle,rounded corners=8pt,draw=#1,fill=#1!8,text=black,font=\sffamily\small\bfseries,minimum width=2.3cm,minimum height=0.8cm},
+  flecha/.style={-{Stealth[length=2.4mm]},line width=0.6pt,draw=black!60},
+  et/.style={font=\sffamily\scriptsize,text=black!70,fill=white,inner sep=1.5pt}]
+  \node[est=gristexto] (b) {Borrador};
+  \node[est=azulinfo,right=of b] (p) {Pendiente};
+  \node[est=ambar,right=of p] (r) {En revisión};
+  \node[est=verdeok,right=of r] (a) {Aprobado};
+  \node[est=rojo,below=1.5cm of r] (x) {Rechazado};
+  \draw[flecha] (b) -- node[et,above]{enviar} (p);
+  \draw[flecha] (p) -- node[et,above]{1.ª aprobación} (r);
+  \draw[flecha] (r) -- node[et,above]{2.ª aprobación} (a);
+  \draw[flecha] (p) |- node[et,pos=0.75,below]{un rechazo} (x);
+  \draw[flecha] (r) -- node[et,right]{un rechazo} (x);
+  \draw[flecha] (x.west) -| node[et,pos=0.25,below]{corregir y reenviar} ([xshift=-4mm]p.south);
+\end{tikzpicture}
+\caption{Estados de un reporte diario o mensual}\label{fig:estados-reporte}
+\end{figure}
+
+\begin{itemize}
+  \item Un borrador solo lo ven su autor y los administradores de la obra.
+  \item Si el reporte ya tenía decisiones y su autor lo corrige, vuelve a \estatus{Pendiente} y las decisiones se reinician.
+  \item Un reporte aprobado ya no se edita. Al aprobarse un reporte mensual, su consolidado queda congelado.
+  \item El Administrador puede cambiar cualquier decisión, siempre con motivo (CU-14, CU-15).
+\end{itemize}
+
+\section{Estados de las estimaciones}
+Las estimaciones se validan en dos etapas sucesivas (\cref{fig:estados-estimacion}): primero el Supervisor y después el Residente.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.2cm and 1.25cm,
+  est/.style={rectangle,rounded corners=8pt,draw=#1,fill=#1!8,text=black,font=\sffamily\small\bfseries,minimum width=2.2cm,minimum height=0.8cm,align=center},
+  flecha/.style={-{Stealth[length=2.4mm]},line width=0.6pt,draw=black!60},
+  et/.style={font=\sffamily\scriptsize,text=black!70,fill=white,inner sep=1.5pt,align=center}]
+  \node[est=gristexto] (b) {Borrador};
+  \node[est=azulinfo,right=of b] (p) {Pendiente};
+  \node[est=ambar,right=of p] (r) {En revisión};
+  \node[est=verdeok,right=of r] (a) {Aprobado};
+  \node[est=guinda,below=1.6cm of p] (o) {Con\\observaciones};
+  \node[est=rojo,below=1.6cm of r] (x) {Rechazado};
+  \draw[flecha] (b) -- node[et,above]{enviar} (p);
+  \draw[flecha] (p) -- node[et,above]{Supervisor\\aprueba} (r);
+  \draw[flecha] (r) -- node[et,above]{Residente\\aprueba} (a);
+  \draw[flecha] (p) -- node[et,left]{Supervisor} (o);
+  \draw[flecha] (p) -- node[et,pos=0.35,right]{Supervisor\\rechaza} (x);
+  \draw[flecha] (r) -- node[et,right]{Residente\\rechaza} (x);
+  \draw[line width=0.6pt,draw=black!60] (o.south) -- ++(0,-0.55) coordinate (o1);
+  \draw[line width=0.6pt,draw=black!60] (x.south) -- ++(0,-0.55) -- (o1);
+  \draw[flecha] (o1) -| node[et,pos=0.25,below]{corregir y reenviar} (b.south);
+\end{tikzpicture}
+\caption{Estados de una estimación}\label{fig:estados-estimacion}
+\end{figure}
+
+\begin{itemize}
+  \item Solo puede haber una estimación abierta (no aprobada) por contrato, para que los acumulados y las retenciones cuadren.
+  \item Mientras está \estatus{Pendiente} o \estatus{En revisión}, sus volúmenes y documentos no se modifican.
+  \item \estatus{Con observaciones} regresa la estimación al Superintendente sin que cuente como rechazo; ambos casos exigen comentario.
+  \item Al reenviarla, las decisiones previas se reinician y queda constancia en el historial.
+\end{itemize}
+
+\section{Cálculos de la estimación}
+Sean $I$ el importe de los trabajos del periodo, $a$, $t$ y $r$ los porcentajes de anticipo, IVA y retención por derechos del contrato, $R_{\text{atr}}$ la retención por atraso y $D$ la devolución de retenciones anteriores. Entonces:
+\begin{align*}
+I &= \textstyle\sum_{i} q_i \, p_i & &\text{(cantidad ejecutada por precio unitario de cada concepto)}\\
+A &= I \cdot a & &\text{amortización del anticipo (\reg, art.~143)}\\
+\mathit{IVA} &= (I - A)\cdot t\\
+R_{\text{der}} &= I \cdot r & &\text{retención por derechos (\reg, art.~128)}\\
+\text{Neto} &= I - A + \mathit{IVA} - R_{\text{der}} - R_{\text{atr}} + D
+\end{align*}
+Los totales los calcula la base de datos con disparadores, de modo que no pueden quedar inconsistentes con los renglones.
+
+\subsection{Retención económica por atraso}
+Con el avance físico programado $P$ y el real $F$ a la fecha de corte (último reporte diario aprobado), el monto del contrato $M$ y el porcentaje de retención por atraso $\rho$ (5\,\% por omisión):
+\[ R_{\text{req}} = \max(0,\; M \cdot (P - F)) \cdot \rho \]
+La retención de la estimación es lo que falta para llegar a $R_{\text{req}}$ respecto de lo ya retenido; si la obra se regulariza, la diferencia se devuelve en la siguiente estimación (\ley, art.~46 Bis). No se aplica cuando el Superintendente justifica un atraso no imputable al contratista.
+
+\begin{aclaracion}[Ejemplo]
+Contrato de \$1{,}000{,}000.00 con anticipo de 30\,\%, IVA de 16\,\% y retención por derechos de 0.5\,\%. En enero se estiman 10\,m\textsuperscript{3} a \$1{,}000.00: $I = \$10{,}000.00$, $A = \$3{,}000.00$, $\mathit{IVA} = \$1{,}120.00$ y $R_{\text{der}} = \$50.00$. Al corte el programa marca 30\,\% y el avance real es 20\,\%: $R_{\text{atr}} = \$1{,}000{,}000.00 \times \text{10\,\%} \times \text{5\,\%} = \$5{,}000.00$. Neto a pagar: \$3{,}070.00. Si en febrero la obra alcanza lo programado, la siguiente estimación devuelve los \$5{,}000.00.
+\end{aclaracion}
+
+\section{Avance físico, desviación y atraso en días}
+\begin{itemize}
+  \item El programa de obra registra el avance programado acumulado en fechas clave; entre dos fechas se interpola en línea recta y, antes de la primera, el avance parte de 0\,\% en la fecha de inicio oficial.
+  \item El avance real es el del último reporte diario aprobado.
+  \item La desviación se expresa en puntos porcentuales (real menos programado) y en días: los días entre la fecha del reporte y la fecha en que el programa alcanzaba el avance real.
+  \item Con un día o más de atraso, el reporte diario exige documentar la causa y si se solicita reprogramación o retención (flujo 4a de CU-03).
+  \item El avance financiero es la suma de las estimaciones aprobadas entre el monto del contrato.
+\end{itemize}
+
+\section{Plazos de las estimaciones}
+\begin{itemize}
+  \item El periodo de una estimación no puede ser mayor a un mes ni traslaparse con el anterior (\ley, art.~54).
+  \item El sistema muestra si se presentó dentro de los 6 días naturales siguientes al corte y cuántos días quedan de los 15 de revisión; al vencer avisa, pero no la autoriza de forma automática.
+\end{itemize}
+
+\section{Avisos por correo}
+Los avisos se envían por la API de Brevo con una versión en HTML y otra en texto. Un fallo en el correo nunca interrumpe la operación del usuario.
+
+\begin{table}[h]
+\centering\small
+\caption{Avisos por correo}\label{tab:avisos}
+\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{6cm}X@{}}
+\toprule
+\sffamily\bfseries Evento & \sffamily\bfseries Se avisa a\\\midrule
+Reporte diario o mensual enviado a revisión & Residente y Superintendente\\
+Reporte aprobado o rechazado & Supervisor (y Directivos, si se aprueba un mensual)\\
+Nota de bitácora registrada o corregida & Firmantes que faltan\\
+Nota firmada o rechazada & Autor de la nota\\
+Estimación enviada & Supervisor\\
+Estimación aprobada por el Supervisor & Superintendente y Residente\\
+Estimación con observaciones o rechazada por el Supervisor & Superintendente\\
+Decisión del Residente sobre una estimación & Superintendente y Supervisor\\
+Cambio de estatus por el Administrador & Autor y validadores involucrados\\
+\bottomrule
+\end{tabularx}
+\end{table}
