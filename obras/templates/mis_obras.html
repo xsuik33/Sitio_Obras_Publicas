@@ -1,25 +1,105 @@
 {% extends "base.html" %}
-{% block titulo %}Mis obras · Sistema de Obras{% endblock %}
+{% block titulo %}Obras · Sistema de Obras{% endblock %}
+{% block estilos %}
+    .cabecera { display:flex; flex-wrap:wrap; gap:12px; align-items:end; justify-content:space-between; margin-bottom:18px; }
+    .buscador { display:grid; grid-template-columns:minmax(0,1fr) 190px auto; gap:8px; padding:12px; margin-bottom:12px; }
+    .buscador input[type=search] { padding-left:36px; background:var(--tarjeta) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a95a3' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center / 17px; }
+    .resultado { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; margin:0 0 12px; }
+    .leyenda { display:flex; gap:14px; font-size:.82rem; color:var(--suave); align-items:center; }
+    .leyenda b { display:inline-block; vertical-align:middle; margin-right:6px; }
+    .leyenda .k-real { width:14px; height:8px; border-radius:4px; background:var(--serie-2); }
+    .leyenda .k-prog { width:2px; height:14px; border-radius:2px; background:var(--serie-1); }
+    .obras { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:14px; }
+    .obra { display:flex !important; flex-direction:column; gap:12px; margin:0; }
+    .obra-top { display:flex; justify-content:space-between; gap:10px; align-items:start; }
+    .obra h2 { margin:0; font-size:1.08rem; color:var(--texto); }
+    .obra .meta { font-size:.85rem; color:var(--suave); display:flex; flex-direction:column; gap:2px; }
+    .codigo { font:600 .75rem ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--tenue); letter-spacing:.04em; }
+    .cifras { display:flex; justify-content:space-between; align-items:baseline; font-size:.85rem; margin-top:6px; font-variant-numeric:tabular-nums; }
+    .cifras strong { font-size:1.05rem; }
+    .pie { display:flex; flex-wrap:wrap; gap:4px; border-top:1px solid var(--borde); padding-top:10px; margin-top:auto; }
+    .vacio { text-align:center; padding:40px 20px; }
+    .vacio svg { width:44px; height:44px; color:var(--tenue); margin-bottom:8px; }
+    @media (max-width:640px) { .buscador { grid-template-columns:1fr; } .obras { grid-template-columns:1fr; } }
+{% endblock %}
 {% block contenido %}
-<h1>Mis obras</h1>
+<div class="cabecera">
+  <div>
+    <h1>Obras</h1>
+    <p class="suave" style="margin:0">Busca una obra para consultar su expediente y su avance.</p>
+  </div>
+</div>
+
+{% if tiene_obras %}
+<form method="get" class="tarjeta buscador" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Nombre, ubicación, núm. de contrato, contratista o ID" aria-label="Buscar obra" autofocus>
+  <select name="estado" aria-label="Estado de la obra">
+    <option value="">Todos los estados</option>
+    {% for e in estados %}<option value="{{ e }}" {% if e == estado %}selected{% endif %}>{{ e }}</option>{% endfor %}
+  </select>
+  <button type="submit">Buscar</button>
+</form>
+
+<div class="resultado">
+  <span class="suave">
+    {% if filtrando %}{{ filas|length }} resultado{{ filas|length|pluralize }}{% if filas %} · <a href="{% url 'mis_obras' %}">Limpiar búsqueda</a>{% endif %}
+    {% else %}{{ filas|length }} obra{{ filas|length|pluralize }}{% endif %}
+  </span>
+  {% if filas %}<span class="leyenda" aria-hidden="true"><span><b class="k-real"></b>Avance real</span><span><b class="k-prog"></b>Programado a hoy</span></span>{% endif %}
+</div>
+
 {% if filas %}
-<div class="tarjeta">
-  <table>
-    <thead><tr><th>Obra</th><th>Ubicación</th><th>Mis roles</th></tr></thead>
-    <tbody>
-    {% for fila in filas %}
-      <tr>
-        <td><a href="{% url 'obra_detalle' fila.obra.pk %}">{{ fila.obra.nombre }}</a></td>
-        <td class="suave">{{ fila.obra.ubicacion|default:"—" }}</td>
-        <td>{% for rol in fila.roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">Acceso total (administrador del panel)</span>{% endfor %}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="obras">
+  {% for f in filas %}
+  <a class="tarjeta obra" href="{% url 'obra_detalle' f.obra.pk %}">
+    <div class="obra-top">
+      <div>
+        <div class="codigo">ID {{ f.id }}</div>
+        <h2>{{ f.obra.nombre }}</h2>
+      </div>
+      <span class="chip" data-e="{{ f.estado }}">{{ f.estado }}</span>
+    </div>
+    <div class="meta">
+      <span>{{ f.obra.ubicacion|default:"Sin ubicación" }}</span>
+      {% if f.contrato %}<span>Contrato {{ f.contrato.numero_contrato }} · {{ f.contrato.contratista }}</span>{% endif %}
+      {% if f.obra.fecha_inicio_oficial %}<span>{{ f.obra.fecha_inicio_oficial|date:"d M Y" }} – {{ f.obra.fecha_fin_oficial|date:"d M Y"|default:"sin fecha de fin" }}</span>{% endif %}
+    </div>
+    <div>
+      {% if f.error %}
+        <span class="tenue">No se pudo calcular el avance.</span>
+      {% elif f.real is None and f.programado is None %}
+        <span class="tenue">Sin reportes aprobados ni programa de obra.</span>
+      {% else %}
+        <div class="progreso" role="img" aria-label="Avance real {{ f.real|default:'sin dato' }} %, programado {{ f.programado|default:'sin dato' }} %">
+          <span style="width:{{ f.real|default:0|stringformat:'s' }}%"></span>
+          {% if f.programado is not None %}<i style="left:calc({{ f.programado|stringformat:'s' }}% - 1px)"></i>{% endif %}
+        </div>
+        <div class="cifras">
+          <span>Real <strong>{{ f.real|default:"—" }}{% if f.real is not None %} %{% endif %}</strong></span>
+          <span class="suave">Programado {{ f.programado|default:"—" }}{% if f.programado is not None %} %{% endif %}</span>
+        </div>
+        {% if f.texto %}<div class="{{ f.clase }}" style="font-size:.85rem;margin-top:2px">{{ f.texto }}</div>{% endif %}
+      {% endif %}
+    </div>
+    <div class="pie">
+      {% for rol in f.roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="chip">Acceso total</span>{% endfor %}
+    </div>
+  </a>
+  {% endfor %}
 </div>
 {% else %}
-<div class="tarjeta">
-  <p>Todavía no tienes obras asignadas.</p>
+<div class="tarjeta vacio">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <h2>No hay obras que coincidan</h2>
+  <p class="suave">Revisa lo que escribiste o prueba con otro estado.</p>
+  <a class="boton secundario" href="{% url 'mis_obras' %}">Ver todas mis obras</a>
+</div>
+{% endif %}
+
+{% else %}
+<div class="tarjeta vacio">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V10l9-6 9 6v11h-6v-7H9v7z"/></svg>
+  <h2>Todavía no tienes obras asignadas</h2>
   <p class="suave">Pide a un administrador que te asigne un rol en una obra.</p>
 </div>
 {% endif %}

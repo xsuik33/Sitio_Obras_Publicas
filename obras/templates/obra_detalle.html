@@ -1,49 +1,409 @@
 {% extends "base.html" %}
 {% block titulo %}{{ obra.nombre }} · Sistema de Obras{% endblock %}
+{% block estilos %}
+    .migas { font-size:.88rem; margin:0 0 14px; }
+    .heroe { display:flex; flex-wrap:wrap; gap:16px; justify-content:space-between; align-items:start; margin-bottom:18px; }
+    .heroe .codigo { font:600 .75rem ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--tenue); letter-spacing:.04em; }
+    .heroe h1 { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .heroe .meta { display:flex; flex-wrap:wrap; gap:4px 18px; color:var(--suave); font-size:.9rem; }
+    .kpis { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+    .kpi .etiqueta { font-size:.82rem; color:var(--suave); font-weight:500; }
+    .kpi .nota { font-size:.82rem; color:var(--tenue); margin-top:2px; }
+    .dos { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; }
+    .cols { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
+    .cols > .tarjeta, .dos > .tarjeta { margin-bottom:0; }
+    .cols { margin-top:16px; }
+    .titulo-sec { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px; }
+    .titulo-sec h2 { margin:0; } .titulo-sec a { font-size:.88rem; white-space:nowrap; }
+    .leyenda { display:flex; flex-wrap:wrap; gap:16px; font-size:.85rem; color:var(--suave); margin-bottom:6px; }
+    .leyenda b { display:inline-block; width:16px; height:2px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+    .grafica { position:relative; width:100%; height:280px; }
+    .grafica svg { display:block; width:100%; height:100%; overflow:visible; }
+    .grafica text { font:12px system-ui, sans-serif; fill:var(--suave); }
+    .grafica .fin { fill:var(--texto); font-weight:600; }
+    .tip { position:absolute; pointer-events:none; background:var(--tarjeta); border:1px solid var(--borde-fuerte); border-radius:8px; padding:8px 10px;
+           box-shadow:var(--sombra-alta); font-size:.82rem; min-width:150px; opacity:0; transition:opacity .1s; z-index:2; }
+    .tip b { display:block; margin-bottom:4px; } .tip div { display:flex; justify-content:space-between; gap:12px; font-variant-numeric:tabular-nums; }
+    .tip i { display:inline-block; width:10px; height:2px; vertical-align:middle; margin-right:6px; }
+    details.tabla summary { cursor:pointer; color:var(--acento); font-size:.88rem; margin-top:10px; }
+    .barras { display:flex; flex-direction:column; gap:14px; }
+    .barra-fila .fila-t { display:flex; justify-content:space-between; gap:8px; font-size:.88rem; margin-bottom:5px; }
+    .barra-fila .fila-t strong { font-variant-numeric:tabular-nums; }
+    .pista { height:10px; border-radius:999px; background:var(--rejilla); }
+    .pista span { display:block; height:100%; border-radius:999px; max-width:100%; min-width:2px; }
+    .modulos { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+    .modulo { display:flex !important; gap:12px; align-items:center; padding:14px 16px; }
+    .modulo .ic { width:36px; height:36px; border-radius:10px; background:var(--acento-suave); color:var(--acento); display:grid; place-items:center; flex:none; }
+    .modulo .ic svg { width:19px; height:19px; }
+    .modulo .n { font-weight:700; font-size:1.15rem; line-height:1.1; color:var(--texto); }
+    .modulo .l { font-size:.82rem; color:var(--suave); }
+    .lista { list-style:none; margin:0; padding:0; }
+    .lista li { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--borde); align-items:center; }
+    .lista li:last-child { border-bottom:none; }
+    .lista .sub { font-size:.82rem; color:var(--tenue); }
+    .falla { border:1px dashed var(--error); background:var(--error-suave); border-radius:10px; padding:12px 14px; font-size:.9rem; }
+    .conteos { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+    .vacio-sec { color:var(--tenue); font-size:.9rem; padding:6px 0; }
+    @media (max-width:900px) { .dos, .cols { grid-template-columns:1fr; } }
+    @media (max-width:640px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .kpi { padding:14px; } .modulos { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+{% endblock %}
 {% block contenido %}
-<p><a href="{% url 'mis_obras' %}">← Mis obras</a></p>
-<h1>{{ obra.nombre }}</h1>
-<p class="suave">
-  {{ obra.ubicacion|default:"Sin ubicación" }}
-  {% if obra.fecha_inicio_oficial %} · {{ obra.fecha_inicio_oficial|date:"d/m/Y" }} – {{ obra.fecha_fin_oficial|date:"d/m/Y"|default:"?" }}{% endif %}
-</p>
-<p>Mis roles: {% for rol in mis_roles %}<span class="chip">{{ rol }}</span>{% empty %}<span class="suave">acceso total (administrador del panel)</span>{% endfor %}</p>
+{% with av=x.avance.datos fin=x.avance.datos.financiero %}
+<p class="migas"><a href="{% url 'mis_obras' %}">← Obras</a></p>
 
-<div class="grid">
-  <a href="{% url 'catalogo_ver' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Catálogo de conceptos →</div><div class="dato">{{ n_conceptos }}</div></a>
-  <div class="tarjeta"><div class="suave">Estimaciones</div><div class="dato">{{ n_estimaciones }}</div></div>
-  <a href="{% url 'reportes_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Reportes diarios →</div><div class="dato">{{ n_reportes }}</div></a>
-  <a href="{% url 'mensuales_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Reportes mensuales →</div><div class="dato">{{ n_mensuales }}</div></a>
-  <a href="{% url 'programa_ver' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Programa de obra →</div><div class="dato" style="font-size:1.1rem">Avance programado</div></a>
-  <a href="{% url 'bitacora_lista' obra.pk %}" class="tarjeta" style="color:inherit"><div class="suave">Bitácora de obra →</div><div class="dato">{{ n_notas }}</div></a>
+<section class="heroe">
+  <div>
+    <div class="codigo">ID {{ id_obra }}</div>
+    <h1>{{ obra.nombre }} <span class="chip" data-e="{{ estado_obra }}">{{ estado_obra }}</span></h1>
+    <div class="meta">
+      <span>{{ obra.ubicacion|default:"Sin ubicación" }}</span>
+      {% if obra.fecha_inicio_oficial %}<span>{{ obra.fecha_inicio_oficial|date:"d M Y" }} – {{ obra.fecha_fin_oficial|date:"d M Y"|default:"sin fecha de fin" }}</span>{% endif %}
+      <span>Mis roles: {% for rol in mis_roles %}{{ rol }}{% if not forloop.last %}, {% endif %}{% empty %}acceso total{% endfor %}</span>
+    </div>
+  </div>
+  {% if puede_gestionar %}<a class="boton secundario" href="{% url 'roles_obra' obra.pk %}">Gestionar equipo</a>{% endif %}
+</section>
+
+{% if not x.avance.ok %}
+<div class="falla" style="margin-bottom:16px">No se pudo calcular el avance de la obra. <a href="">Reintentar</a></div>
+{% else %}
+<div class="grid kpis">
+  <div class="tarjeta kpi">
+    <div class="etiqueta">Avance físico real</div>
+    <div class="dato">{% if av.real is not None %}{{ av.real }} %{% else %}—{% endif %}</div>
+    <div class="nota">{% if av.fecha_real %}Último reporte aprobado: {{ av.fecha_real|date:"d M Y" }}{% else %}Sin reportes aprobados{% endif %}</div>
+  </div>
+  <div class="tarjeta kpi">
+    <div class="etiqueta">Programado a hoy</div>
+    <div class="dato">{% if av.programado is not None %}{{ av.programado }} %{% else %}—{% endif %}</div>
+    <div class="nota">{% if av.programado is None %}La obra aún no tiene programa{% else %}Según el programa de obra{% endif %}</div>
+  </div>
+  <div class="tarjeta kpi">
+    <div class="etiqueta">Desviación</div>
+    <div class="dato {{ av.clase }}">{% if av.desviacion is not None %}{% if av.desviacion > 0 %}+{% endif %}{{ av.desviacion }}{% else %}—{% endif %}</div>
+    <div class="nota">{% if av.desviacion is not None %}Puntos porcentuales: {% if av.desviacion < 0 %}atraso{% elif av.desviacion > 0 %}adelanto{% else %}en tiempo{% endif %}{% else %}{{ av.texto }}{% endif %}</div>
+  </div>
+  <div class="tarjeta kpi">
+    <div class="etiqueta">Estimado aprobado</div>
+    <div class="dato">{% if fin %}$ {{ fin.estimado|floatformat:"0g" }}{% else %}—{% endif %}</div>
+    <div class="nota">{% if fin %}{{ fin.pct_estimado|default:"0" }} % del contrato{% else %}Sin contrato registrado{% endif %}</div>
+  </div>
 </div>
 
-<div class="tarjeta">
-  <h2>Contrato</h2>
-  {% if contrato %}
-    <table>
-      <tr><th>Número</th><td>{{ contrato.numero_contrato }}</td></tr>
-      <tr><th>Contratista</th><td>{{ contrato.contratista }}</td></tr>
-      <tr><th>Monto contratado</th><td>$ {{ contrato.monto_total_contratado|floatformat:2 }}</td></tr>
-      <tr><th>Anticipo autorizado</th><td>{{ contrato.porcentaje_anticipo|floatformat:2 }} % · $ {{ contrato.monto_anticipo|floatformat:2 }}</td></tr>
-    </table>
-  {% else %}
-    <p class="suave">Esta obra todavía no tiene contrato registrado.</p>
-  {% endif %}
+<div class="dos">
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Avance físico: programado contra real</h2><a href="{% url 'programa_ver' obra.pk %}">Programa →</a></div>
+    {% if grafica.programado or grafica.real %}
+      <div class="leyenda" aria-hidden="true">
+        <span><b style="background:var(--serie-1)"></b>Programado</span>
+        <span><b style="background:var(--serie-2);height:3px"></b>Real (reportes aprobados)</span>
+      </div>
+      <div class="grafica" id="grafica" role="img" aria-label="Avance programado contra real en porcentaje; detalle en la tabla de abajo"></div>
+      <details class="tabla">
+        <summary>Ver datos en tabla</summary>
+        <div class="tabla-scroll"><table>
+          <thead><tr><th>Fecha</th><th class="num">Programado</th><th class="num">Real</th></tr></thead>
+          <tbody id="tabla-avance"></tbody>
+        </table></div>
+      </details>
+      {{ grafica|json_script:"datos-avance" }}
+    {% else %}
+      <p class="vacio-sec">Para ver la gráfica, captura el <a href="{% url 'programa_ver' obra.pk %}">programa de obra</a> y aprueba reportes diarios con su avance.</p>
+    {% endif %}
+  </div>
+
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Avance financiero</h2></div>
+    {% if fin %}
+      <p class="suave" style="margin:-4px 0 14px;font-size:.88rem">Contrato: <strong style="color:var(--texto)">$ {{ fin.monto|floatformat:"2g" }}</strong> (sin IVA)</p>
+      <div class="barras">
+        <div class="barra-fila">
+          <div class="fila-t"><span>Programado a hoy</span><strong>{% if fin.programado is not None %}$ {{ fin.programado|floatformat:"2g" }}{% else %}—{% endif %}</strong></div>
+          <div class="pista"><span style="width:{{ av.programado|default:0|stringformat:'s' }}%;background:var(--serie-1)"></span></div>
+        </div>
+        <div class="barra-fila">
+          <div class="fila-t"><span>Valor del avance físico real</span><strong>{% if fin.fisico is not None %}$ {{ fin.fisico|floatformat:"2g" }}{% else %}—{% endif %}</strong></div>
+          <div class="pista"><span style="width:{{ av.real|default:0|stringformat:'s' }}%;background:var(--serie-2)"></span></div>
+        </div>
+        <div class="barra-fila">
+          <div class="fila-t"><span>Estimado y aprobado</span><strong>$ {{ fin.estimado|floatformat:"2g" }}</strong></div>
+          <div class="pista"><span style="width:{{ fin.pct_estimado|default:0|stringformat:'s' }}%;background:var(--serie-3)"></span></div>
+        </div>
+      </div>
+      <p class="tenue" style="margin:14px 0 0">Las barras son proporcionales al monto del contrato. Monto neto pagadero de lo aprobado: $ {{ fin.neto|floatformat:"2g" }}.</p>
+    {% else %}
+      <p class="vacio-sec">Sin contrato registrado: no hay montos con qué comparar.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid modulos" style="margin-top:16px">
+  <a class="tarjeta modulo" href="{% url 'catalogo_ver' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+    <span><span class="n">{{ x.catalogo.datos.n|default:"0" }}</span><br><span class="l">Conceptos</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'reportes_lista' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16"/></svg></span>
+    <span><span class="n">{{ x.diarios.datos.n|default:"0" }}</span><br><span class="l">Reportes diarios</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'mensuales_lista' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+    <span><span class="n">{{ x.mensuales.datos.n|default:"0" }}</span><br><span class="l">Reportes mensuales</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'bitacora_lista' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 9h8M8 13h6"/></svg></span>
+    <span><span class="n">{{ x.bitacora.datos.n|default:"0" }}</span><br><span class="l">Notas de bitácora</span></span></a>
+  <a class="tarjeta modulo" href="{% url 'programa_ver' obra.pk %}">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+    <span><span class="n">{{ av.programada|length|default:"0" }}</span><br><span class="l">Puntos del programa</span></span></a>
 </div>
 
-<div class="tarjeta">
-  <h2>Equipo de la obra</h2>
-  <table>
-    <thead><tr><th>Persona</th><th>Rol</th></tr></thead>
-    <tbody>
-    {% for asignacion in equipo %}
-      <tr><td>{{ asignacion.usuario }}</td><td><span class="chip">{{ asignacion.rol }}</span></td></tr>
-    {% empty %}
-      <tr><td colspan="2" class="suave">Aún no hay personas asignadas.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% if puede_gestionar %}<p><a href="{% url 'roles_obra' obra.pk %}">Gestionar usuarios y roles →</a></p>{% endif %}
+<div class="cols">
+  {# Contrato #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Contrato</h2></div>
+    {% if not x.contrato.ok %}<div class="falla">No se pudo cargar el contrato. <a href="">Reintentar</a></div>
+    {% elif x.contrato.datos %}{% with c=x.contrato.datos.c %}
+      <table>
+        <tr><th>Número</th><td>{{ c.numero_contrato }}</td></tr>
+        <tr><th>Contratista</th><td>{{ c.contratista }}</td></tr>
+        <tr><th>Vigencia</th><td>{{ c.fecha_inicio|date:"d/m/Y"|default:"—" }} – {{ c.fecha_fin|date:"d/m/Y"|default:"—" }}</td></tr>
+        <tr><th>Monto</th><td class="num">$ {{ c.monto_total_contratado|floatformat:"2g" }}</td></tr>
+        <tr><th>IVA · Retención</th><td class="num">{{ c.porcentaje_iva|floatformat:"-2" }} % · {{ c.porcentaje_retencion|floatformat:"-2" }} %</td></tr>
+        <tr><th>Anticipo</th><td class="num">{{ c.porcentaje_anticipo|floatformat:"-2" }} % · $ {{ c.monto_anticipo|floatformat:"2g" }}</td></tr>
+      </table>
+      {% if x.contrato.datos.anticipos %}
+        <h3 style="margin-top:14px">Ministraciones de anticipo</h3>
+        <ul class="lista">{% for a in x.contrato.datos.anticipos %}
+          <li><span>{{ a.tipo }}<br><span class="sub">{% if a.fecha_pago %}Pagado {{ a.fecha_pago|date:"d/m/Y" }}{% else %}Programado {{ a.fecha_programada|date:"d/m/Y"|default:"sin fecha" }}{% endif %}</span></span>
+              <span class="num">$ {{ a.monto|floatformat:"2g" }} <span class="chip">{{ a.estatus }}</span></span></li>
+        {% endfor %}</ul>
+      {% endif %}
+    {% endwith %}{% else %}<p class="vacio-sec">Esta obra todavía no tiene contrato registrado.</p>{% endif %}
+  </div>
+
+  {# Estimaciones #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Estimaciones</h2></div>
+    {% if not x.estimaciones.ok %}<div class="falla">No se pudieron cargar las estimaciones. <a href="">Reintentar</a></div>
+    {% elif x.estimaciones.datos.lista %}
+      <div class="conteos">{% for e, n in x.estimaciones.datos.conteo.items %}<span class="chip" data-e="{{ e }}">{{ e }}: {{ n }}</span>{% endfor %}</div>
+      <div class="tabla-scroll"><table>
+        <thead><tr><th>Núm.</th><th>Periodo</th><th class="num">Subtotal</th><th>Estatus</th></tr></thead>
+        <tbody>{% for e in x.estimaciones.datos.lista %}
+          <tr><td>{{ e.numero_estimacion }}<br><span class="tenue">{{ e.tipo }}</span></td>
+              <td>{{ e.periodo_inicio|date:"d/m/y" }} – {{ e.fecha_corte|date:"d/m/y" }}</td>
+              <td class="num">$ {{ e.subtotal|floatformat:"2g" }}</td>
+              <td><span class="chip" data-e="{{ e.estatus.nombre }}">{{ e.estatus.nombre }}</span></td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+    {% else %}<p class="vacio-sec">Aún no hay estimaciones.</p>{% endif %}
+  </div>
+
+  {# Reportes diarios #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Reportes diarios recientes</h2><a href="{% url 'reportes_lista' obra.pk %}">Ver todos →</a></div>
+    {% if not x.diarios.ok %}<div class="falla">No se pudieron cargar los reportes diarios. <a href="">Reintentar</a></div>
+    {% elif x.diarios.datos.recientes %}
+      <div class="conteos">{% for e, n in x.diarios.datos.conteo.items %}<span class="chip" data-e="{{ e }}">{{ e }}: {{ n }}</span>{% endfor %}</div>
+      <ul class="lista">{% for r, estado in x.diarios.datos.recientes %}
+        <li><span><a href="{% url 'reporte_detalle' obra.pk r.pk %}">{{ r.fecha_reporte|date:"d M Y" }}</a><br><span class="sub">{{ r.supervisor }} · avance {{ r.avance_fisico_real_porcentaje|floatformat:2 }} %</span></span>
+            <span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></li>
+      {% endfor %}</ul>
+    {% else %}<p class="vacio-sec">Aún no hay reportes diarios.</p>{% endif %}
+  </div>
+
+  {# Reportes mensuales #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Reportes mensuales</h2><a href="{% url 'mensuales_lista' obra.pk %}">Ver todos →</a></div>
+    {% if not x.mensuales.ok %}<div class="falla">No se pudieron cargar los reportes mensuales. <a href="">Reintentar</a></div>
+    {% elif x.mensuales.datos.recientes %}
+      <ul class="lista">{% for r, mes in x.mensuales.datos.recientes %}
+        <li><span><a href="{% url 'mensual_detalle' obra.pk r.pk %}">{{ mes }}</a><br><span class="sub">{{ r.supervisor }} · corte {{ r.fecha_corte|date:"d/m/Y" }}</span></span>
+            <span class="chip" data-e="{{ r.estatus.nombre }}">{{ r.estatus.nombre }}</span></li>
+      {% endfor %}</ul>
+    {% else %}<p class="vacio-sec">Aún no hay reportes mensuales.</p>{% endif %}
+  </div>
+
+  {# Bitácora #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Bitácora reciente</h2><a href="{% url 'bitacora_lista' obra.pk %}">Ver bitácora →</a></div>
+    {% if not x.bitacora.ok %}<div class="falla">No se pudo cargar la bitácora. <a href="">Reintentar</a></div>
+    {% elif x.bitacora.datos.recientes %}
+      <div class="conteos">{% for e, n in x.bitacora.datos.conteo.items %}<span class="chip" data-e="{{ e }}">{{ e }}: {{ n }}</span>{% endfor %}</div>
+      <ul class="lista">{% for n in x.bitacora.datos.recientes %}
+        <li><span><a href="{% url 'nota_detalle' obra.pk n.pk %}">Nota {{ n.folio }} · {{ n.tipo }}</a><br><span class="sub">{{ n.usuario_creador }} · {{ n.fecha_nota|date:"d M Y" }}</span></span>
+            <span class="chip" data-e="{{ n.estado_firma }}">{{ n.estado_firma }}</span></li>
+      {% endfor %}</ul>
+    {% else %}<p class="vacio-sec">Aún no hay notas de bitácora.</p>{% endif %}
+  </div>
+
+  {# Catálogo #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Catálogo de conceptos</h2><a href="{% url 'catalogo_ver' obra.pk %}">Ver catálogo →</a></div>
+    {% if not x.catalogo.ok %}<div class="falla">No se pudo cargar el catálogo. <a href="">Reintentar</a></div>
+    {% elif x.catalogo.datos.n %}
+      <table>
+        <thead><tr><th>Capítulo</th><th class="num">Conceptos</th><th class="num">Importe</th></tr></thead>
+        <tbody>{% for cap in x.catalogo.datos.capitulos %}
+          <tr><td>{{ cap.capitulo|default:"Sin capítulo" }}</td><td class="num">{{ cap.n }}</td><td class="num">$ {{ cap.importe|floatformat:"2g" }}</td></tr>
+        {% endfor %}
+          <tr><td><strong>Total</strong></td><td class="num"><strong>{{ x.catalogo.datos.n }}</strong></td><td class="num"><strong>$ {{ x.catalogo.datos.importe|floatformat:"2g" }}</strong></td></tr>
+        </tbody>
+      </table>
+    {% else %}<p class="vacio-sec">El catálogo aún no tiene conceptos.</p>{% endif %}
+  </div>
+
+  {# Documentos #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Documentos</h2></div>
+    {% if not x.documentos.ok %}<div class="falla">No se pudieron cargar los documentos. <a href="">Reintentar</a></div>
+    {% elif x.documentos.datos.lista %}
+      <ul class="lista">{% for d in x.documentos.datos.lista %}
+        <li><span>{{ d.nombre_archivo }}<br><span class="sub">{{ d.usuario_subida }} · {{ d.fecha_subida|date:"d M Y" }}{% if d.descripcion %} · {{ d.descripcion }}{% endif %}</span></span>
+            <span class="chip">{{ d.tipo_archivo|default:"archivo" }}</span></li>
+      {% endfor %}</ul>
+    {% else %}<p class="vacio-sec">Aún no hay documentos en el repositorio de la obra.</p>{% endif %}
+  </div>
+
+  {# Equipo #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Equipo de la obra</h2>{% if puede_gestionar %}<a href="{% url 'roles_obra' obra.pk %}">Gestionar →</a>{% endif %}</div>
+    <ul class="lista">{% for a in equipo %}
+      <li><span>{{ a.usuario }}</span><span class="chip">{{ a.rol }}</span></li>
+    {% empty %}<li class="vacio-sec">Aún no hay personas asignadas.</li>{% endfor %}</ul>
+  </div>
 </div>
+{% endwith %}
+
+{% if grafica.programado or grafica.real %}
+<script>
+(function () {
+  const datos = JSON.parse(document.getElementById("datos-avance").textContent);
+  const caja = document.getElementById("grafica");
+  const cuerpoTabla = document.getElementById("tabla-avance");
+  const NS = "http://www.w3.org/2000/svg";
+  const dia = s => Date.parse(s + "T12:00:00");
+  const fmtFecha = t => new Date(t).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+  const fmtPct = v => v == null ? "—" : v.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " %";
+  const prog = datos.programado.map(p => ({ t: dia(p.f), v: p.v }));
+  const real = datos.real.map(p => ({ t: dia(p.f), v: p.v }));
+  const hoy = dia(datos.hoy);
+
+  function interpolar(puntos, t) {
+    if (!puntos.length) return null;
+    if (t <= puntos[0].t) return puntos[0].v;
+    if (t >= puntos[puntos.length - 1].t) return puntos[puntos.length - 1].v;
+    for (let i = 1; i < puntos.length; i++) {
+      const a = puntos[i - 1], b = puntos[i];
+      if (t <= b.t) return a.v + (b.v - a.v) * (t - a.t) / ((b.t - a.t) || 1);
+    }
+  }
+  function ultimoHasta(puntos, t) {  // avance real vigente: el último reporte aprobado hasta esa fecha
+    let r = null;
+    for (const p of puntos) { if (p.t <= t) r = p; else break; }
+    return r;
+  }
+
+  // Tabla (vista accesible de los mismos datos)
+  const fechas = [...new Set([...prog, ...real].map(p => p.t))].sort((a, b) => a - b);
+  cuerpoTabla.innerHTML = fechas.map(t => {
+    const r = real.find(p => p.t === t);
+    return `<tr><td>${fmtFecha(t)}</td><td class="num">${fmtPct(prog.length ? interpolar(prog, t) : null)}</td><td class="num">${fmtPct(r ? r.v : null)}</td></tr>`;
+  }).join("");
+
+  const el = (nombre, attrs, padre) => {
+    const n = document.createElementNS(NS, nombre);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (padre) padre.appendChild(n);
+    return n;
+  };
+
+  function dibujar() {
+    caja.innerHTML = "";
+    const W = caja.clientWidth, H = caja.clientHeight;
+    const m = { t: 10, r: 64, b: 28, l: 40 };
+    const todos = [...prog, ...real].map(p => p.t);
+    let t0 = Math.min(...todos), t1 = Math.max(...todos, hoy);
+    if (t1 - t0 < 864e5 * 7) { t0 -= 864e5 * 3; t1 += 864e5 * 4; }
+    const x = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r);
+    const y = v => m.t + (1 - v / 100) * (H - m.t - m.b);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" }, caja);
+    const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+    // Rejilla horizontal y eje Y
+    for (const v of [0, 25, 50, 75, 100]) {
+      el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css("--rejilla"), "stroke-width": 1 }, svg);
+      el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = v + "%";
+    }
+    // Eje X: hasta 5 marcas de fecha
+    const marcas = Math.max(2, Math.min(5, Math.floor((W - m.l - m.r) / 110)));
+    for (let i = 0; i <= marcas; i++) {
+      const t = t0 + (t1 - t0) * i / marcas;
+      const txt = el("text", { x: x(t), y: H - 6, "text-anchor": i === 0 ? "start" : i === marcas ? "end" : "middle" }, svg);
+      txt.textContent = new Date(t).toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
+    }
+    // Hoy
+    if (hoy >= t0 && hoy <= t1) {
+      el("line", { x1: x(hoy), x2: x(hoy), y1: m.t, y2: H - m.b, stroke: css("--borde-fuerte"), "stroke-width": 1 }, svg);
+      el("text", { x: x(hoy) + 4, y: m.t + 10 }, svg).textContent = "Hoy";
+    }
+    const linea = (puntos, color, ancho) => {
+      if (!puntos.length) return;
+      el("path", { d: puntos.map((p, i) => (i ? "L" : "M") + x(p.t).toFixed(1) + " " + y(p.v).toFixed(1)).join(" "),
+                   fill: "none", stroke: color, "stroke-width": ancho, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    };
+    const cProg = css("--serie-1"), cReal = css("--serie-2"), superficie = css("--tarjeta");
+    linea(prog, cProg, 2);
+    linea(real, cReal, 2);
+    if (real.length <= 40) for (const p of real) el("circle", { cx: x(p.t), cy: y(p.v), r: 4, fill: cReal, stroke: superficie, "stroke-width": 2 }, svg);
+
+    // Etiquetas al final de cada línea (si chocan, solo la del real; la leyenda y la tabla cubren el resto)
+    const fines = [];
+    if (prog.length) fines.push({ p: prog[prog.length - 1], txt: Math.round(prog[prog.length - 1].v) + "%" });
+    if (real.length) fines.push({ p: real[real.length - 1], txt: Math.round(real[real.length - 1].v) + "%" });
+    const choque = fines.length === 2 && Math.abs(y(fines[0].p.v) - y(fines[1].p.v)) < 16 && Math.abs(x(fines[0].p.t) - x(fines[1].p.t)) < 40;
+    (choque ? fines.slice(1) : fines).forEach(f => {
+      el("text", { x: x(f.p.t) + 8, y: y(f.p.v) + 4, class: "fin" }, svg).textContent = f.txt;
+    });
+
+    // Capa de hover: cruz + tooltip
+    const cruz = el("line", { y1: m.t, y2: H - m.b, stroke: css("--tenue"), "stroke-width": 1, visibility: "hidden" }, svg);
+    const pProg = el("circle", { r: 4, fill: cProg, stroke: superficie, "stroke-width": 2, visibility: "hidden" }, svg);
+    const pReal = el("circle", { r: 5, fill: cReal, stroke: superficie, "stroke-width": 2, visibility: "hidden" }, svg);
+    const tip = document.createElement("div");
+    tip.className = "tip";
+    caja.appendChild(tip);
+    const zona = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" }, svg);
+    const mover = ev => {
+      const r = caja.getBoundingClientRect();
+      const px = Math.max(m.l, Math.min(W - m.r, (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left));
+      let t = t0 + (px - m.l) / (W - m.l - m.r) * (t1 - t0);
+      const cercano = real.reduce((a, p) => Math.abs(x(p.t) - px) < 12 && (!a || Math.abs(p.t - t) < Math.abs(a.t - t)) ? p : a, null);
+      if (cercano) t = cercano.t;
+      const vp = prog.length ? interpolar(prog, t) : null;
+      const vr = ultimoHasta(real, t);
+      cruz.setAttribute("x1", x(t)); cruz.setAttribute("x2", x(t)); cruz.setAttribute("visibility", "visible");
+      if (vp != null) { pProg.setAttribute("cx", x(t)); pProg.setAttribute("cy", y(vp)); pProg.setAttribute("visibility", "visible"); }
+      if (vr) { pReal.setAttribute("cx", x(vr.t)); pReal.setAttribute("cy", y(vr.v)); pReal.setAttribute("visibility", "visible"); }
+      else pReal.setAttribute("visibility", "hidden");
+      tip.innerHTML = `<b>${fmtFecha(t)}</b>` +
+        `<div><span><i style="background:${cProg}"></i>Programado</span><span>${fmtPct(vp)}</span></div>` +
+        `<div><span><i style="background:${cReal}"></i>Real</span><span>${vr ? fmtPct(vr.v) : "—"}</span></div>` +
+        (vr && vr.t !== t ? `<div class="tenue" style="display:block;margin-top:4px">Último aprobado: ${fmtFecha(vr.t)}</div>` : "");
+      const izq = x(t) + 14 + tip.offsetWidth > W ? x(t) - tip.offsetWidth - 14 : x(t) + 14;
+      tip.style.left = izq + "px"; tip.style.top = m.t + "px"; tip.style.opacity = 1;
+    };
+    const salir = () => { tip.style.opacity = 0; [cruz, pProg, pReal].forEach(n => n.setAttribute("visibility", "hidden")); };
+    zona.addEventListener("mousemove", mover);
+    zona.addEventListener("touchstart", mover, { passive: true });
+    zona.addEventListener("touchmove", mover, { passive: true });
+    zona.addEventListener("mouseleave", salir);
+  }
+
+  dibujar();
+  let espera;
+  window.addEventListener("resize", () => { clearTimeout(espera); espera = setTimeout(dibujar, 120); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
+})();
+</script>
+{% endif %}
 {% endblock %}

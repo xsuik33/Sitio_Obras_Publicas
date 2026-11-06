@@ -33,10 +33,10 @@
   {% endif %}
   {% if financiero %}
     <table style="margin-top:10px">
-      <tr><th>Monto del contrato</th><td class="num">$ {{ financiero.monto|floatformat:2 }}</td></tr>
-      <tr><th>Avance físico × monto del contrato</th><td class="num">$ {{ financiero.fisico|floatformat:2 }}</td></tr>
-      <tr><th>Aprobado en estimaciones</th><td class="num">$ {{ financiero.estimado|floatformat:2 }}</td></tr>
-      <tr><th>Diferencia por estimar</th><td class="num">$ {{ financiero.por_estimar|floatformat:2 }}</td></tr>
+      <tr><th>Monto del contrato</th><td class="num">$ {{ financiero.monto|floatformat:"2g" }}</td></tr>
+      <tr><th>Avance físico × monto del contrato</th><td class="num">$ {{ financiero.fisico|floatformat:"2g" }}</td></tr>
+      <tr><th>Aprobado en estimaciones</th><td class="num">$ {{ financiero.estimado|floatformat:"2g" }}</td></tr>
+      <tr><th>Diferencia por estimar</th><td class="num">$ {{ financiero.por_estimar|floatformat:"2g" }}</td></tr>
     </table>
   {% endif %}
 </div>

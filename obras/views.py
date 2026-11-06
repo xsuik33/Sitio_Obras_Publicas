@@ -22,6 +22,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 
 from . import bitacora, evidencias, mensuales, pdf, reportes
+from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
     ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
@@ -58,30 +59,41 @@ def salud(request):
 
 @login_required
 def mis_obras(request):
+    """CU-12 pasos 1-3: buscar la obra por nombre, identificador o estado y elegirla."""
+    q = (request.GET.get("q") or "").strip()[:100]
+    estado = request.GET.get("estado", "")
+    if estado not in expedientes.ESTADOS:
+        estado = ""
+    obras = list(expedientes.buscar(request.user, q, estado))
     filas = [
-        {"obra": obra, "roles": sorted(roles_en(request.user, obra))}
-        for obra in obras_de(request.user).order_by("nombre")
+        {"obra": obra, "id": expedientes.identificador(obra), "roles": sorted(roles_en(request.user, obra)),
+         **expedientes.resumen_tarjeta(obra)}
+        for obra in obras
     ]
-    return render(request, "mis_obras.html", {"filas": filas})
+    contexto = {
+        "filas": filas, "q": q, "estado": estado, "estados": expedientes.ESTADOS, "filtrando": bool(q or estado),
+        "tiene_obras": bool(filas) or obras_de(request.user).exists(),
+    }
+    return render(request, "mis_obras.html", contexto)
 
 
 @requiere_permiso(VER)
 def obra_detalle(request, obra):
+    """CU-12 paso 4: expediente de la obra (solo consulta), según lo que el rol puede ver."""
     equipo = (
         UsuarioProyectoRol.objects.filter(obra=obra)
         .select_related("usuario", "rol")
         .order_by("usuario__nombre", "rol__nombre")
     )
+    exp = expedientes.expediente(request.user, obra)
     contexto = {
         "obra": obra,
-        "contrato": Contrato.objects.filter(obra=obra).first(),
+        "id_obra": expedientes.identificador(obra),
+        "estado_obra": expedientes.estado_obra(obra),
         "equipo": equipo,
         "mis_roles": sorted(roles_en(request.user, obra)),
-        "n_estimaciones": Estimacion.objects.filter(contrato__obra=obra).count(),
-        "n_reportes": ReporteDiario.objects.filter(obra=obra).count(),
-        "n_mensuales": ReporteMensual.objects.filter(obra=obra).exclude(estatus__nombre=reportes.BORRADOR).count(),
-        "n_notas": NotaBitacora.objects.filter(obra=obra).count(),
-        "n_conceptos": CatalogoConcepto.objects.filter(obra=obra).count(),
+        "x": exp,
+        "grafica": exp["avance"]["datos"]["grafica"] if exp["avance"]["ok"] else None,
         "puede_gestionar": puede(request.user, obra, GESTIONAR_USUARIOS),
     }
     return render(request, "obra_detalle.html", contexto)

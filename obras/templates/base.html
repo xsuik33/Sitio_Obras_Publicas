@@ -4,80 +4,163 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Sistema de Obras{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f5fbf'/%3E%3Cpath d='M8 24V13l8-5 8 5v11h-5v-6h-6v6z' fill='white'/%3E%3C/svg%3E">
   <style>
-    :root { --fondo:#f5f6f8; --tarjeta:#fff; --texto:#1c2430; --suave:#667085; --borde:#d9dde4; --acento:#1f6feb; --ok:#127a3e; --error:#b42318; }
-    @media (prefers-color-scheme: dark) {
-      :root { --fondo:#12161c; --tarjeta:#1b2129; --texto:#e8ecf2; --suave:#9aa6b6; --borde:#2d3643; --acento:#5aa2ff; --ok:#4cc38a; --error:#ff7b72; }
+    :root {
+      color-scheme: light;
+      --fondo:#f3f5f8; --tarjeta:#ffffff; --tarjeta-2:#f8f9fb; --texto:#18202b; --suave:#5f6b7a; --tenue:#8a95a3;
+      --borde:#e1e5eb; --borde-fuerte:#cfd5dd; --acento:#1f5fbf; --acento-hover:#184d9c; --acento-suave:#e8f0fc;
+      --ok:#127a3e; --ok-suave:#e7f5ec; --aviso:#9a6700; --aviso-suave:#fdf4dc; --error:#b42318; --error-suave:#fdecea;
+      --serie-1:#2a78d6; --serie-2:#eb6834; --serie-3:#1baf7a; --rejilla:#e9ecf0;
+      --sombra:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+      --sombra-alta:0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.05);
+      --radio:12px;
     }
-    * { box-sizing: border-box; }
-    body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--fondo); color:var(--texto); }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --fondo:#0f1318; --tarjeta:#171c23; --tarjeta-2:#1d232b; --texto:#e8ecf2; --suave:#a3adba; --tenue:#7b8695;
+        --borde:#272e38; --borde-fuerte:#353e4a; --acento:#5aa2ff; --acento-hover:#7cb5ff; --acento-suave:#16243a;
+        --ok:#4cc38a; --ok-suave:#12291e; --aviso:#e3b341; --aviso-suave:#2b2412; --error:#ff7b72; --error-suave:#2f1715;
+        --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --rejilla:#232a33;
+        --sombra:0 1px 2px rgba(0,0,0,.4); --sombra-alta:0 6px 16px rgba(0,0,0,.45);
+      }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.55 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fondo); color:var(--texto);
+           -webkit-font-smoothing:antialiased; }
     a { color:var(--acento); text-decoration:none; } a:hover { text-decoration:underline; }
-    header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;
-             padding:12px 20px; background:var(--tarjeta); border-bottom:1px solid var(--borde); }
-    header nav { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-    header strong { font-size:1.05rem; }
-    main { max-width:960px; margin:24px auto; padding:0 16px; }
-    .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; padding:16px 20px; margin-bottom:16px; }
-    h1 { font-size:1.5rem; margin:0 0 12px; } h2 { font-size:1.15rem; margin:0 0 10px; }
-    table { width:100%; border-collapse:collapse; } th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--borde); }
-    th { color:var(--suave); font-weight:600; font-size:.85rem; }
-    .chip { display:inline-block; padding:2px 10px; border-radius:999px; background:var(--fondo); border:1px solid var(--borde); font-size:.85rem; margin:2px 4px 2px 0; }
-    .suave { color:var(--suave); } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
-    .dato { font-size:1.6rem; font-weight:700; }
-    input, select, textarea, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--borde); background:var(--tarjeta); color:var(--texto); }
-    button { cursor:pointer; background:var(--acento); color:#fff; border-color:var(--acento); }
-    button.enlace { background:none; border:none; color:var(--error); padding:0; }
-    .galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
-    .galeria figure { margin:0; border:1px solid var(--borde); border-radius:8px; overflow:hidden; }
-    .galeria img, .galeria .doc { display:block; width:100%; height:130px; object-fit:cover; background:var(--fondo); }
-    .galeria .doc { display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--suave); }
-    .galeria figcaption { padding:8px; font-size:.85rem; display:flex; flex-direction:column; gap:2px; overflow-wrap:anywhere; }
-    button.enlace { background:none; border:none; color:var(--acento); padding:0; }
-    button.peligro { background:none; color:var(--error); border-color:var(--error); padding:4px 10px; }
-    .mensaje { padding:10px 14px; border-radius:8px; margin-bottom:12px; border:1px solid var(--borde); background:var(--tarjeta); }
-    .mensaje.success { border-color:var(--ok); } .mensaje.error { border-color:var(--error); } .mensaje.warning { border-color:#d29922; }
-    form.fila { display:flex; flex-wrap:wrap; gap:8px; align-items:end; } form.fila label { display:flex; flex-direction:column; gap:4px; font-size:.85rem; color:var(--suave); }
-    .login { max-width:380px; margin:48px auto; } .login p { display:flex; flex-direction:column; gap:4px; margin:0 0 12px; }
-    .formulario p { display:flex; flex-direction:column; gap:4px; margin:0 0 14px; }
-    .formulario input, .formulario select, .formulario textarea { width:100%; }
-    .formulario .helptext { color:var(--suave); font-size:.85rem; }
-    .chip[data-e="Aprobado"], .chip[data-e="Firmada"] { border-color:var(--ok); color:var(--ok); }
-    .chip[data-e="Borrador"], .chip[data-e="En revisión"] { border-color:#d29922; color:#d29922; }
-    .atraso { color:var(--error); font-weight:600; } .adelanto { color:var(--ok); font-weight:600; }
-    .chip[data-e="Rechazado"], .chip[data-e="Rechazada"] { border-color:var(--error); color:var(--error); }
+    h1 { font-size:1.6rem; line-height:1.25; margin:0 0 6px; letter-spacing:-.01em; }
+    h2 { font-size:1.05rem; margin:0 0 12px; letter-spacing:-.005em; }
+    h3 { font-size:.95rem; margin:0 0 8px; }
+
+    /* Encabezado */
+    .barra { position:sticky; top:0; z-index:10; background:color-mix(in srgb, var(--tarjeta) 92%, transparent);
+             backdrop-filter:saturate(1.4) blur(8px); border-bottom:1px solid var(--borde); }
+    .barra-in { max-width:1160px; margin:0 auto; padding:10px 20px; display:flex; flex-wrap:wrap; gap:10px 20px; align-items:center; }
+    .marca { display:flex; align-items:center; gap:10px; color:var(--texto); font-weight:700; font-size:1rem; margin-right:8px; }
+    .marca:hover { text-decoration:none; }
+    .marca-logo { width:30px; height:30px; border-radius:8px; background:var(--acento); display:grid; place-items:center; flex:none; }
+    .marca-logo svg { width:18px; height:18px; }
+    .menu { display:flex; gap:4px; flex-wrap:wrap; flex:1; }
+    .menu a { color:var(--suave); padding:6px 12px; border-radius:8px; font-weight:500; display:inline-flex; gap:6px; align-items:center; }
+    .menu a:hover { background:var(--tarjeta-2); color:var(--texto); text-decoration:none; }
+    .menu a.activo { background:var(--acento-suave); color:var(--acento); }
+    .contador { min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--error); color:#fff;
+                font-size:.75rem; font-weight:700; display:inline-grid; place-items:center; }
+    .usuario { display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:.9rem; }
+    .avatar { width:30px; height:30px; border-radius:50%; background:var(--acento-suave); color:var(--acento); font-weight:700;
+              display:grid; place-items:center; font-size:.8rem; flex:none; }
+
+    main { max-width:1160px; margin:28px auto 48px; padding:0 20px; }
+
+    /* Piezas generales */
+    .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:var(--radio); padding:18px 20px; margin-bottom:16px; box-shadow:var(--sombra); }
+    a.tarjeta { display:block; color:inherit; transition:box-shadow .15s, border-color .15s, transform .15s; }
+    a.tarjeta:hover { text-decoration:none; border-color:var(--borde-fuerte); box-shadow:var(--sombra-alta); transform:translateY(-1px); }
+    .suave { color:var(--suave); } .tenue { color:var(--tenue); font-size:.85rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+    .grid > .tarjeta { margin-bottom:0; }
+    .dato { font-size:1.7rem; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.2; }
     .texto { white-space:pre-line; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--borde); vertical-align:top; }
+    tr:last-child > td, tr:last-child > th { border-bottom:none; }
+    th { color:var(--suave); font-weight:500; font-size:.9rem; }
+    thead th { font-weight:600; font-size:.76rem; text-transform:uppercase; letter-spacing:.04em; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .tabla-scroll { overflow-x:auto; }
+
+    .chip { display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:999px; background:var(--tarjeta-2);
+            border:1px solid var(--borde); font-size:.8rem; font-weight:500; margin:2px 4px 2px 0; white-space:nowrap; color:var(--suave); }
+    .chip::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.7; display:none; }
+    .chip[data-e]::before { display:inline-block; }
+    .chip[data-e="Aprobado"], .chip[data-e="Firmada"], .chip[data-e="Concluida"] { border-color:transparent; background:var(--ok-suave); color:var(--ok); }
+    .chip[data-e="Borrador"], .chip[data-e="En revisión"], .chip[data-e="Por iniciar"] { border-color:transparent; background:var(--aviso-suave); color:var(--aviso); }
+    .chip[data-e="Rechazado"], .chip[data-e="Rechazada"] { border-color:transparent; background:var(--error-suave); color:var(--error); }
+    .chip[data-e="Pendiente"], .chip[data-e="En ejecución"] { border-color:transparent; background:var(--acento-suave); color:var(--acento); }
+    .atraso { color:var(--error); font-weight:600; } .adelanto { color:var(--ok); font-weight:600; } .tiempo { color:var(--suave); font-weight:600; }
+
+    /* Formularios y botones */
+    input, select, textarea, button { font:inherit; padding:8px 12px; border-radius:8px; border:1px solid var(--borde-fuerte); background:var(--tarjeta); color:var(--texto); }
+    input:focus, select:focus, textarea:focus { outline:2px solid var(--acento); outline-offset:1px; border-color:var(--acento); }
+    button, .boton { cursor:pointer; background:var(--acento); color:#fff; border:1px solid var(--acento); font-weight:600; border-radius:8px; padding:8px 14px; display:inline-block; }
+    button:hover, .boton:hover { background:var(--acento-hover); border-color:var(--acento-hover); text-decoration:none; }
+    .boton.secundario { background:var(--tarjeta); color:var(--texto); border-color:var(--borde-fuerte); }
+    .boton.secundario:hover { background:var(--tarjeta-2); }
+    button.enlace { background:none; border:none; color:var(--acento); padding:0; font-weight:500; }
+    button.enlace:hover { text-decoration:underline; background:none; }
+    button.peligro { background:none; color:var(--error); border-color:var(--error); padding:4px 10px; }
+    button.peligro:hover { background:var(--error-suave); }
+    .mensaje { padding:12px 16px; border-radius:10px; margin-bottom:14px; border:1px solid var(--borde); background:var(--tarjeta); box-shadow:var(--sombra);
+               border-left-width:4px; }
+    .mensaje.success { border-left-color:var(--ok); } .mensaje.error { border-left-color:var(--error); } .mensaje.warning { border-left-color:var(--aviso); }
+    .mensaje.info { border-left-color:var(--acento); }
+    form.fila { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
+    form.fila label { display:flex; flex-direction:column; gap:4px; font-size:.85rem; color:var(--suave); }
+    .login { max-width:400px; margin:56px auto; padding:28px; } .login p { display:flex; flex-direction:column; gap:4px; margin:0 0 14px; }
+    .login button { width:100%; padding:10px; }
+    .formulario p { display:flex; flex-direction:column; gap:4px; margin:0 0 14px; }
+    .formulario label { font-weight:500; font-size:.9rem; }
+    .formulario input, .formulario select, .formulario textarea { width:100%; }
+    .formulario .helptext { color:var(--suave); font-size:.82rem; }
     .formulario input[type=checkbox] { width:auto; }
     .formulario ul { list-style:none; padding:0; margin:0; } .formulario li { display:flex; gap:8px; align-items:center; }
-    .acciones { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .errorlist { color:var(--error); list-style:none; padding:0; margin:0 0 8px; font-size:.9rem; }
+    .acciones { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .tabla-edicion { overflow-x:auto; } .tabla-edicion table { min-width:860px; }
-    .tabla-edicion input, .tabla-edicion textarea { width:100%; min-width:70px; } .tabla-edicion td { vertical-align:top; }
+    .tabla-edicion input, .tabla-edicion textarea { width:100%; min-width:70px; }
     .tabla-edicion input[type=checkbox] { width:auto; min-width:0; }
-    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-    .errorlist { color:var(--error); list-style:none; padding:0; margin:0 0 8px; }
+
+    /* Evidencias */
+    .galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
+    .galeria figure { margin:0; border:1px solid var(--borde); border-radius:10px; overflow:hidden; background:var(--tarjeta); }
+    .galeria img, .galeria .doc { display:block; width:100%; height:130px; object-fit:cover; background:var(--tarjeta-2); }
+    .galeria .doc { display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--suave); }
+    .galeria figcaption { padding:8px 10px; font-size:.85rem; display:flex; flex-direction:column; gap:2px; overflow-wrap:anywhere; }
+
+    /* Barras de progreso */
+    .progreso { position:relative; height:8px; border-radius:999px; background:var(--rejilla); overflow:visible; }
+    .progreso > span { position:absolute; left:0; top:0; bottom:0; border-radius:999px; background:var(--serie-2); max-width:100%; }
+    .progreso > i { position:absolute; top:-4px; bottom:-4px; width:2px; border-radius:2px; background:var(--serie-1); box-shadow:0 0 0 2px var(--tarjeta); }
+
+    {% block estilos %}{% endblock %}
+    @media (max-width:640px) {
+      .barra-in { padding:10px 16px; justify-content:space-between; } main { padding:0 16px; margin-top:20px; }
+      .menu { order:3; flex-basis:100%; margin:0 -12px; } .usuario { gap:10px; }
+      h1 { font-size:1.35rem; } .usuario .nombre { display:none; }
+      .dato { font-size:1.35rem; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <nav>
-      <strong><a href="{% url 'mis_obras' %}">Sistema de Obras</a></strong>
+  {% with ruta=request.resolver_match.url_name %}
+  <header class="barra">
+    <div class="barra-in">
+      <a class="marca" href="{% url 'mis_obras' %}">
+        <span class="marca-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V10l9-6 9 6v11h-6v-7H9v7z" fill="#fff"/></svg></span>
+        Sistema de Obras
+      </a>
       {% if user.is_authenticated %}
-        <a href="{% url 'mis_obras' %}">Mis obras</a>
-        <a href="{% url 'pendientes' %}">Pendientes{% if n_pendientes %} <span class="chip" data-e="Rechazado" style="margin:0">{{ n_pendientes }}</span>{% endif %}</a>
-        {% if puede_cuentas %}<a href="{% url 'usuarios_lista' %}">Usuarios</a>{% endif %}
-        {% if user.is_staff %}<a href="{% url 'admin:index' %}">Panel de administración</a>{% endif %}
-      {% endif %}
-    </nav>
-    {% if user.is_authenticated %}
-      <form method="post" action="{% url 'logout' %}" class="fila">
+      <nav class="menu" aria-label="Principal">
+        <a href="{% url 'mis_obras' %}" class="{% if ruta == 'mis_obras' or request.resolver_match.kwargs.obra_id %}activo{% endif %}">Obras</a>
+        <a href="{% url 'pendientes' %}" class="{% if ruta == 'pendientes' %}activo{% endif %}">Pendientes{% if n_pendientes %} <span class="contador">{{ n_pendientes }}</span>{% endif %}</a>
+        {% if puede_cuentas %}<a href="{% url 'usuarios_lista' %}" class="{% if ruta == 'usuarios_lista' or ruta == 'usuario_detalle' or ruta == 'usuario_nuevo' %}activo{% endif %}">Usuarios</a>{% endif %}
+        {% if user.is_staff %}<a href="{% url 'admin:index' %}">Panel</a>{% endif %}
+      </nav>
+      <form method="post" action="{% url 'logout' %}" class="usuario">
         {% csrf_token %}
-        <span class="suave">{{ user.nombre }} {{ user.apellidos }}</span>
+        <span class="avatar" aria-hidden="true">{{ user.nombre|slice:":1"|upper }}{{ user.apellidos|slice:":1"|upper }}</span>
+        <span class="nombre">{{ user.nombre }} {{ user.apellidos }}</span>
         <a href="{% url 'cambiar_password' %}">Mi contraseña</a>
-        <button type="submit" class="enlace">Cerrar sesión</button>
+        <button type="submit" class="enlace">Salir</button>
       </form>
-    {% endif %}
+      {% endif %}
+    </div>
   </header>
+  {% endwith %}
   <main>
-    {% for mensaje in messages %}<div class="mensaje {{ mensaje.tags }}">{{ mensaje }}</div>{% endfor %}
+    {% for mensaje in messages %}<div class="mensaje {{ mensaje.tags }}" role="status">{{ mensaje }}</div>{% endfor %}
     {% block contenido %}{% endblock %}
   </main>
 </body>
