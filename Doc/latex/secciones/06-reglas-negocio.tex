@@ -2,7 +2,7 @@
 Este capítulo concentra las reglas que el sistema aplica de forma automática. Cada una se implementa en un módulo del código (\cref{tab:modulos}) para que pueda revisarse y modificarse en un solo lugar.
 
 \section{Estados de los reportes}
-Los reportes diarios y mensuales siguen el mismo ciclo (\cref{fig:estados-reporte}). El Residente y el Superintendente deciden por separado y una sola vez; el estatus del reporte se deriva siempre de sus decisiones.
+Los reportes diarios y mensuales siguen el mismo ciclo (\cref{fig:estados-reporte}). Solo el Residente los valida y decide una sola vez; el estatus del reporte se deriva siempre de su decisión.
 
 \begin{figure}[h]
 \centering
@@ -12,15 +12,12 @@ Los reportes diarios y mensuales siguen el mismo ciclo (\cref{fig:estados-report
   et/.style={font=\sffamily\scriptsize,text=black!70,fill=white,inner sep=1.5pt}]
   \node[est=gristexto] (b) {Borrador};
   \node[est=azulinfo,right=of b] (p) {Pendiente};
-  \node[est=ambar,right=of p] (r) {En revisión};
-  \node[est=verdeok,right=of r] (a) {Aprobado};
-  \node[est=rojo,below=1.5cm of r] (x) {Rechazado};
+  \node[est=verdeok,right=2.4cm of p] (a) {Aprobado};
+  \node[est=rojo,below=1.5cm of a] (x) {Rechazado};
   \draw[flecha] (b) -- node[et,above]{enviar} (p);
-  \draw[flecha] (p) -- node[et,above]{1.ª aprobación} (r);
-  \draw[flecha] (r) -- node[et,above]{2.ª aprobación} (a);
-  \draw[flecha] (p) |- node[et,pos=0.75,below]{un rechazo} (x);
-  \draw[flecha] (r) -- node[et,right]{un rechazo} (x);
-  \draw[flecha] (x.west) -| node[et,pos=0.25,below]{corregir y reenviar} ([xshift=-4mm]p.south);
+  \draw[flecha] (p) -- node[et,above]{aprueba} (a);
+  \draw[flecha] (p) -- node[et,sloped,below]{rechaza} (x);
+  \draw[flecha] (x.west) -| node[et,pos=0.2,below]{corregir y reenviar} ([xshift=-4mm]p.south);
 \end{tikzpicture}
 \caption{Estados de un reporte diario o mensual}\label{fig:estados-reporte}
 \end{figure}
@@ -112,7 +109,7 @@ Los avisos se envían por la API de Brevo con una versión en HTML y otra en tex
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{6cm}X@{}}
 \toprule
 \sffamily\bfseries Evento & \sffamily\bfseries Se avisa a\\\midrule
-Reporte diario o mensual enviado a revisión & Residente y Superintendente\\
+Reporte diario o mensual enviado a revisión & Residente\\
 Reporte aprobado o rechazado & Supervisor (y Directivos, si se aprueba un mensual)\\
 Nota de bitácora registrada o corregida & Firmantes que faltan\\
 Nota firmada o rechazada & Autor de la nota\\

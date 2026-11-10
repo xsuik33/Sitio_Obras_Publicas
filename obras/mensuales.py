@@ -2,8 +2,8 @@
 Reglas del reporte mensual (CU-04).
 
 Flujo (igual que el reporte diario, ver obras/reportes.py):
-  Borrador → (enviar) → Pendiente → En revisión → Aprobado / Rechazado
-  - Lo elabora el Supervisor. El Superintendente Contratista y el Residente validan por separado, una vez cada uno.
+  Borrador → (enviar) → Pendiente → Aprobado / Rechazado
+  - Lo elabora el Supervisor y lo valida solo el Residente (CU-07), una vez.
   - Rechazado: el autor lo corrige y vuelve a revisión. Un administrador puede corregir cualquier decisión.
 Contenido:
   - Consolidado automático del periodo (1.º del mes → fecha de corte): reportes diarios, avance real vs
@@ -95,7 +95,7 @@ def registrar_decision(reporte, usuario, rol, nuevo_estatus, comentarios, por_ad
 
 
 def enviar_a_revision(reporte, autor):
-    """Pasa el reporte a Pendiente (reiniciando decisiones previas) y avisa al Superintendente y al Residente."""
+    """Pasa el reporte a Pendiente (reiniciando decisiones previas) y avisa al Residente."""
     for rol, decision in decisiones(reporte).items():
         if decision:
             _validar(reporte, autor, rol, estatus(PENDIENTE), "Reenviado a revisión tras una corrección.")

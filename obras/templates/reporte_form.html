@@ -43,7 +43,7 @@
     {% endif %}
       <a class="boton secundario" href="{% url 'reportes_lista' obra.pk %}" style="border-color:transparent">Cancelar</a>
     </div>
-    <p class="nota-ayuda">{% if nuevo or es_borrador %}Al enviarlo se avisa por correo al Superintendente y al Residente. Un borrador solo lo ves tú.{% else %}Si el reporte ya tenía decisiones, al guardar vuelve a revisión.{% endif %}</p>
+    <p class="nota-ayuda">{% if nuevo or es_borrador %}Al enviarlo se avisa por correo al Residente. Un borrador solo lo ves tú.{% else %}Si el reporte ya tenía decisiones, al guardar vuelve a revisión.{% endif %}</p>
   </form>
 </div>
 {% endblock %}

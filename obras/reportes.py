@@ -1,10 +1,10 @@
 """
 Reglas del reporte diario (CU-03).
 
-Flujo:  Borrador → (enviar) → Pendiente → En revisión → Aprobado / Rechazado
-  - El Superintendente Contratista y el Residente validan por separado y cada uno decide UNA vez.
-  - Aprobado cuando ambos aprueban; Rechazado en cuanto uno rechaza; En revisión mientras solo uno aprobó.
-  - Un administrador puede corregir la decisión de cualquiera de los dos (incluso regresarla a Pendiente).
+Flujo:  Borrador → (enviar) → Pendiente → Aprobado / Rechazado
+  - Solo el Residente valida (documento de especificación, CU-06) y decide UNA vez.
+  - Las decisiones del Superintendente registradas antes de este cambio se conservan, pero ya no cuentan.
+  - Un administrador puede corregir la decisión del Residente (incluso regresarla a Pendiente).
   - El estatus guardado en reportes_diarios.estatus_id siempre se deriva de las decisiones.
 """
 import logging
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 ROL_SUPERINTENDENTE = "Superintendente Contratista"
 ROL_RESIDENTE = "Residente"
-ROLES_VALIDADORES = (ROL_SUPERINTENDENTE, ROL_RESIDENTE)
+ROLES_VALIDADORES = (ROL_RESIDENTE,)
 ETIQUETA = {ROL_SUPERINTENDENTE: "Superintendente", ROL_RESIDENTE: "Residente"}
 
 BORRADOR, PENDIENTE, EN_REVISION, APROBADO, RECHAZADO = "Borrador", "Pendiente", "En revisión", "Aprobado", "Rechazado"
@@ -89,7 +89,7 @@ def estado_legible(reporte, decs=None):
         return "Aprobado por " + _con_articulo(aprobaron)
     if aprobaron:
         return f"Aprobó {_con_articulo(aprobaron)} · falta {_con_articulo(faltan)}"
-    return f"Pendiente · faltan {_con_articulo(faltan)}"
+    return f"Pendiente · {'faltan' if len(faltan) > 1 else 'falta'} {_con_articulo(faltan)}"
 
 
 def roles_que_decide(usuario, obra, reporte, decs=None, es_admin=False):
@@ -182,7 +182,7 @@ def puede_editar(usuario, obra, reporte):
 
 
 def enviar_a_revision(reporte, autor):
-    """Pasa el reporte a Pendiente (reiniciando decisiones previas) y avisa al Superintendente y al Residente."""
+    """Pasa el reporte a Pendiente (reiniciando decisiones previas) y avisa al Residente."""
     previas = decisiones(reporte)
     for rol, decision in previas.items():
         if decision:

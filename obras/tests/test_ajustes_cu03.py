@@ -108,9 +108,9 @@ class ValidacionesTests(Base):
 
     def test_lista_y_cambio_con_motivo(self):
         self.client.force_login(self.admin)
-        lista = self.client.get(reverse("validaciones"), {"estatus": reportes.EN_REVISION})
+        lista = self.client.get(reverse("validaciones"), {"estatus": reportes.APROBADO})
         self.assertContains(lista, self.url)
-        self.assertEqual(len(self.client.get(reverse("validaciones"), {"estatus": reportes.APROBADO}).context["filas"]), 0)
+        self.assertEqual(len(self.client.get(reverse("validaciones"), {"estatus": reportes.PENDIENTE}).context["filas"]), 0)
         datos = {"rol": RES, "estatus": reportes.estatus(reportes.PENDIENTE).pk}
         r = self.client.post(self.url, datos)  # sin motivo
         self.assertEqual(r.status_code, 200)
@@ -123,7 +123,7 @@ class ValidacionesTests(Base):
         ultima = self.reporte.validacionreportediario_set.order_by("-fecha_validacion").first()
         self.assertEqual((ultima.usuario_validador, ultima.comentarios), (self.admin, "El residente aprobó por error."))
         self.assertEqual(sorted(d for m in mail.outbox for d in m.to),
-                         ["residente@obras.test", "superint@obras.test", "supervisor@obras.test"])
+                         ["residente@obras.test", "supervisor@obras.test"])
         self.assertIn("Cambio de estatus en reporte diario", mail.outbox[0].subject)
 
     def test_desde_el_reporte_tambien_exige_motivo(self):
@@ -131,4 +131,44 @@ class ValidacionesTests(Base):
         self.client.post(reverse("reporte_validar", args=[self.obra.pk, self.reporte.pk]),
                          {"rol": RES, "estatus": reportes.estatus(reportes.PENDIENTE).pk})
         self.reporte.refresh_from_db()
-        self.assertEqual(self.reporte.estatus.nombre, reportes.EN_REVISION)
+        self.assertEqual(self.reporte.estatus.nombre, reportes.APROBADO)
+
+    def test_superintendente_ya_no_valida_diarios(self):
+        nuevo = ReporteDiario.objects.create(
+            obra=self.obra, supervisor=self.supervisor, fecha_reporte=date(2026, 1, 22),
+            actividades_realizadas="Cimbra", avance_fisico_real_porcentaje=Decimal("21"),
+            estatus=reportes.estatus(reportes.PENDIENTE),
+        )
+        self.client.force_login(self.superint)
+        r = self.client.post(reverse("reporte_validar", args=[self.obra.pk, nuevo.pk]),
+                             {"rol": SINT, "estatus": reportes.estatus(reportes.APROBADO).pk})
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(len(self.client.get(reverse("pendientes")).context["revisar"]), 0)
+
+
+class RecalcularValidacionesTests(Base):
+    def test_en_revision_con_residente_aprobado_queda_aprobado(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from obras.models import ValidacionReporteDiario
+
+        reporte = ReporteDiario.objects.create(
+            obra=self.obra, supervisor=self.supervisor, fecha_reporte=date(2026, 1, 20),
+            actividades_realizadas="Colado", avance_fisico_real_porcentaje=Decimal("19"),
+            estatus=reportes.estatus(reportes.EN_REVISION),
+        )
+        ValidacionReporteDiario.objects.create(
+            reporte_diario=reporte, usuario_validador=self.residente, rol_validador=RES,
+            estatus=reportes.estatus(reportes.APROBADO), fecha_validacion=timezone.now(),
+        )
+        call_command("recalcular_validaciones_reportes", stdout=StringIO())  # sin --aplicar no cambia nada
+        reporte.refresh_from_db()
+        self.assertEqual(reporte.estatus.nombre, reportes.EN_REVISION)
+        salida = StringIO()
+        call_command("recalcular_validaciones_reportes", "--aplicar", stdout=salida)
+        reporte.refresh_from_db()
+        self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
+        self.assertIn("Actualizados: 1", salida.getvalue())

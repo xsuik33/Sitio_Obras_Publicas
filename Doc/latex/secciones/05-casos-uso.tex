@@ -1,6 +1,6 @@
 \chapter{Casos de uso}
 
-El diagrama de casos de uso (\cref{fig:casos-uso}) muestra qué puede hacer cada actor. El Superintendente registra el catálogo de conceptos y las estimaciones, y valida los reportes. El Supervisor elabora los reportes diarios y mensuales y revisa las estimaciones del Superintendente. El Residente valida los reportes y da la validación final de las estimaciones. El Administrador crea las cuentas y puede cambiar el estatus de las validaciones. El Directivo solo consulta. Las notas de bitácora, la carga de documentos y la consulta del proyecto las comparten varios actores.
+El diagrama de casos de uso (\cref{fig:casos-uso}) muestra qué puede hacer cada actor. El Superintendente registra el catálogo de conceptos y las estimaciones. El Supervisor elabora los reportes diarios y mensuales y revisa las estimaciones del Superintendente. El Residente valida los reportes y da la validación final de las estimaciones. El Administrador crea las cuentas y puede cambiar el estatus de las validaciones. El Directivo solo consulta. Las notas de bitácora, la carga de documentos y la consulta del proyecto las comparten varios actores.
 
 \begin{figure}[h]
 \centering
@@ -50,7 +50,7 @@ El diagrama de casos de uso (\cref{fig:casos-uso}) muestra qué puede hacer cada
   \node[cu] (c17) at (3.6,-14.3) {CU-17 Cambiar estatus de estimaciones (Residente)};
   % enlaces: entre el recuadro (fondo) y los casos de uso
   \begin{pgfonlayer}{lineas}
-  \foreach \c in {c01,c02,c06,c07,c09,c10,c11,c12} \draw[enlace] ([xshift=0.35cm]SI) -- (\c);
+  \foreach \c in {c01,c02,c09,c10,c11,c12} \draw[enlace] ([xshift=0.35cm]SI) -- (\c);
   \foreach \c in {c06,c07,c08,c09,c10,c11,c12} \draw[enlace] ([xshift=0.35cm]RE) -- (\c);
   \draw[enlace] ([xshift=0.35cm]DI) -- (c12);
   \foreach \c in {c03,c04,c05,c09,c10,c11,c12} \draw[enlace] ([xshift=-0.35cm]SU) -- (\c);
@@ -60,9 +60,6 @@ El diagrama de casos de uso (\cref{fig:casos-uso}) muestra qué puede hacer cada
 \caption{Diagrama de casos de uso}\label{fig:casos-uso}
 \end{figure}
 
-\begin{aclaracion}[Cambio respecto a la versión anterior]
-Por decisión del equipo, los reportes diarios y mensuales los validan el Residente \emph{y} el Superintendente (CU-06 y CU-07). El diagrama refleja esa doble validación.
-\end{aclaracion}
 
 \section{Índice de casos de uso}
 Del diagrama se obtienen 17 casos de uso (\cref{tab:indice-cu}). Los identificadores siguen el orden de las funciones de cada rol, del Superintendente al Administrador; las funciones compartidas se describen una sola vez.
@@ -80,8 +77,8 @@ CU-02 & Crear estimaciones & Superintendente\\
 CU-03 & Crear reportes diarios & Supervisor\\
 CU-04 & Crear reportes mensuales & Supervisor\\
 CU-05 & Validar estimaciones del Superintendente & Supervisor\\
-CU-06 & Validar reportes diarios & Residente, Superintendente\\
-CU-07 & Validar reportes mensuales & Residente, Superintendente\\
+CU-06 & Validar reportes diarios & Residente\\
+CU-07 & Validar reportes mensuales & Residente\\
 CU-08 & Validar estimaciones del Supervisor & Residente\\
 CU-09 & Hacer notas de bitácora & Superintendente, Supervisor, Residente\\
 CU-10 & Firmar notas de bitácora & Superintendente, Supervisor, Residente\\
@@ -182,29 +179,29 @@ Cada caso de uso se describe con el mismo formato: actores, requerimientos que a
  \item Con observaciones o rechazada, se avisa al Superintendente.}
 {RF-15}
 
-\casouso{CU-06}{Residente, Superintendente}{Validar reportes diarios}
-{Permite al Residente y al Superintendente revisar los reportes diarios del Supervisor y aprobarlos o rechazarlos; cada uno decide una vez.}
+\casouso{CU-06}{Residente}{Validar reportes diarios}
+{Permite al Residente revisar los reportes diarios del Supervisor y aprobarlos o rechazarlos; decide una sola vez.}
 {\item El validador abre un reporte \estatus{Pendiente} desde su bandeja.
  \item El sistema muestra avance, desviación, actividades, notas vinculadas y evidencias.
  \item El validador revisa la información.
  \item El validador aprueba o rechaza con comentarios.
  \item El sistema registra la decisión con usuario, rol, fecha y comentarios.}
 {\item \textbf{4a. Reporte rechazado:} regresa al Supervisor con el motivo; al corregirlo vuelve a revisión.}
-{\item Sesión activa con rol de Residente o Superintendente.
+{\item Sesión activa con rol de Residente.
  \item Existe un reporte diario enviado a revisión.}
-{\item Con una aprobación queda \estatus{En revisión}; con las dos, \estatus{Aprobado}; con un rechazo, \estatus{Rechazado}.
+{\item El reporte queda \estatus{Aprobado} o \estatus{Rechazado}.
  \item Se avisa al Supervisor del resultado.}
 {RF-17}
 
-\casouso{CU-07}{Residente, Superintendente}{Validar reportes mensuales}
-{Permite al Residente y al Superintendente revisar y validar los reportes mensuales del Supervisor.}
+\casouso{CU-07}{Residente}{Validar reportes mensuales}
+{Permite al Residente revisar y validar los reportes mensuales del Supervisor.}
 {\item El validador abre un reporte mensual pendiente.
  \item El sistema muestra el consolidado del mes, las observaciones y las evidencias.
  \item El validador revisa la información.
  \item El validador aprueba o rechaza con comentarios.
  \item El sistema registra la decisión con usuario, rol, fecha y comentarios.}
 {\item \textbf{4a. Reporte rechazado:} regresa al Supervisor con el motivo para su corrección.}
-{\item Sesión activa con rol de Residente o Superintendente.
+{\item Sesión activa con rol de Residente.
  \item Existe un reporte mensual enviado a revisión.}
 {\item El reporte queda \estatus{Aprobado} o \estatus{Rechazado}; al aprobarse se congelan sus cifras.
  \item Se avisa al Supervisor y, si se aprueba, a los Directivos.}

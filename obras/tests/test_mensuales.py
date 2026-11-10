@@ -107,8 +107,7 @@ class ConsolidadoTests(BaseMensual):
 
     def test_congela_al_aprobar(self):
         reporte = self.crear()
-        self.decidir(self.residente, reporte, reportes.APROBADO)
-        reporte = self.decidir(self.superint, reporte, reportes.APROBADO)
+        reporte = self.decidir(self.residente, reporte, reportes.APROBADO)
         self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
         self.assertEqual(reporte.consolidado["avance"]["corte"], "25.00")
         ReporteDiario.objects.filter(fecha_reporte=date(2026, 10, 15)).update(avance_fisico_real_porcentaje=50)
@@ -120,9 +119,9 @@ class ConsolidadoTests(BaseMensual):
         # con motivo sí: se libera el congelado y se avisa a los involucrados
         mail.outbox.clear()
         reporte = self.decidir(self.admin, reporte, reportes.PENDIENTE, rol=RES, comentarios="Se corrigió un diario.")
-        self.assertEqual(reporte.estatus.nombre, reportes.EN_REVISION)
+        self.assertEqual(reporte.estatus.nombre, reportes.PENDIENTE)
         self.assertIsNone(reporte.consolidado)
-        self.assertEqual(self.destinatarios(), ["residente@obras.test", "superint@obras.test", "supervisor@obras.test"])
+        self.assertEqual(self.destinatarios(), ["residente@obras.test", "supervisor@obras.test"])
         self.assertIn("Se corrigió un diario.", mail.outbox[0].body)
 
 
@@ -130,21 +129,27 @@ class FlujoTests(BaseMensual):
     def test_envio_aprobacion_y_correos(self):
         reporte = self.crear()
         self.assertEqual(reporte.estatus.nombre, reportes.PENDIENTE)
-        self.assertEqual(self.destinatarios(), ["residente@obras.test", "superint@obras.test"])
+        self.assertEqual(self.destinatarios(), ["residente@obras.test"])
         self.assertIn("Advertencias", mail.outbox[0].body)  # el mes no tiene diarios
         mail.outbox.clear()
         reporte = self.decidir(self.residente, reporte, reportes.APROBADO)
-        self.assertEqual(reporte.estatus.nombre, reportes.EN_REVISION)
-        self.assertEqual(mail.outbox, [])
-        reporte = self.decidir(self.superint, reporte, reportes.APROBADO)
         self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
         self.assertEqual(self.destinatarios(), ["directivo@obras.test", "supervisor@obras.test"])
 
-    def test_cada_rol_decide_una_vez(self):
+    def test_residente_decide_una_vez(self):
         reporte = self.crear()
         self.decidir(self.residente, reporte, reportes.APROBADO)
         reporte = self.decidir(self.residente, reporte, reportes.RECHAZADO, comentarios="otra vez")
-        self.assertEqual(reporte.estatus.nombre, reportes.EN_REVISION)
+        self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
+
+    def test_superintendente_no_valida(self):
+        reporte = self.crear()
+        self.client.force_login(self.superint)
+        r = self.client.post(reverse("mensual_validar", args=[self.obra.pk, reporte.pk]),
+                             {"rol": SINT, "estatus": reportes.estatus(reportes.APROBADO).pk})
+        self.assertEqual(r.status_code, 403)
+        reporte.refresh_from_db()
+        self.assertEqual(reporte.estatus.nombre, reportes.PENDIENTE)
 
     def test_rechazo_correccion_y_reenvio(self):
         reporte = self.crear()
@@ -160,7 +165,7 @@ class FlujoTests(BaseMensual):
         self.assertEqual(r.status_code, 302)
         reporte.refresh_from_db()
         self.assertEqual((reporte.estatus.nombre, reporte.resumen), (reportes.PENDIENTE, "Corregido"))
-        self.assertEqual(mensuales.decisiones(reporte), {SINT: None, RES: None})
+        self.assertEqual(mensuales.decisiones(reporte), {RES: None})
 
     def test_borrador_privado_y_aprobado_no_editable(self):
         reporte = self.crear(accion="borrador")
@@ -175,7 +180,6 @@ class FlujoTests(BaseMensual):
         reporte.refresh_from_db()
         self.assertEqual(reporte.estatus.nombre, reportes.PENDIENTE)
         self.decidir(self.residente, reporte, reportes.APROBADO)
-        self.decidir(self.superint, reporte, reportes.APROBADO)
         self.client.force_login(self.supervisor)
         self.assertEqual(self.client.get(reverse("mensual_editar", args=[self.obra.pk, reporte.pk])).status_code, 403)
 
@@ -197,7 +201,6 @@ class FlujoTests(BaseMensual):
         self.assertEqual(r["Content-Type"], "application/pdf")
         self.assertTrue(r.content.startswith(b"%PDF"))
         self.decidir(self.residente, reporte, reportes.APROBADO)
-        self.decidir(self.superint, reporte, reportes.APROBADO)
         self.assertTrue(self.client.get(reverse("mensual_pdf", args=[self.obra.pk, reporte.pk])).content.startswith(b"%PDF"))
         detalle = self.client.get(reverse("obra_detalle", args=[self.obra.pk]))
         self.assertContains(detalle, reverse("mensuales_lista", args=[self.obra.pk]))

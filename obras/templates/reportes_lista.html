@@ -5,7 +5,7 @@
   <div>
     <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a></nav>
     <h1>Reportes diarios</h1>
-    <p class="sub"><span>{{ filas|length }} reporte{{ filas|length|pluralize }}</span><span>Los valida el Superintendente y el Residente</span></p>
+    <p class="sub"><span>{{ filas|length }} reporte{{ filas|length|pluralize }}</span><span>Los valida el Residente</span></p>
   </div>
   {% if puede_crear %}<div class="acciones"><a class="boton" href="{% url 'reporte_nuevo' obra.pk %}">+ Nuevo reporte</a></div>{% endif %}
 </div>
