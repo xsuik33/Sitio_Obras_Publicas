@@ -101,37 +101,25 @@
   boxrule=0pt,leftrule=3pt,arc=2pt,left=8pt,right=8pt,top=5pt,bottom=5pt,
   fonttitle=\sffamily\bfseries\small,coltitle=guinda,title={#1},attach title to upper={\ \ },fontupper=\small}
 
-% Ficha de caso de uso:
+% Ficha de caso de uso (tabla formal con cuadrícula):
 % \casouso{ID}{Actores}{Nombre}{Descripción}{Flujo principal (\item)}{Alternos (\item)}{Pre (\item)}{Post (\item)}{RF}
+\newcommand{\cuitems}[2]{\begin{minipage}[t]{\linewidth}\strut\vspace{-\baselineskip}\begin{#1}[leftmargin=1.5em,nosep]#2\end{#1}\vspace{3pt}\end{minipage}}
 \newcommand{\casouso}[9]{%
-\needspace{14\baselineskip}%
-\begin{tcolorbox}[enhanced,breakable,colback=white,colframe=gristabla,boxrule=0.6pt,arc=2pt,
-  left=0pt,right=0pt,top=0pt,bottom=2pt,before skip=0.9em,after skip=0.9em]
-\renewcommand{\arraystretch}{1.25}
-\begin{tabularx}{\linewidth}{@{\hspace{8pt}}>{\sffamily\bfseries\small}l X@{\hspace{8pt}}}
-\rowcolor{guinda}\multicolumn{2}{@{\hspace{8pt}}l}{\color{white}\sffamily\bfseries #1 \quad #3}\\
-Actores & #2 \\
-Requerimientos & {\small #9}\\
-\end{tabularx}
-\vspace{-2pt}
-\begin{tcolorbox}[enhanced,colback=white,frame hidden,left=8pt,right=8pt,top=0pt,bottom=0pt,boxsep=2pt]
-\small
-\textsf{\textbf{Descripción.}} #4
-
-\textsf{\textbf{\color{guinda}Flujo principal}}
-\begin{enumerate}[label=\arabic*.,leftmargin=1.6em,itemsep=0pt]#5\end{enumerate}
-\textsf{\textbf{\color{guinda}Flujos alternativos}}
-\begin{itemize}[leftmargin=1.4em,itemsep=0pt]#6\end{itemize}
-\begin{minipage}[t]{0.485\linewidth}
-\textsf{\textbf{\color{guinda}Precondiciones}}
-\begin{itemize}[leftmargin=1.2em,itemsep=0pt]#7\end{itemize}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.485\linewidth}
-\textsf{\textbf{\color{guinda}Postcondiciones}}
-\begin{itemize}[leftmargin=1.2em,itemsep=0pt]#8\end{itemize}
-\end{minipage}
-\end{tcolorbox}
-\end{tcolorbox}}
+\needspace{10\baselineskip}\vspace{0.6em}%
+{\small\renewcommand{\arraystretch}{1.3}\setlength{\arrayrulewidth}{0.5pt}\arrayrulecolor{black!55}%
+\begin{xltabular}{\linewidth}{|>{\sffamily\bfseries\raggedright\arraybackslash}p{3.1cm}|X|}
+\hline
+Identificador & \sffamily\bfseries #1\\\hline
+Nombre & #3\\\hline
+Actores & #2\\\hline
+Descripción & #4\\\hline
+Precondiciones & \cuitems{itemize}{#7}\\\hline
+Flujo principal & \cuitems{enumerate}{#5}\\\hline
+Flujos alternativos & \cuitems{itemize}{#6}\\\hline
+Postcondiciones & \cuitems{itemize}{#8}\\\hline
+Requerimientos relacionados & #9\\\hline
+\end{xltabular}\arrayrulecolor{black}}%
+\vspace{0.4em}}
 
 % Encabezado de tabla de diccionario de datos
 \newcommand{\tablabd}[2]{\subsection*{\cod{#1}}\nota{#2}\par}
@@ -196,6 +184,6 @@ Versión & 2.0 · actualizada al sistema implementado
 \input{secciones/06-reglas-negocio}
 \input{secciones/07-arquitectura}
 \input{secciones/08-base-datos}
-\input{secciones/09-cambios}
+%\input{secciones/09-cambios}
 
 \end{document}
