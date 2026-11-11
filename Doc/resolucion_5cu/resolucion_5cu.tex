@@ -1,0 +1,256 @@
+% Cómo se resolvieron los primeros 5 casos de uso (rama django-obras)
+\documentclass[11pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,mexico,es-tabla,es-noshorthands]{babel}
+\usepackage{newtxtext,newtxmath}
+\usepackage[sfdefault=false]{plex-sans}
+\usepackage{plex-mono}
+\usepackage{microtype}
+\usepackage{csquotes}
+\usepackage[top=2.3cm,bottom=2.3cm,left=2.3cm,right=2.3cm]{geometry}
+\usepackage[table]{xcolor}
+\definecolor{guinda}{HTML}{6C1D45}
+\definecolor{grisfondo}{HTML}{F4F3F1}
+\definecolor{gristexto}{HTML}{55575C}
+\definecolor{verdeok}{HTML}{127A3E}
+\definecolor{azulinfo}{HTML}{2F5F9E}
+\definecolor{ambar}{HTML}{8A5A00}
+\definecolor{rojo}{HTML}{B42318}
+\usepackage{array,tabularx,booktabs,enumitem}
+\usepackage{titlesec}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+\titleformat{\section}{\sffamily\Large\bfseries\color{guinda}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\sffamily\large\bfseries}{\thesubsection}{0.6em}{}
+\setlist{itemsep=2pt,topsep=4pt}
+\newcommand{\cod}[1]{\texttt{\small #1}}
+\newcommand{\estatus}[1]{{\sffamily\small\bfseries #1}}
+\renewcommand{\arraystretch}{1.25}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newtcolorbox{ojo}{colback=ambar!6,colframe=ambar,boxrule=0.6pt,arc=2pt,left=6pt,right=6pt}
+
+\newcommand{\rutas}[1]{%
+\begin{center}\small\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}>{\ttfamily\footnotesize}p{5.6cm}L@{}}
+\toprule\normalfont\sffamily\bfseries Ruta & \sffamily\bfseries Qué hace\\\midrule
+#1
+\bottomrule\end{tabularx}\end{center}}
+
+\title{\sffamily\bfseries\color{guinda}Cómo se resolvieron los primeros 5 casos de uso}
+\author{\sffamily Sistema de Obras · rama \texttt{django-obras}}
+\date{\sffamily 11 de noviembre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Resumen}
+La rama \cod{django-obras} del repositorio del equipo tiene 5 casos de uso funcionando: CU-13, CU-01, CU-03 (con CU-06), CU-09 (con CU-10) y CU-04 (con CU-07). Este documento explica cómo se resolvió cada uno: sus pantallas, los archivos donde vive y las reglas que aplica. Al final están las pruebas automáticas que lo comprueban.
+
+\begin{center}\small\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}lL>{\raggedright\arraybackslash}p{3.6cm}>{\ttfamily\footnotesize}p{3cm}@{}}
+\toprule\sffamily\bfseries CU & \sffamily\bfseries Nombre & \sffamily\bfseries Quién lo usa & \normalfont\sffamily\bfseries Reglas en\\\midrule
+CU-13 & Crear cuentas para cada rol & Administrador & cuentas.py, permisos.py\\
+CU-01 & Crear catálogo de conceptos & Superintendente & views.py\\
+CU-03/06 & Crear y validar reportes diarios & Supervisor crea, Residente valida & reportes.py\\
+CU-09/10 & Hacer y firmar notas de bitácora & Residente, Supervisor, Superintendente & bitacora.py\\
+CU-04/07 & Crear y validar reportes mensuales & Supervisor crea, Residente valida & mensuales.py\\
+\bottomrule\end{tabularx}\end{center}
+
+\paragraph{Cómo está armado.} Todos los CU siguen el mismo camino:
+\begin{enumerate}
+  \item \cod{obras\_site/urls.py} recibe la ruta y llama a una vista de \cod{obras/views.py}.
+  \item La vista revisa el permiso con \cod{@requiere\_permiso(...)} de \cod{obras/permisos.py}. Los permisos dependen del rol que el usuario tiene \emph{en esa obra}, no de un rol global.
+  \item La vista delega las reglas de negocio (estados, quién decide, correos) al módulo del CU.
+  \item Los datos se guardan con los modelos de \cod{obras/models.py} (\cod{managed = False}): las tablas las crea el SQL de \cod{db/}, no las migraciones de Django.
+  \item Una plantilla de \cod{obras/templates/} muestra el resultado.
+\end{enumerate}
+La bandeja \cod{/pendientes/} junta lo que cada usuario tiene por hacer: reportes por revisar o corregir y notas por firmar.
+
+\section{CU-13 · Crear cuentas para cada rol}
+El Administrador crea las cuentas y les asigna un rol \emph{por obra}: una persona puede ser Supervisor en una obra y Residente en otra. Todo cambio queda en un historial.
+
+\rutas{
+/usuarios/ & Lista de cuentas con búsqueda por nombre o correo y filtro activas/inactivas\\
+/usuarios/nuevo/ & Alta: nombre, apellidos, correo, rol, obras y contraseña inicial\\
+/usuarios/<id>/ & Ficha: editar datos, activar o desactivar, restablecer contraseña, asignar y quitar roles, historial\\
+/obras/<id>/roles/ & Equipo de una obra: agregar o quitar personas y roles\\
+/cuenta/password/ & Cada usuario cambia su propia contraseña\\
+}
+
+\paragraph{Archivos.} \cod{obras/cuentas.py}, \cod{obras/views.py} (\cod{usuarios\_lista}, \cod{usuario\_nuevo}, \cod{usuario\_detalle}, \cod{roles\_obra}), \cod{obras/forms.py} (\cod{CuentaNuevaForm}, \cod{CuentaEdicionForm}, \cod{CuentaPasswordForm}, \cod{AsignacionForm}).
+
+\paragraph{Reglas.}
+\begin{itemize}
+  \item Administra cuentas quien está en \cod{ADMIN\_EMAILS} o tiene el rol Administrador en alguna obra; este último solo asigna roles en las obras que administra.
+  \item Al crear se elige Superintendente, Supervisor, Residente o Directivo. El rol Administrador se da después, desde la ficha.
+  \item El correo no se repite (sin distinguir mayúsculas). La contraseña pasa los validadores de Django y se confirma dos veces.
+  \item Nadie desactiva su propia cuenta ni se quita su propio rol de Administrador. Solo un administrador del sistema modifica a otro.
+  \item Una cuenta desactivada no inicia sesión ni recibe correos.
+  \item Cada alta y cambio se guarda en \cod{django\_admin\_log} con quién y cuándo.
+\end{itemize}
+
+\begin{center}\small\rowcolors{2}{grisfondo}{white}
+\begin{tabular}{@{}l*{5}{c}@{}}
+\toprule\sffamily\bfseries Permiso & \sffamily\bfseries Admin. & \sffamily\bfseries Residente & \sffamily\bfseries Supervisor & \sffamily\bfseries Superint. & \sffamily\bfseries Directivo\\\midrule
+Consultar la obra & sí & sí & sí & sí & sí\\
+Gestionar usuarios y roles & sí & & & & \\
+Gestionar catálogo & sí & & & sí & \\
+Crear reportes y programa & sí & & sí & & \\
+Validar reportes & sí & sí & & & \\
+Crear y firmar notas de bitácora & sí & sí & sí & sí & \\
+\bottomrule\end{tabular}\end{center}
+
+\section{CU-01 · Crear catálogo de conceptos}
+El Superintendente captura el catálogo completo en una sola pantalla; se bloquea en cuanto una estimación usa alguno de sus conceptos.
+
+\rutas{
+/obras/<id>/catalogo/ & Ver el catálogo: conceptos por clave, importe total y diferencia contra el contrato\\
+/obras/<id>/catalogo/editar/ & Capturar o corregir todos los conceptos a la vez\\
+}
+
+Cada concepto lleva capítulo (opcional), clave, descripción, unidad, cantidad y precio unitario. El importe lo calcula la base de datos en una columna generada.
+
+\paragraph{Archivos.} \cod{obras/views.py} (\cod{catalogo\_ver}, \cod{catalogo\_editar}), \cod{obras/forms.py} (\cod{ConceptoForm}, \cod{BaseConceptoFormSet}), plantillas \cod{catalogo.html} y \cod{catalogo\_editar.html}.
+
+\paragraph{Reglas.}
+\begin{enumerate}
+  \item \textbf{Contrato primero:} sin contrato registrado no deja capturar.
+  \item \textbf{Catálogo en uso:} si una estimación ya usa un concepto, la edición se bloquea.
+  \item \textbf{Clave única} dentro del catálogo, sin distinguir mayúsculas; el error sale en el renglón repetido.
+  \item \textbf{Valores positivos:} cantidad mayor que 0 (4 decimales) y precio mayor que 0 (2 decimales).
+  \item \textbf{Todo o nada:} altas, cambios y bajas en una sola transacción; con claves provisionales se pueden intercambiar claves entre renglones.
+  \item \textbf{Aviso de diferencia:} si el total no coincide con el monto del contrato, avisa pero sí guarda.
+\end{enumerate}
+La versión de Arale (\cod{/conceptos/}) agregaba un concepto a la vez; se dejó esta porque captura todo junto, compara contra el contrato y bloquea el catálogo en uso. Su commit sigue en el historial.
+
+\section{CU-03 y CU-06 · Reportes diarios}
+El Supervisor elabora un reporte por día y obra; el Residente lo aprueba o lo rechaza una sola vez. El sistema compara el avance real contra el programa de obra.
+
+\begin{center}
+\begin{tikzpicture}[node distance=1.2cm and 1.5cm,
+  est/.style={rectangle,rounded corners=8pt,draw=#1,fill=#1!8,font=\sffamily\small\bfseries,minimum width=2.3cm,minimum height=0.8cm},
+  flecha/.style={-{Stealth[length=2.4mm]},line width=0.6pt,draw=black!60},
+  et/.style={font=\sffamily\scriptsize,text=black!70,fill=white,inner sep=1.5pt}]
+  \node[est=gristexto] (b) {Borrador};
+  \node[est=azulinfo,right=of b] (p) {Pendiente};
+  \node[est=verdeok,right=2.4cm of p] (a) {Aprobado};
+  \node[est=rojo,below=1.5cm of a] (x) {Rechazado};
+  \draw[flecha] (b) -- node[et,above]{enviar} (p);
+  \draw[flecha] (p) -- node[et,above]{aprueba} (a);
+  \draw[flecha] (p) -- node[et,sloped,below]{rechaza} (x);
+  \draw[flecha] (x.west) -| node[et,pos=0.2,below]{corregir y reenviar} ([xshift=-4mm]p.south);
+\end{tikzpicture}
+
+{\small Estados de un reporte diario o mensual. Solo decide el Residente.}
+\end{center}
+
+\rutas{
+/obras/<id>/reportes/ & Lista de reportes con su estado\\
+/obras/<id>/reportes/nuevo/ & Nuevo reporte: guardar borrador o enviar a revisión\\
+/obras/<id>/reportes/<id>/ & Detalle: desviación contra el programa, resumen financiero y validación\\
+.../editar/ y .../pdf/ & Corregir mientras no esté aprobado y exportar a PDF\\
+/obras/<id>/programa/ & Programa de obra: fechas con su avance programado en \%\\
+}
+
+\paragraph{Datos.} Fecha, inicio y fin de jornada, clima, temperatura, actividades, incidencias, incidentes de seguridad, avance físico real (\%) y observaciones.
+
+\paragraph{Archivos.} \cod{obras/reportes.py}, \cod{obras/views.py} (\cod{reporte\_*}, \cod{programa\_*}), \cod{obras/forms.py} (\cod{ReporteDiarioForm}, \cod{ValidacionForm}), \cod{obras/pdf.py}.
+
+\paragraph{Reglas.}
+\begin{itemize}
+  \item \textbf{Un reporte por día y obra,} y no se reporta un día que aún no llega. El fin de jornada debe ser posterior al inicio; el avance va de 0 a 100\,\%.
+  \item \textbf{Borrador privado:} solo lo ven su autor y los administradores, y no avisa a nadie.
+  \item \textbf{Solo valida el Residente,} una vez; para rechazar el comentario es obligatorio.
+  \item \textbf{Corrección:} un rechazado que se corrige vuelve a \estatus{Pendiente} y se reinicia la decisión. Un aprobado ya no se edita.
+  \item \textbf{Administrador:} puede cambiar la decisión del Residente, incluso regresarla a \estatus{Pendiente}.
+  \item \textbf{Desviación:} el avance programado del día se interpola en línea recta entre las fechas del programa (desde 0\,\% en el inicio oficial). Se muestra \enquote{Atraso}, \enquote{Adelanto} o \enquote{En tiempo} en puntos porcentuales.
+  \item \textbf{Resumen financiero:} avance físico × monto del contrato contra lo aprobado en estimaciones.
+  \item \textbf{Correos:} al enviar, al Residente; con el resultado, al Supervisor.
+\end{itemize}
+
+\section{CU-09 y CU-10 · Bitácora de obra}
+Residente, Supervisor y Superintendente escriben notas con folio consecutivo por obra; la nota queda \estatus{Firmada} cuando firman todos los roles presentes.
+
+\rutas{
+/obras/<id>/bitacora/ & Lista con búsqueda por estado, tipo, texto o folio\\
+/obras/<id>/bitacora/nueva/ & Nueva nota: tipo, contenido y nota a la que responde (opcional)\\
+/obras/<id>/bitacora/<id>/ & Detalle con las firmas de cada rol\\
+.../editar/, .../borrar/, .../firmar/ & Corregir, borrar, firmar o rechazar\\
+}
+
+\paragraph{Tipos de nota.} Apertura, Instrucción, Solicitud, Avance, Incidencia, Cierre y Otra (por omisión).
+
+\paragraph{Archivos.} \cod{obras/bitacora.py}, \cod{obras/views.py} (\cod{bitacora\_lista}, \cod{nota\_*}), \cod{obras/forms.py} (\cod{NotaBitacoraForm}, \cod{FirmaNotaForm}), \cod{db/cu09\_bitacora.sql}.
+
+\paragraph{Reglas.}
+\begin{itemize}
+  \item \textbf{Folio:} lo asigna la base de datos con un contador por obra y nunca se reutiliza, aunque se borre la nota.
+  \item \textbf{Quién firma:} los roles Residente, Supervisor y Superintendente con al menos una persona activa en la obra. Administrador y Directivo no firman.
+  \item \textbf{El autor firma solo} con cada rol firmante que tenga, y se avisa por correo a los que faltan.
+  \item \textbf{Estados:} \estatus{Firmada} cuando firman todos; \estatus{Rechazada} en cuanto uno rechaza (motivo obligatorio). Cada rol decide una vez.
+  \item \textbf{Editar y borrar:} el autor, mientras nadie más haya firmado. Si la rechazan, la corrige y se reinician las firmas.
+  \item \textbf{Administrador:} corrige cualquier firma, incluso la regresa a \estatus{Pendiente}.
+  \item \textbf{La nota relacionada} debe ser de la misma obra.
+\end{itemize}
+
+\section{CU-04 y CU-07 · Reportes mensuales}
+El Supervisor escribe solo el resumen; el sistema arma el resto con los diarios, el programa, las estimaciones y la bitácora. Lo valida el Residente y, al aprobarse, las cifras quedan congeladas.
+
+\rutas{
+/obras/<id>/mensuales/ & Lista con su estado\\
+/obras/<id>/mensuales/nuevo/ & Año, mes, fecha de corte, resumen y observaciones, con vista previa\\
+/obras/<id>/mensuales/<id>/ & Consolidado, advertencias y validación\\
+.../editar/, .../validar/, .../pdf/ & Corregir, validar y exportar a PDF\\
+}
+
+\paragraph{Qué consolida} (del día 1 a la fecha de corte): diarios enviados y aprobados, días sin reporte, avance real al inicio y al corte, avance programado y diferencia, clima, incidencias, incidentes de seguridad, estimaciones aprobadas del mes y notas de bitácora.
+
+\paragraph{Archivos.} \cod{obras/mensuales.py}, \cod{obras/views.py} (\cod{mensual\_*}), \cod{obras/forms.py} (\cod{ReporteMensualForm}), \cod{db/cu04\_reportes\_mensuales.sql}.
+
+\paragraph{Reglas.}
+\begin{itemize}
+  \item \textbf{Un reporte por mes y obra.} No se reporta un mes que aún no empieza. La fecha de corte vacía es el último día del mes y siempre cae dentro del mes. El mes no cambia después de creado.
+  \item \textbf{Advierte, no bloquea:} días sin diario, diarios sin aprobar, ningún diario aprobado al corte o una obra sin programa.
+  \item \textbf{Mismo flujo que el diario:} el Residente aprueba o rechaza una vez.
+  \item \textbf{Congelado:} al aprobarse, el consolidado se guarda en JSONB y ya no cambia aunque se modifique un diario; si el Administrador lo regresa a \estatus{Pendiente}, se libera.
+  \item \textbf{Correos:} al enviar, al Residente con las advertencias; con el resultado, al Supervisor y, si se aprueba, a los Directivos.
+\end{itemize}
+
+\section{Pruebas}
+La rama tiene \textbf{35 pruebas automáticas y todas pasan} (\cod{python manage.py test obras}). Corren contra una base PostgreSQL temporal que carga \cod{db/esquema\_obras.sql} y los scripts \cod{db/cu*.sql}, así que también prueban los disparadores y restricciones reales.
+
+\begin{center}\small\rowcolors{2}{grisfondo}{white}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}L@{}}
+\toprule\sffamily\bfseries Caso de uso & \sffamily\bfseries Qué se prueba\\\midrule
+CU-09/10 Bitácora (18) &
+Folio consecutivo que no se reutiliza · el autor firma solo y se avisa a los demás · el Administrador no firma al crear · el Directivo no crea ni firma · la nota relacionada debe ser de la misma obra · \estatus{Firmada} cuando todos firman · cada rol decide una vez · rechazo con motivo obligatorio · solo firman los roles presentes · el Administrador corrige firmas · editar y borrar antes de otras firmas, no después · corregir y reenviar una rechazada · una firmada no se edita · filtros de la lista · sin acceso a la obra no se ve · el script SQL se puede correr dos veces\\
+CU-04/07 Mensuales (13) &
+Cifras del consolidado · corte a mitad de mes · congelado al aprobar y liberado al regresar a \estatus{Pendiente} · correos de envío y aprobación · el Residente decide una vez · el Superintendente no valida · rechazo, corrección y reenvío · borrador privado y aprobado no editable · permisos por rol · bandeja y PDF · formulario: mes repetido, corte fuera del mes, \textbf{mes a futuro}, resumen vacío · vista previa · script SQL idempotente\\
+CU-03/06 Diarios (4) &
+El Residente aprueba y queda \estatus{Aprobado} · el Superintendente recibe \enquote{sin permiso} · no se reporta un día futuro · el comando que recalcula estatus\\
+\bottomrule\end{tabularx}\end{center}
+
+\begin{ojo}
+\textbf{Fechas futuras:} ni el reporte diario ni el mensual aceptan un día o un mes que aún no llega. Esta rama no tiene pruebas propias de CU-13 ni de CU-01.
+\end{ojo}
+
+\section{Cómo correr el proyecto}
+\begin{tcolorbox}[colback=grisfondo,colframe=grisfondo,arc=2pt,fontupper=\ttfamily\footnotesize]
+git checkout django-obras \&\& git pull\\
+python -m venv venv \&\& source venv/bin/activate\\
+pip install -r requirements.txt\\
+createdb obra\_db\\
+psql -d obra\_db -v ON\_ERROR\_STOP=1 -f db/esquema\_obras.sql\\
+psql -d obra\_db -f db/cu03\_reportes\_diarios.sql\\
+psql -d obra\_db -f db/cu09\_bitacora.sql\\
+psql -d obra\_db -f db/cu04\_reportes\_mensuales.sql\\
+python manage.py migrate \&\& python manage.py createsuperuser\\
+python manage.py runserver
+\end{tcolorbox}
+Pruebas: \cod{python manage.py check} y \cod{python manage.py test obras} (el usuario de PostgreSQL necesita permiso CREATEDB).
+
+\end{document}

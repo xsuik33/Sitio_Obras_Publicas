@@ -172,3 +172,16 @@ class RecalcularValidacionesTests(Base):
         reporte.refresh_from_db()
         self.assertEqual(reporte.estatus.nombre, reportes.APROBADO)
         self.assertIn("Actualizados: 1", salida.getvalue())
+
+
+class FechaFuturaTests(Base):
+    def test_no_se_reporta_un_dia_que_aun_no_llega(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        manana = (timezone.localdate() + timedelta(days=1)).isoformat()
+        r = self.nuevo("20", fecha=manana)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("aún no llega", r.context["form"].errors["fecha_reporte"][0])
+        self.assertFalse(ReporteDiario.objects.exists())

@@ -78,6 +78,8 @@ class ReporteDiarioForm(forms.ModelForm):
 
     def clean_fecha_reporte(self):
         fecha = self.cleaned_data["fecha_reporte"]
+        if fecha > timezone.localdate():
+            raise forms.ValidationError("No se puede reportar un día que aún no llega.")
         repetidos = ReporteDiario.objects.filter(obra=self.obra, fecha_reporte=fecha)
         if self.instance.pk:
             repetidos = repetidos.exclude(pk=self.instance.pk)
