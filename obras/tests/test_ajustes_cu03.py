@@ -35,8 +35,9 @@ class Base(TestCase):
 
     def nuevo(self, avance, fecha="2026-01-21", **extra):
         self.client.force_login(self.supervisor)
-        datos = {"fecha_reporte": fecha, "actividades_realizadas": "Colado", "avance_fisico_real_porcentaje": avance,
-                 "accion": "enviar", **extra}
+        datos = {"fecha_reporte": fecha, "jornada_inicio": "08:00", "jornada_fin": "17:00", "clima": "Soleado",
+                 "temperatura_c": "24", "actividades_realizadas": "Colado de losa del eje 3",
+                 "avance_fisico_real_porcentaje": avance, "accion": "enviar", **extra}
         return self.client.post(reverse("reporte_nuevo", args=[self.obra.pk]), datos)
 
 

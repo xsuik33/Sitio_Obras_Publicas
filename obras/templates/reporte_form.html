@@ -19,7 +19,10 @@
       <legend>Notas de bitácora</legend>
       {{ form.notas.errors }}
       {% if form.notas.field.queryset.exists %}
-        <div class="casillas">{{ form.notas }}</div>
+        <details class="desplegable-notas" id="notas-menu"{% if form.notas.errors %} open{% endif %}>
+          <summary><span id="notas-resumen">Elegir notas de bitácora</span></summary>
+          <div class="casillas lista-notas">{{ form.notas }}</div>
+        </details>
         <p class="helptext">{{ form.notas.help_text }}</p>
       {% else %}
         <p class="vacio-sec">No hay notas de bitácora recientes en esta obra. <a href="{% url 'nota_nueva' obra.pk %}">Registrar una nota</a></p>
@@ -46,4 +49,47 @@
     <p class="nota-ayuda">{% if nuevo or es_borrador %}Al enviarlo se avisa por correo al Residente. Un borrador solo lo ves tú.{% else %}Si el reporte ya tenía decisiones, al guardar vuelve a revisión.{% endif %}</p>
   </form>
 </div>
+<style>
+  .desplegable-notas { border: 1px solid var(--borde, #d6d3cf); border-radius: 8px; }
+  .desplegable-notas > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; }
+  .desplegable-notas[open] > summary { border-bottom: 1px solid var(--borde, #d6d3cf); }
+  .desplegable-notas .lista-notas { max-height: 260px; overflow-y: auto; padding: 8px 12px; }
+  .aviso-fecha { color: var(--rojo, #b42318); font-size: .9rem; margin-top: 4px; }
+</style>
+<script>
+(() => {
+  // Notas: el resumen del menú dice cuántas hay marcadas.
+  const menu = document.getElementById("notas-menu");
+  if (menu) {
+    const casillas = menu.querySelectorAll("input[type=checkbox]");
+    const resumen = document.getElementById("notas-resumen");
+    const contar = () => {
+      const n = [...casillas].filter(c => c.checked).length;
+      resumen.textContent = n ? `${n} nota${n > 1 ? "s" : ""} seleccionada${n > 1 ? "s" : ""} (de ${casillas.length})`
+                              : `Elegir notas de bitácora (${casillas.length} disponibles)`;
+    };
+    casillas.forEach(c => c.addEventListener("change", contar));
+    contar();
+  }
+  // Fecha: avisa al momento si es futura o si ya hay reporte ese día.
+  const fecha = document.getElementById("id_fecha_reporte");
+  if (fecha) {
+    const ocupadas = (fecha.dataset.ocupadas || "").split(",").filter(Boolean);
+    const aviso = document.createElement("div");
+    aviso.className = "aviso-fecha";
+    aviso.setAttribute("role", "alert");
+    fecha.insertAdjacentElement("afterend", aviso);
+    const revisar = () => {
+      let msg = "";
+      if (fecha.value && fecha.max && fecha.value > fecha.max) msg = "No se puede reportar un día que aún no llega.";
+      else if (ocupadas.includes(fecha.value)) msg = "Ya existe un reporte diario de esta obra para esa fecha.";
+      fecha.setCustomValidity(msg);
+      aviso.textContent = msg;
+    };
+    fecha.addEventListener("change", revisar);
+    fecha.addEventListener("input", revisar);
+    revisar();
+  }
+})();
+</script>
 {% endblock %}

@@ -181,7 +181,7 @@ def reporte_nuevo(request, obra):
             form.save_m2m()
         if enviar:
             reportes.enviar_a_revision(reporte, request.user)
-            messages.success(request, "Reporte enviado a revisión del Superintendente y del Residente.")
+            messages.success(request, "Reporte enviado a revisión del Residente.")
         else:
             messages.success(request, "Borrador guardado. Envíalo a revisión cuando esté listo.")
         return redirect("reporte_detalle", obra_id=obra.pk, reporte_id=reporte.pk)
@@ -233,7 +233,7 @@ def reporte_editar(request, obra, reporte_id):
             messages.success(request, "Borrador actualizado.")
         elif era_borrador:
             reportes.enviar_a_revision(reporte, request.user)
-            messages.success(request, "Reporte enviado a revisión del Superintendente y del Residente.")
+            messages.success(request, "Reporte enviado a revisión del Residente.")
         elif previo in (reportes.RECHAZADO, reportes.EN_REVISION):  # cambió después de decisiones: se revisa de nuevo
             reportes.enviar_a_revision(reporte, request.user)
             messages.success(request, "Reporte corregido y enviado de nuevo a revisión.")
@@ -390,7 +390,7 @@ def mensual_nuevo(request, obra):
             if enviar:
                 mensuales.enviar_a_revision(reporte, request.user)
         if enviar:
-            messages.success(request, "Reporte mensual enviado a revisión del Superintendente y del Residente.")
+            messages.success(request, "Reporte mensual enviado a revisión del Residente.")
         else:
             messages.success(request, "Borrador guardado. Envíalo a revisión cuando esté listo.")
         return redirect("mensual_detalle", obra_id=obra.pk, reporte_id=reporte.pk)

@@ -136,14 +136,15 @@ Cada caso de uso se describe con el mismo formato: actores, requerimientos que a
 {Permite registrar el reporte diario de la obra con el avance físico real, la jornada, el clima, las actividades, las incidencias, las notas de bitácora del día y las evidencias.}
 {\item El Supervisor abre los reportes diarios de la obra y elige uno nuevo.
  \item El sistema muestra el formulario con la fecha del día.
- \item El Supervisor captura el avance físico real, las actividades y las observaciones, y vincula las notas de bitácora del día.
+ \item El Supervisor captura la jornada (inicio y fin), el clima, la temperatura, el avance físico real, las actividades y las observaciones, y elige en un menú desplegable las notas de bitácora relacionadas.
  \item El sistema calcula la desviación contra el programa (atraso o adelanto, en puntos y en días) y el resumen financiero.
  \item El Supervisor guarda el borrador, adjunta evidencias y lo envía a revisión.
- \item El sistema lo guarda como \estatus{Pendiente}, avisa al Residente y al Superintendente y permite descargar el PDF.}
+ \item El sistema lo guarda como \estatus{Pendiente}, avisa al Residente y permite descargar el PDF.}
 {\item \textbf{4a. Atraso crítico:} si el avance va un día o más detrás del programa, el sistema exige documentar la causa y si se solicita reprogramación o retención.
- \item \textbf{6a. Información incompleta:} el sistema indica los campos faltantes; el Supervisor los completa o guarda el reporte como borrador.
- \item \textbf{Fecha repetida:} solo hay un reporte por obra y fecha.}
-{\item Sesión activa con rol de Supervisor.
+ \item \textbf{6a. Información incompleta o incorrecta:} el sistema indica cada campo con error (jornada, clima, temperatura entre $-20$ y 55\,°C, actividades, avance entre 0 y 100\,\%) y no guarda hasta que se corrija.
+ \item \textbf{Fecha futura o repetida:} en cuanto se elige la fecha, el sistema avisa si es posterior al día actual, anterior al inicio de la obra o si ya existe un reporte de la obra para ese día, y no lo guarda.
+ \item \textbf{Avance menor al anterior:} el avance físico es acumulado; no puede ser menor que el de un reporte de un día anterior ni mayor que el de uno posterior.}
+{\item Sesión activa con rol de Supervisor (el Administrador no elabora reportes).
  \item La obra está registrada; para calcular la desviación, tiene programa de obra.}
 {\item El reporte queda en el historial de la obra y se avisa a los validadores.
  \item Al aprobarse, el avance físico actualiza el seguimiento del contrato.}

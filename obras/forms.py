@@ -63,8 +63,20 @@ class ReporteDiarioForm(forms.ModelForm):
         if self.instance._state.adding:
             self.fields["fecha_reporte"].initial = timezone.localdate()
         self.fields["avance_fisico_real_porcentaje"].validators += [MinValueValidator(0), MaxValueValidator(100)]
-        self.fields["clima"].required = False
-        self.fields["clima"].choices = [("", "Sin registrar")] + ReporteDiario.CLIMAS
+        # Todos los datos de la jornada son obligatorios; incidencias, seguridad y observaciones pueden ir vacías.
+        for campo in ("jornada_inicio", "jornada_fin", "clima", "temperatura_c"):
+            self.fields[campo].required = True
+        self.fields["temperatura_c"].validators += [MinValueValidator(-20), MaxValueValidator(55)]
+        self.fields["temperatura_c"].widget.attrs.update({"min": -20, "max": 55, "step": "0.1"})
+        self.fields["clima"].choices = [("", "Elige el clima")] + ReporteDiario.CLIMAS
+        # El navegador avisa en cuanto se elige una fecha futura o ya ocupada (la validación real está en clean).
+        ocupadas = ReporteDiario.objects.filter(obra=obra)
+        if self.instance.pk:
+            ocupadas = ocupadas.exclude(pk=self.instance.pk)
+        self.fields["fecha_reporte"].widget.attrs.update({
+            "max": timezone.localdate().isoformat(),
+            "data-ocupadas": ",".join(f.isoformat() for f in ocupadas.values_list("fecha_reporte", flat=True)),
+        })
         self.fields["atraso_solicitud"].choices = [("", "Elige una opción")] + ReporteDiario.SOLICITUDES_ATRASO
         recientes = NotaBitacora.objects.filter(obra=obra, fecha_nota__date__gte=timezone.localdate() - timedelta(days=30))
         if self.instance.pk:
@@ -85,13 +97,43 @@ class ReporteDiarioForm(forms.ModelForm):
             repetidos = repetidos.exclude(pk=self.instance.pk)
         if repetidos.exists():
             raise forms.ValidationError("Ya existe un reporte diario de esta obra para esa fecha.")
+        inicio_obra = self.obra.fecha_inicio_oficial if self.obra else None
+        if inicio_obra and fecha < inicio_obra:
+            raise forms.ValidationError(
+                f"La obra inicia el {inicio_obra:%d/%m/%Y}; no se puede reportar un día anterior."
+            )
         return fecha
+
+    def clean_actividades_realizadas(self):
+        texto = (self.cleaned_data.get("actividades_realizadas") or "").strip()
+        if len(texto) < 10:
+            raise forms.ValidationError("Describe las actividades realizadas (al menos 10 caracteres).")
+        return texto
 
     def clean(self):
         datos = super().clean()
+        for campo in ("incidencias", "incidentes_seguridad", "observaciones"):
+            if isinstance(datos.get(campo), str):
+                datos[campo] = datos[campo].strip() or None
         inicio, fin = datos.get("jornada_inicio"), datos.get("jornada_fin")
         if inicio and fin and fin <= inicio:
             self.add_error("jornada_fin", "El fin de jornada debe ser posterior al inicio.")
+        # El avance físico es acumulado: no puede ser menor que el de un día anterior ni mayor que el de uno posterior.
+        fecha, avance = datos.get("fecha_reporte"), datos.get("avance_fisico_real_porcentaje")
+        if fecha and avance is not None and self.obra:
+            otros = ReporteDiario.objects.filter(obra=self.obra).exclude(estatus__nombre=reportes.RECHAZADO)
+            if self.instance.pk:
+                otros = otros.exclude(pk=self.instance.pk)
+            antes = otros.filter(fecha_reporte__lt=fecha).order_by("-fecha_reporte").first()
+            despues = otros.filter(fecha_reporte__gt=fecha).order_by("fecha_reporte").first()
+            if antes and avance < antes.avance_fisico_real_porcentaje:
+                self.add_error("avance_fisico_real_porcentaje",
+                               f"El avance es acumulado: el reporte del {antes.fecha_reporte:%d/%m/%Y} ya registra "
+                               f"{antes.avance_fisico_real_porcentaje} %.")
+            elif despues and avance > despues.avance_fisico_real_porcentaje:
+                self.add_error("avance_fisico_real_porcentaje",
+                               f"El avance es acumulado: el reporte del {despues.fecha_reporte:%d/%m/%Y} registra "
+                               f"{despues.avance_fisico_real_porcentaje} %, que es menos.")
         # Flujo 4a de CU-03: con atraso crítico se documenta la causa y la solicitud (reprogramación o retención).
         self.dias_atraso = reportes.dias_atraso(self.obra, datos.get("fecha_reporte"), datos.get("avance_fisico_real_porcentaje"))
         if reportes.atraso_critico(self.dias_atraso):

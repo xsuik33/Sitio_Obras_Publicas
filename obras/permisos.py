@@ -34,8 +34,11 @@ SUBIR_DOCUMENTO = "subir_documento"
 TODOS = {VER, GESTIONAR_USUARIOS, GESTIONAR_CONTRATO, GESTIONAR_CATALOGO, CREAR_ESTIMACION, VALIDAR_ESTIMACION,
          CREAR_REPORTE, VALIDAR_REPORTE, GESTIONAR_PROGRAMA, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO}
 
+# Permisos que da solo el rol, nunca la administración: los reportes los elabora el Supervisor.
+SOLO_POR_ROL = {CREAR_REPORTE}
+
 PERMISOS_POR_ROL = {
-    "Administrador": set(TODOS),
+    "Administrador": TODOS - SOLO_POR_ROL,
     "Residente": {VER, VALIDAR_ESTIMACION, VALIDAR_REPORTE, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO},
     "Supervisor": {VER, CREAR_REPORTE, GESTIONAR_PROGRAMA, VALIDAR_ESTIMACION, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO},
     "Superintendente Contratista": {VER, GESTIONAR_CATALOGO, CREAR_ESTIMACION, CREAR_NOTA, FIRMAR_NOTA,
@@ -54,7 +57,7 @@ def roles_en(usuario, obra):
 def puede(usuario, obra, permiso):
     if not usuario.is_authenticated or not usuario.is_active:
         return False
-    if usuario.es_admin_panel:
+    if usuario.es_admin_panel and permiso not in SOLO_POR_ROL:
         return True
     return any(permiso in PERMISOS_POR_ROL.get(rol, ()) for rol in roles_en(usuario, obra))
 
