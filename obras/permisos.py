@@ -34,8 +34,9 @@ SUBIR_DOCUMENTO = "subir_documento"
 TODOS = {VER, GESTIONAR_USUARIOS, GESTIONAR_CONTRATO, GESTIONAR_CATALOGO, CREAR_ESTIMACION, VALIDAR_ESTIMACION,
          CREAR_REPORTE, VALIDAR_REPORTE, GESTIONAR_PROGRAMA, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO}
 
-# Permisos que da solo el rol, nunca la administración: los reportes los elabora el Supervisor.
-SOLO_POR_ROL = {CREAR_REPORTE}
+# Permisos que da solo el rol, nunca la administración: los reportes los elabora el Supervisor
+# y las notas de bitácora las redactan los roles de campo (CU-09). El administrador sí puede corregir firmas.
+SOLO_POR_ROL = {CREAR_REPORTE, CREAR_NOTA}
 
 PERMISOS_POR_ROL = {
     "Administrador": TODOS - SOLO_POR_ROL,

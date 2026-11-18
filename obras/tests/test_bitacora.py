@@ -74,11 +74,14 @@ class CrearNotaTests(BaseBitacora):
         self.assertEqual(self.destinatarios(), ["residente@obras.test", "superint@obras.test"])
         self.assertIn("folio 1", mail.outbox[0].subject)
 
-    def test_administrador_no_firma_al_crear(self):
-        nota = self.crear(self.admin)
-        decs = bitacora.decisiones(bitacora.firmas_vigentes(nota))
-        self.assertEqual(decs, {RES: None, SUP: None, SINT: None})
-        self.assertEqual(len(self.destinatarios()), 3)
+    def test_administrador_no_crea_notas(self):
+        """CU-09: solo los roles de campo redactan notas; el administrador no."""
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(reverse("nota_nueva", args=[self.obra.pk])).status_code, 403)
+        r = self.client.post(reverse("nota_nueva", args=[self.obra.pk]), {"tipo": 1, "descripcion": "x"})
+        self.assertEqual(r.status_code, 403)
+        self.assertFalse(NotaBitacora.objects.filter(obra=self.obra).exists())
+        self.assertFalse(self.client.get(reverse("bitacora_lista", args=[self.obra.pk])).context["puede_crear"])
 
     def test_directivo_no_crea_ni_firma(self):
         self.client.force_login(self.directivo)
