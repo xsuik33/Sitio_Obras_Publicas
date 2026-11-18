@@ -144,15 +144,17 @@ class FirmaTests(BaseBitacora):
         nota = self.firmar(self.superint, nota)
         self.assertEqual(nota.estado_firma, bitacora.FIRMADA)
 
-    def test_administrador_corrige_firmas(self):
+    def test_administrador_no_firma_notas(self):
+        """CU-10: la firma es personal; el administrador no firma ni corrige firmas."""
         nota = self.crear(self.supervisor)
-        nota = self.firmar(self.residente, nota, "Rechazada", comentarios="error")
-        self.assertEqual(nota.estado_firma, bitacora.RECHAZADA)
-        nota = self.firmar(self.admin, nota, "Pendiente", rol=RES)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("nota_firmar", args=[self.obra.pk, nota.pk]), {"rol": RES, "decision": "Firmada"})
+        self.assertEqual(r.status_code, 403)
+        nota.refresh_from_db()
         self.assertEqual(nota.estado_firma, bitacora.PENDIENTE)
-        nota = self.firmar(self.admin, nota, "Firmada", rol=RES)
-        nota = self.firmar(self.admin, nota, "Firmada", rol=SINT)
-        self.assertEqual(nota.estado_firma, bitacora.FIRMADA)
+        r = self.client.get(reverse("nota_detalle", args=[self.obra.pk, nota.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "Registrar firma")
 
     def test_pendientes_muestra_notas_por_firmar_y_por_corregir(self):
         nota = self.crear(self.supervisor)

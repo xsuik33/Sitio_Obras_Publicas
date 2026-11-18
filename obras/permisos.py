@@ -35,8 +35,8 @@ TODOS = {VER, GESTIONAR_USUARIOS, GESTIONAR_CONTRATO, GESTIONAR_CATALOGO, CREAR_
          CREAR_REPORTE, VALIDAR_REPORTE, GESTIONAR_PROGRAMA, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO}
 
 # Permisos que da solo el rol, nunca la administración: los reportes los elabora el Supervisor
-# y las notas de bitácora las redactan los roles de campo (CU-09). El administrador sí puede corregir firmas.
-SOLO_POR_ROL = {CREAR_REPORTE, CREAR_NOTA}
+# y las notas de bitácora las redactan y firman solo los roles de campo (CU-09 y CU-10): la firma es personal.
+SOLO_POR_ROL = {CREAR_REPORTE, CREAR_NOTA, FIRMAR_NOTA}
 
 PERMISOS_POR_ROL = {
     "Administrador": TODOS - SOLO_POR_ROL,
