@@ -11,6 +11,7 @@
   </div>
   <div class="acciones">
     {% if puede_editar %}<a class="boton" href="{% url 'nota_editar' obra.pk nota.pk %}">{% if nota.estado_firma == "Rechazada" %}Corregir y reenviar{% else %}Editar nota{% endif %}</a>{% endif %}
+    <a class="boton secundario" href="{% url 'nota_pdf' obra.pk nota.pk %}" target="_blank" rel="noopener">PDF{% if con_efirma %} firmado{% endif %}</a>
     {% if puede_responder %}<a class="boton secundario" href="{% url 'nota_nueva' obra.pk %}?responde={{ nota.pk }}">Responder con otra nota</a>{% endif %}
     {% if puede_borrar %}
       <form method="post" action="{% url 'nota_borrar' obra.pk nota.pk %}"
@@ -45,6 +46,7 @@
       {% for f in historial %}
         <li><div class="quien"><span class="chip" data-e="{{ f.decision }}">{{ f.decision }}</span> {{ f.usuario_firmante }} <span class="tenue">· {{ f.rol_firmante }}</span></div>
             <div class="cuando">{{ f.fecha_firma|date:"d M Y, H:i" }}</div>
+            {% if f.con_efirma %}<div class="tenue mono" style="font-size:.78rem">e.firma · certificado {{ f.certificado_numero }}{% if f.firmante_rfc %} · RFC {{ f.firmante_rfc }}{% endif %}</div>{% endif %}
             {% if f.comentarios %}<div class="texto">{{ f.comentarios }}</div>{% endif %}</li>
       {% empty %}
         <li class="vacio-sec" style="padding-left:0">Todavía nadie ha firmado.</li>
@@ -52,15 +54,10 @@
       </ul>
       {% if puede_firmar %}
         <hr class="separador">
-        {% if es_admin %}<p class="nota-ayuda" style="margin:0 0 12px">Como administrador puedes corregir la firma de cualquier rol o regresarla a Pendiente.</p>{% endif %}
-        <form method="post" action="{% url 'nota_firmar' obra.pk nota.pk %}" class="formulario"
-              onsubmit="return confirm('{% if es_admin %}¿Registrar este cambio de firma?{% else %}¿Confirmas tu decisión? Después solo el administrador podrá cambiarla.{% endif %}');">
-          {% csrf_token %}
-          {{ form_firma.as_p }}
-          <button type="submit">Registrar firma</button>
-        </form>
+        <a class="boton" href="{% url 'nota_firmar' obra.pk nota.pk %}">Firmar o rechazar →</a>
+        <p class="nota-ayuda">Para firmar necesitas tu e.firma (.cer, .key y contraseña).</p>
       {% elif firma_bloqueada %}
-        <p class="nota-ayuda">{% if nota.estado_firma == "Rechazada" %}La nota fue rechazada; podrás firmar cuando el autor la corrija y la reenvíe.{% else %}Ya registraste tu firma en esta nota. Si hay un error, pide al administrador que lo corrija.{% endif %}</p>
+        <p class="nota-ayuda">{% if nota.estado_firma == "Rechazada" %}La nota fue rechazada; podrás firmar cuando el autor la corrija y la reenvíe.{% else %}Ya registraste tu firma en esta nota.{% endif %}</p>
       {% endif %}
     </div>
   </div>

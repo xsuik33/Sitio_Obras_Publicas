@@ -306,6 +306,44 @@ class NotaBitacoraForm(forms.ModelForm):
         return texto
 
 
+class FirmaEfirmaForm(forms.Form):
+    """Firma de una nota en su propia página: para firmar se usa la e.firma (.cer, .key y contraseña)."""
+    MAX_BYTES = 64 * 1024  # un .cer o .key de la e.firma pesa unos 2 KB
+
+    rol = forms.ChoiceField(label="Firmas como")
+    decision = forms.ChoiceField(label="Decisión", choices=[("", "— elegir —"), ("Firmada", "Firmar con e.firma"),
+                                                            ("Rechazada", "Rechazar")])
+    comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}),
+                                  help_text="Obligatorios si rechazas la nota.")
+    cer = forms.FileField(label="Certificado (.cer)", required=False,
+                          widget=forms.ClearableFileInput(attrs={"accept": ".cer,.crt,.pem"}))
+    key = forms.FileField(label="Llave privada (.key)", required=False,
+                          widget=forms.ClearableFileInput(attrs={"accept": ".key,.pem"}))
+    contrasena = forms.CharField(label="Contraseña de la e.firma", required=False, strip=False,
+                                 widget=forms.PasswordInput(attrs={"autocomplete": "off"}))
+
+    def __init__(self, *args, roles=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        etiquetas = {"Superintendente Contratista": "Superintendente"}
+        self.fields["rol"].choices = [(r, etiquetas.get(r, r)) for r in roles]
+
+    def clean(self):
+        datos = super().clean()
+        datos["comentarios"] = (datos.get("comentarios") or "").strip()
+        if datos.get("decision") == "Rechazada" and not datos["comentarios"]:
+            self.add_error("comentarios", "Explica el motivo del rechazo.")
+        if datos.get("decision") == "Firmada":
+            for campo, texto in (("cer", "Sube tu certificado (.cer)."), ("key", "Sube tu llave privada (.key)."),
+                                 ("contrasena", "Escribe la contraseña de tu e.firma.")):
+                if not datos.get(campo):
+                    self.add_error(campo, texto)
+            for campo in ("cer", "key"):
+                archivo = datos.get(campo)
+                if archivo and archivo.size > self.MAX_BYTES:
+                    self.add_error(campo, "El archivo es demasiado grande para ser de la e.firma.")
+        return datos
+
+
 class FirmaNotaForm(forms.Form):
     """Firma o rechazo de un rol. El administrador puede además regresar la firma a Pendiente."""
     rol = forms.ChoiceField(label="Firmas como")

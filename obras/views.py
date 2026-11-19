@@ -23,7 +23,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from . import bitacora, documentos, estimaciones, evidencias, historial, mensuales, pdf, reportes
+from . import bitacora, documentos, efirma, estimaciones, evidencias, historial, mensuales, pdf, reportes
 from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
@@ -31,7 +31,7 @@ from .cuentas import (
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
-    BaseProgramaFormSet, FirmaNotaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
+    BaseProgramaFormSet, FirmaEfirmaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
     AnticipoForm, ContratoForm, DecisionEstimacionForm, DocumentoForm, EstimacionForm, ObraForm, ValidacionForm,
 )
 from .models import (
@@ -601,7 +601,7 @@ def nota_detalle(request, obra, nota_id):
         "es_admin": es_admin,
         "puede_firmar": puede_firmar,
         "firma_bloqueada": bool(mis_roles_firmantes) and not puede_firmar and nota.estado_firma != bitacora.FIRMADA,
-        "form_firma": FirmaNotaForm(es_admin=es_admin, roles=roles) if puede_firmar else None,
+        "con_efirma": any(f.con_efirma for f in nota.firmas.all()),
     }
     return render(request, "nota_detalle.html", contexto)
 
@@ -652,25 +652,53 @@ def nota_borrar(request, obra, nota_id):
 
 @requiere_permiso(FIRMAR_NOTA)
 def nota_firmar(request, obra, nota_id):
-    if request.method == "POST":
-        es_admin = es_administrador(request.user, obra)
-        with transaction.atomic():
-            nota = _nota(obra, nota_id, bloquear=True)  # dos personas no deciden a la vez
-            roles = bitacora.roles_que_firma(request.user, obra, nota, es_admin=es_admin)
-            form = FirmaNotaForm(request.POST, es_admin=es_admin, roles=roles)
-            if not roles:
-                messages.error(
-                    request, "Ya no puedes firmar esta nota. Si hay un error, solo el administrador puede corregirlo."
-                )
-            elif form.is_valid():
-                bitacora.registrar_firma(
-                    nota, request.user, form.cleaned_data["rol"], form.cleaned_data["decision"],
-                    form.cleaned_data["comentarios"],
-                )
-                messages.success(request, f"Firma registrada. Estado: {bitacora.estado_legible(nota)}.")
-            else:
-                messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
-    return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+    """CU-10 en su propia página: firmar con e.firma (cadena original + sello) o rechazar con motivo."""
+    nota = _nota(obra, nota_id)
+    roles = bitacora.roles_que_firma(request.user, obra, nota)
+    if not roles:
+        messages.error(request, "No tienes firmas pendientes en esta nota.")
+        return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+    form = FirmaEfirmaForm(request.POST or None, request.FILES or None, roles=roles)
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        firma = None
+        if d["decision"] == bitacora.FIRMADA:
+            cadena = bitacora.cadena_original(nota, d["rol"], request.user)
+            try:  # la llamada al servicio va fuera de la transacción: no bloquea la nota mientras firma
+                firma = efirma.firmar(cadena, d["cer"].read(), d["key"].read(), d["contrasena"])
+            except efirma.ErrorEfirma as e:
+                form.add_error(None, str(e))
+        if not form.errors:
+            with transaction.atomic():
+                nota = _nota(obra, nota_id, bloquear=True)  # dos personas no deciden a la vez
+                if d["rol"] not in bitacora.roles_que_firma(request.user, obra, nota):
+                    messages.error(request, "Esta firma ya se registró o la nota cambió; revisa su estado.")
+                elif firma and firma["cadena"] != bitacora.cadena_original(nota, d["rol"], request.user):
+                    messages.error(request, "La nota cambió mientras firmabas; vuelve a firmarla.")
+                else:
+                    bitacora.registrar_firma(nota, request.user, d["rol"], d["decision"], d["comentarios"], firma)
+                    if firma:
+                        messages.success(request, f"Nota firmada con la e.firma (certificado {firma['numero']}). "
+                                                  f"Estado: {bitacora.estado_legible(nota)}.")
+                    else:
+                        messages.success(request, f"Nota rechazada. Estado: {bitacora.estado_legible(nota)}.")
+            return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
+    contexto = {"obra": obra, "nota": nota, "form": form,
+                "cadena": bitacora.cadena_original(nota, roles[0], request.user),
+                "modo_servicio": bool(settings.EFIRMA_URL)}
+    return render(request, "nota_firmar.html", contexto)
+
+
+@requiere_permiso(VER)
+def nota_pdf(request, obra, nota_id):
+    """PDF de la nota con su contenido y cada firma: sello de la e.firma, certificado y si el sello es válido."""
+    nota = _nota(obra, nota_id)
+    firmas = list(nota.firmas.select_related("usuario_firmante").order_by("fecha_firma"))
+    filas = [(f, efirma.verificar(f) if f.con_efirma else None) for f in firmas]
+    contenido = pdf.nota_bitacora_pdf(nota, bitacora.estado_legible(nota), filas)
+    respuesta = HttpResponse(contenido, content_type="application/pdf")
+    respuesta["Content-Disposition"] = f'inline; filename="nota-{nota.folio:03d}.pdf"'
+    return respuesta
 
 
 # ---------------------------------------------------------------------------

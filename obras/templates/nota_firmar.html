@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Firmar nota {{ nota.folio }} · {{ obra.nombre }}{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'bitacora_lista' obra.pk %}">Bitácora</a><span aria-hidden="true">/</span><a href="{% url 'nota_detalle' obra.pk nota.pk %}">Nota {{ nota.folio }}</a></nav>
+    <div class="eyebrow">Bitácora · Folio {{ nota.folio|stringformat:"03d" }}</div>
+    <h1>Firmar nota {{ nota.folio }} · {{ nota.tipo.nombre }}</h1>
+    <p class="sub"><span>{{ nota.usuario_creador }}</span><span>{{ nota.fecha_nota|date:"d M Y, H:i" }}</span></p>
+  </div>
+</div>
+
+<div class="cols" style="align-items:start">
+  <div class="tarjeta">
+    <h2>Contenido que vas a firmar</h2>
+    <p class="texto" style="white-space:pre-wrap">{{ nota.descripcion }}</p>
+    {% if nota.nota_relacionada %}<p class="suave">Responde a la nota {{ nota.nota_relacionada.folio }}.</p>{% endif %}
+    <h3 style="margin-top:16px">Cadena original</h3>
+    <p class="suave">Es lo que se sella con tu e.firma. Si la nota cambia después, el sello deja de ser válido.</p>
+    <pre class="mono" style="white-space:pre-wrap;word-break:break-all;font-size:.8rem;background:var(--hundido);padding:10px;border-radius:8px">{{ cadena }}</pre>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Tu decisión</h2>
+    <form method="post" enctype="multipart/form-data" class="formulario" id="form-firma"
+          onsubmit="return confirm('¿Confirmas tu decisión? Ya no se podrá cambiar.');">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="mensaje error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      <div class="campo">{{ form.rol.as_field_group }}</div>
+      <div class="campo">{{ form.decision.as_field_group }}</div>
+      <fieldset id="datos-efirma" style="border:1px solid var(--borde);border-radius:10px;padding:12px 14px;margin:0 0 12px">
+        <legend class="suave" style="padding:0 6px">e.firma</legend>
+        <div class="campo">{{ form.cer.as_field_group }}</div>
+        <div class="campo">{{ form.key.as_field_group }}</div>
+        <div class="campo">{{ form.contrasena.as_field_group }}</div>
+        <p class="nota-ayuda" style="margin:0">Tu llave privada y tu contraseña solo se usan para sellar esta nota
+          {% if modo_servicio %}en el servicio de e.firma{% endif %}; no se guardan en el sistema.</p>
+      </fieldset>
+      <div class="campo">{{ form.comentarios.as_field_group }}</div>
+      <div class="pie-form">
+        <button type="submit">Registrar decisión</button>
+        <a class="boton secundario" href="{% url 'nota_detalle' obra.pk nota.pk %}">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  const decision = document.getElementById('id_decision'), caja = document.getElementById('datos-efirma');
+  function mostrar() { caja.hidden = decision.value === 'Rechazada'; }
+  decision.addEventListener('change', mostrar); mostrar();
+})();
+</script>
+{% endblock %}

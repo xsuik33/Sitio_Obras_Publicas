@@ -1,0 +1,13 @@
+# Blueprint de Render para el mini proyecto (servicio aparte del Sistema de Obras).
+services:
+  - type: web
+    name: servicio-efirma
+    runtime: python
+    plan: free
+    rootDir: servicio_efirma
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /salud
+    envVars:
+      - key: EFIRMA_TOKEN
+        generateValue: true

@@ -1,4 +1,4 @@
-"""PDF de los reportes diario y mensual (reportlab)."""
+"""PDF de los reportes diario y mensual y de las notas de bitácora (reportlab)."""
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -206,5 +206,72 @@ def reporte_mensual_pdf(reporte, mes, estado, c, congelado, validaciones):
     if not validaciones:
         historia.append(_p("Todavía no ha sido revisado.", suave))
 
+    doc.build(historia)
+    return buffer.getvalue()
+
+
+def nota_bitacora_pdf(nota, estado, firmas):
+    """
+    PDF de una nota de bitácora (CU-09/CU-10). `firmas` es una lista de (FirmaNotaBitacora, sello_valido),
+    donde sello_valido es True/False si la firma se hizo con e.firma y None si no tiene sello.
+    """
+    base = getSampleStyleSheet()
+    normal = ParagraphStyle("n", parent=base["Normal"], fontSize=9.5, leading=13)
+    suave = ParagraphStyle("s", parent=normal, textColor=colors.HexColor("#667085"))
+    mono = ParagraphStyle("m", parent=normal, fontName="Courier", fontSize=6.6, leading=8.2, wordWrap="CJK")
+    h1 = ParagraphStyle("h1", parent=base["Title"], fontSize=17, alignment=0, spaceAfter=2)
+    h2 = ParagraphStyle("h2", parent=base["Heading2"], fontSize=11.5, spaceBefore=10, spaceAfter=3)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm, bottomMargin=1.8 * cm,
+        title=f"Nota de bitácora {nota.folio:03d}", author="Sistema de Obras",
+    )
+    historia = [
+        _p(f"Bitácora de obra · Nota {nota.folio:03d}", h1),
+        _p(nota.obra.nombre, normal),
+        _p(f"Tipo: {nota.tipo.nombre} · Autor: {nota.usuario_creador} · {nota.fecha_nota:%d/%m/%Y %H:%M} · "
+           f"Estado: {estado}", suave),
+        Spacer(1, 8),
+        _p("Contenido", h2),
+        _p(nota.descripcion, normal),
+    ]
+    if nota.nota_relacionada:
+        historia.append(_p(f"Responde a la nota {nota.nota_relacionada.folio:03d}.", suave))
+
+    historia.append(_p("Firmas", h2))
+    if not firmas:
+        historia.append(_p("Todavía nadie ha firmado.", suave))
+    for firma, valido in firmas:
+        renglones = [
+            [_p(f"{firma.decision} · {firma.usuario_firmante} · {firma.rol_firmante}", normal),
+             _p(f"{firma.fecha_firma:%d/%m/%Y %H:%M}", suave)],
+        ]
+        if firma.comentarios:
+            renglones.append([_p(firma.comentarios, suave), ""])
+        if firma.con_efirma:
+            sello = "Sello VÁLIDO" if valido else "Sello NO VÁLIDO: la nota o el certificado no coinciden"
+            renglones += [
+                [_p(f"e.firma de {firma.firmante_nombre or '—'} · RFC {firma.firmante_rfc or '—'} · "
+                    f"Certificado {firma.certificado_numero} · {sello}", suave), ""],
+                [_p("Cadena original: " + (firma.cadena_original or ""), mono), ""],
+                [_p("Sello digital: " + firma.sello, mono), ""],
+            ]
+        elif firma.decision == "Firmada":
+            renglones.append([_p("Firma registrada en el sistema, sin e.firma (firma del autor al crear la nota).", suave), ""])
+        t = Table(renglones, colWidths=[13.2 * cm, 3.8 * cm])
+        estilo = [
+            ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#D0D5DD")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F2F4F7")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ]
+        estilo += [("SPAN", (0, i), (1, i)) for i in range(1, len(renglones))]
+        t.setStyle(TableStyle(estilo))
+        historia += [t, Spacer(1, 6)]
+
+    historia += [Spacer(1, 6), _p(
+        "Los sellos se generan con la e.firma del firmante (RSA con SHA-256) sobre la cadena original de la nota. "
+        "Cualquier cambio en la nota invalida el sello. La llave privada y la contraseña no se guardan.", suave)]
     doc.build(historia)
     return buffer.getvalue()

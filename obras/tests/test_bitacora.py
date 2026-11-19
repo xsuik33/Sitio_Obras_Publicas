@@ -3,11 +3,13 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from obras import bitacora
+from obras.tests import efirma_prueba
 from obras.models import CatalogoTipoNota, FirmaNotaBitacora, NotaBitacora, Obra, Rol, Usuario, UsuarioProyectoRol
 
 RES, SUP, SINT = bitacora.ROL_RESIDENTE, bitacora.ROL_SUPERVISOR, bitacora.ROL_SUPERINTENDENTE
@@ -43,10 +45,12 @@ class BaseBitacora(TestCase):
     def firmar(self, usuario, nota, decision="Firmada", rol=None, comentarios=""):
         self.client.force_login(usuario)
         rol = rol or next(r for r in bitacora.ROLES_FIRMANTES if r in bitacora.roles_en(usuario, nota.obra))
-        self.client.post(
-            reverse("nota_firmar", args=[nota.obra_id, nota.pk]),
-            {"rol": rol, "decision": decision, "comentarios": comentarios},
-        )
+        datos = {"rol": rol, "decision": decision, "comentarios": comentarios}
+        if decision == "Firmada":
+            cer, key = efirma_prueba.efirma()
+            datos.update(cer=SimpleUploadedFile("f.cer", cer), key=SimpleUploadedFile("f.key", key),
+                         contrasena=efirma_prueba.CONTRASENA)
+        self.client.post(reverse("nota_firmar", args=[nota.obra_id, nota.pk]), datos)
         nota.refresh_from_db()
         return nota
 

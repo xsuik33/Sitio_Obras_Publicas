@@ -496,6 +496,17 @@ class FirmaNotaBitacora(models.Model):
     decision = models.CharField(max_length=20, choices=DECISIONES)
     fecha_firma = fecha_auto()
     comentarios = models.TextField(null=True, blank=True)
+    # e.firma (db/cu10b_efirma.sql): lo que se firmó, el sello y el certificado público del firmante.
+    cadena_original = models.TextField(null=True, blank=True)
+    sello = models.TextField(null=True, blank=True)
+    certificado = models.TextField(null=True, blank=True)
+    certificado_numero = models.CharField(max_length=40, null=True, blank=True)
+    firmante_rfc = models.CharField(max_length=13, null=True, blank=True)
+    firmante_nombre = models.CharField(max_length=255, null=True, blank=True)
+
+    @property
+    def con_efirma(self):
+        return bool(self.sello)
 
     class Meta:
         managed = False

@@ -123,6 +123,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# e.firma: servicio aparte (mini proyecto servicio_efirma/). Vacío = se firma en este mismo proceso.
+EFIRMA_URL = os.environ.get("EFIRMA_URL", "")
+EFIRMA_TOKEN = os.environ.get("EFIRMA_TOKEN", "")
+
 # Correo: API HTTP de Brevo (Render gratuito bloquea SMTP). Sin BREVO_API_KEY, los correos salen por consola.
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
 BREVO_API_URL = os.environ.get("BREVO_API_URL", "https://api.brevo.com/v3/smtp/email")

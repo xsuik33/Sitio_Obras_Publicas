@@ -97,12 +97,30 @@ def estado_legible(nota, vigentes=None, requeridos=None):
     return f"Pendiente · faltan {_lista(faltan)}"
 
 
-def _registrar(nota, usuario, rol, decision, comentarios=None):
+def _registrar(nota, usuario, rol, decision, comentarios=None, efirma=None):
     # Hora explícita (no now() de la transacción): ordena bien varias firmas guardadas en la misma operación.
+    efirma = efirma or {}
     return FirmaNotaBitacora.objects.create(
         nota_bitacora=nota, usuario_firmante=usuario, rol_firmante=rol, decision=decision,
         comentarios=comentarios or None, fecha_firma=timezone.now(),
+        cadena_original=efirma.get("cadena"), sello=efirma.get("sello"), certificado=efirma.get("certificado"),
+        certificado_numero=efirma.get("numero"), firmante_rfc=(efirma.get("rfc") or None) and efirma["rfc"][:13],
+        firmante_nombre=efirma.get("nombre"),
     )
+
+
+def cadena_original(nota, rol, usuario):
+    """
+    Cadena que se firma con la e.firma (como la cadena original de un CFDI): los datos que identifican la nota
+    y su contenido, separados por «|». Si la nota cambia, la cadena cambia y el sello ya no corresponde.
+    """
+    campos = [
+        "NOTA-BITACORA", str(nota.obra_id), nota.obra.nombre, str(nota.folio), nota.tipo.nombre,
+        nota.fecha_nota.astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%dT%H:%M:%S"),
+        str(nota.usuario_creador), nota.descripcion, str(nota.nota_relacionada.folio if nota.nota_relacionada else ""),
+        rol, usuario.correo,
+    ]
+    return "||" + "|".join(" ".join(c.split()) for c in campos) + "||"
 
 
 def _recalcular(nota):
@@ -192,10 +210,10 @@ def guardar_correccion(nota, autor):
     return nota
 
 
-def registrar_firma(nota, usuario, rol, decision, comentarios):
+def registrar_firma(nota, usuario, rol, decision, comentarios, efirma=None):
     """Guarda la decisión de un rol y recalcula el estado. La nota debe estar bloqueada (select_for_update)."""
     anterior = nota.estado_firma
-    _registrar(nota, usuario, rol, decision, comentarios)
+    _registrar(nota, usuario, rol, decision, comentarios, efirma)
     _recalcular(nota)
     if nota.estado_firma != anterior and nota.estado_firma in (FIRMADA, RECHAZADA):
         _avisar_resultado(nota, comentarios)
