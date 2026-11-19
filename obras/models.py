@@ -218,6 +218,24 @@ class Anticipo(models.Model):
         verbose_name_plural = "Anticipos"
 
 
+class UnidadMedida(models.Model):
+    """Unidades que se pueden elegir en el catálogo de conceptos (db/cu01b_unidades_medida.sql)."""
+    id = models.SmallAutoField(primary_key=True)
+    clave = models.CharField(max_length=20, unique=True)
+    nombre = models.CharField(max_length=60)
+    activo = models.BooleanField(db_default=True)
+
+    class Meta:
+        managed = False
+        db_table = "catalogo_unidades_medida"
+        ordering = ["nombre"]
+        verbose_name = "Unidad de medida"
+        verbose_name_plural = "Unidades de medida"
+
+    def __str__(self):
+        return f"{self.clave} · {self.nombre}"
+
+
 class CatalogoConcepto(models.Model):
     id = pk_uuid()
     obra = models.ForeignKey(Obra, on_delete=models.CASCADE)

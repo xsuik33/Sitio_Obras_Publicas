@@ -34,7 +34,7 @@ from .forms import (
     AnticipoForm, ContratoForm, DecisionEstimacionForm, DocumentoForm, EstimacionForm, ObraForm, ValidacionForm,
 )
 from .models import (
-    Anticipo, CatalogoConcepto, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Documento, Estimacion,
+    Anticipo, CatalogoConcepto, UnidadMedida, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Documento, Estimacion,
     EstimacionDetalle,
     Evidencia,
     NotaBitacora,
@@ -1550,8 +1550,9 @@ def catalogo_editar(request, obra):
     CatalogoFormSet = formset_factory(
         ConceptoForm, formset=BaseConceptoFormSet, extra=3 if existentes else 5, can_delete=True
     )
+    unidades = list(UnidadMedida.objects.filter(activo=True).order_by("nombre"))
     if request.method == "POST":
-        formset = CatalogoFormSet(request.POST, initial=inicial)
+        formset = CatalogoFormSet(request.POST, initial=inicial, form_kwargs={"unidades": unidades})
         if formset.is_valid():
             finales = [f.cleaned_data for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
             propios = {c.pk: c for c in existentes}
@@ -1599,5 +1600,19 @@ def catalogo_editar(request, obra):
                 )
             return redirect("catalogo_ver", obra_id=obra.pk)
     else:
-        formset = CatalogoFormSet(initial=inicial)
+        formset = CatalogoFormSet(initial=inicial, form_kwargs={"unidades": unidades})
     return render(request, "catalogo_editar.html", {"obra": obra, "contrato": contrato, "formset": formset})
+
+
+@requiere_permiso(GESTIONAR_CATALOGO)
+def catalogo_borrar(request, obra, concepto_id):
+    """Borra un concepto desde la vista del catálogo (solo por POST y si el catálogo no está en uso)."""
+    if request.method != "POST":
+        return redirect("catalogo_ver", obra_id=obra.pk)
+    concepto = get_object_or_404(CatalogoConcepto, pk=concepto_id, obra=obra)
+    if catalogo_en_uso(obra):
+        messages.error(request, "El catálogo ya está en uso en estimaciones; no se puede borrar el concepto.")
+    else:
+        concepto.delete()
+        messages.success(request, f"Se borró el concepto «{concepto.clave}».")
+    return redirect("catalogo_ver", obra_id=obra.pk)

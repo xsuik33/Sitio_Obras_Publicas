@@ -418,7 +418,7 @@ class ConceptoForm(forms.Form):
     capitulo = forms.CharField(label="Capítulo", max_length=100, required=False)
     clave = forms.CharField(label="Clave", max_length=50)
     descripcion = forms.CharField(label="Descripción", widget=forms.Textarea(attrs={"rows": 2}))
-    unidad_medida = forms.CharField(label="Unidad", max_length=20)
+    unidad_medida = forms.ChoiceField(label="Unidad")
     volumen_total_contratado = forms.DecimalField(
         label="Cantidad", max_digits=14, decimal_places=4, min_value=Decimal("0.0001"),
         widget=forms.NumberInput(attrs={"step": "any", "min": "0"}),
@@ -434,8 +434,13 @@ class ConceptoForm(forms.Form):
     def clean_descripcion(self):
         return self.cleaned_data["descripcion"].strip()
 
-    def clean_unidad_medida(self):
-        return self.cleaned_data["unidad_medida"].strip()
+    def __init__(self, *args, unidades=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        opciones = [("", "— elegir —")] + [(u.clave, f"{u.clave} · {u.nombre}") for u in (unidades or [])]
+        actual = (self.initial or {}).get("unidad_medida")
+        if actual and actual not in {c for c, _ in opciones}:
+            opciones.append((actual, actual))  # unidad de un concepto capturado antes del catálogo de unidades
+        self.fields["unidad_medida"].choices = opciones
 
 
 class BaseConceptoFormSet(forms.BaseFormSet):

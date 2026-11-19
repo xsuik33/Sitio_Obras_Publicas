@@ -24,7 +24,7 @@
 
 <div class="tarjeta tabla-lista"><div class="tabla-scroll">
   <table style="min-width:820px">
-    <thead><tr><th>Clave</th><th>Capítulo</th><th>Descripción</th><th>Unidad</th><th class="num">Cantidad</th><th class="num">P. unitario</th><th class="num">Importe</th></tr></thead>
+    <thead><tr><th>Clave</th><th>Capítulo</th><th>Descripción</th><th>Unidad</th><th class="num">Cantidad</th><th class="num">P. unitario</th><th class="num">Importe</th>{% if puede_editar %}<th></th>{% endif %}</tr></thead>
     <tbody>
     {% for c in conceptos %}
       <tr>
@@ -32,12 +32,13 @@
         <td class="num">{{ c.volumen_total_contratado|floatformat:"-4g" }}</td>
         <td class="num">{{ c.precio_unitario|floatformat:"2g" }}</td>
         <td class="num">{{ c.importe_contratado|floatformat:"2g" }}</td>
+        {% if puede_editar %}<td><form method="post" action="{% url 'catalogo_borrar' obra.pk c.pk %}" onsubmit="return confirm('¿Borrar el concepto {{ c.clave|escapejs }}?');">{% csrf_token %}<button type="submit" class="boton-borrar" title="Borrar concepto">Borrar</button></form></td>{% endif %}
       </tr>
     {% empty %}
-      <tr class="fila-vacia"><td colspan="7">Todavía no hay conceptos en el catálogo.</td></tr>
+      <tr class="fila-vacia"><td colspan="{% if puede_editar %}8{% else %}7{% endif %}">Todavía no hay conceptos en el catálogo.{% if puede_editar %} <a href="{% url 'catalogo_editar' obra.pk %}">Captura el primero</a>.{% endif %}</td></tr>
     {% endfor %}
     </tbody>
-    {% if conceptos %}<tfoot><tr><th colspan="6" class="num">Total</th><th class="num">$ {{ total|floatformat:"2g" }}</th></tr></tfoot>{% endif %}
+    {% if conceptos %}<tfoot><tr><th colspan="6" class="num">Total</th><th class="num">$ {{ total|floatformat:"2g" }}</th>{% if puede_editar %}<th></th>{% endif %}</tr></tfoot>{% endif %}
   </table>
 </div></div>
 {% endblock %}

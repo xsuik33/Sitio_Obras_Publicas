@@ -59,6 +59,7 @@ urlpatterns = [
     path("pendientes/", views.pendientes, name="pendientes"),
     path("obras/<uuid:obra_id>/catalogo/", views.catalogo_ver, name="catalogo_ver"),
     path("obras/<uuid:obra_id>/catalogo/editar/", views.catalogo_editar, name="catalogo_editar"),
+    path("obras/<uuid:obra_id>/catalogo/<uuid:concepto_id>/borrar/", views.catalogo_borrar, name="catalogo_borrar"),
     path("usuarios/", views.usuarios_lista, name="usuarios_lista"),
     path("usuarios/nuevo/", views.usuario_nuevo, name="usuario_nuevo"),
     path("usuarios/<uuid:usuario_id>/", views.usuario_detalle, name="usuario_detalle"),

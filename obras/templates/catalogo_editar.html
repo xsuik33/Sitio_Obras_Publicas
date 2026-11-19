@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block titulo %}Capturar catálogo · {{ obra.nombre }}{% endblock %}
 {% block contenido %}
+<style>
+  .fila-borrada td { opacity: .45; text-decoration: line-through; }
+  .fila-borrada td:last-child { opacity: 1; text-decoration: none; }
+</style>
 <div class="encabezado">
   <div>
     <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'catalogo_ver' obra.pk %}">Catálogo</a></nav>
@@ -22,7 +26,7 @@
     </table>
   </div>
   <div class="pie-form" style="justify-content:space-between">
-    <button type="button" id="agregar" class="secundario">+ Agregar fila</button>
+    <button type="button" id="agregar" class="secundario">+ Agregar concepto</button>
     <span class="suave">Total del catálogo <strong id="total" style="color:var(--texto)">$ 0.00</strong> · Contrato $ {{ contrato.monto_total_contratado|floatformat:"2g" }}</span>
   </div>
   <div class="pie-form">
@@ -54,6 +58,24 @@
     });
     document.getElementById('total').textContent = '$ ' + formato.format(suma);
   }
+
+  // Botón «Borrar»: una fila nueva y vacía se quita; una existente se marca para borrar (y se puede deshacer).
+  filas.addEventListener('click', function (e) {
+    const boton = e.target.closest('[data-borrar]');
+    if (!boton) return;
+    const tr = boton.closest('tr');
+    const marca = tr.querySelector('[name$="-DELETE"]');
+    const id = tr.querySelector('[name$="-id"]');
+    if (!(id && id.value)) {
+      const llenos = Array.from(tr.querySelectorAll('input:not([type=hidden]):not([type=checkbox]), textarea, select')).some(function (c) { return c.value; });
+      if (!llenos || confirm('¿Quitar esta fila?')) { marca.checked = true; tr.hidden = true; }
+    } else {
+      marca.checked = !marca.checked;
+      tr.classList.toggle('fila-borrada', marca.checked);
+      boton.textContent = marca.checked ? 'Deshacer' : 'Borrar';
+    }
+    recalcular();
+  });
 
   document.getElementById('agregar').addEventListener('click', function () {
     const n = parseInt(total.value, 10);
