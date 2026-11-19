@@ -9,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from obras.tests import efirma_prueba
 from obras import bitacora, reportes
 from obras.almacenamiento import SupabaseStorage
 from obras.models import (
@@ -214,8 +215,11 @@ class MensualYNotaTests(BaseEvidencias):
     def test_nota_firmada_por_otros_ya_no_cambia(self):
         nota = self.nota()
         self.client.force_login(self.residente)
+        cer, key = efirma_prueba.efirma()
         self.client.post(reverse("nota_firmar", args=[self.obra.pk, nota.pk]),
-                         {"rol": bitacora.ROL_RESIDENTE, "decision": bitacora.FIRMADA, "comentarios": ""})
+                         {"rol": bitacora.ROL_RESIDENTE, "decision": bitacora.FIRMADA, "comentarios": "",
+                          "cer": SimpleUploadedFile("f.cer", cer), "key": SimpleUploadedFile("f.key", key),
+                          "contrasena": efirma_prueba.CONTRASENA})
         self.subir(self.supervisor, "nota", nota)
         self.assertFalse(Evidencia.objects.exists())
 

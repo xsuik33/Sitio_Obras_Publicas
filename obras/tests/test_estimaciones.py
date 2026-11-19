@@ -21,7 +21,7 @@ MEMORIA = {
 PDF = b"%PDF-1.7\n" + b"x" * 64
 
 
-@override_settings(ADMIN_EMAILS=[], SITE_URL="", STORAGES=MEMORIA)
+@override_settings(ADMIN_EMAILS=["admin@obras.test"], SITE_URL="", STORAGES=MEMORIA)
 class Base(TestCase):
     @classmethod
     def setUpTestData(cls):

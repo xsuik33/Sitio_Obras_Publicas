@@ -17,7 +17,7 @@ MEMORIA = {
 PDF = b"%PDF-1.7\n" + b"x" * 64
 
 
-@override_settings(ADMIN_EMAILS=["root@obras.test"], SITE_URL="", STORAGES=MEMORIA, DOCUMENTO_MAX_MB=1)
+@override_settings(ADMIN_EMAILS=["root@obras.test", "admin@obras.test"], SITE_URL="", STORAGES=MEMORIA, DOCUMENTO_MAX_MB=1)
 class Base(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -81,7 +81,7 @@ class RepositorioTests(Base):
 
 class ObraContratoTests(Base):
     def test_registrar_obra_solo_admin_del_sistema(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.supervisor)
         self.assertEqual(self.client.get(reverse("obra_nueva")).status_code, 403)
         self.client.force_login(self.root)
         r = self.client.post(reverse("obra_nueva"), {"nombre": "Escuela Sur", "ubicacion": "Guadalupe",
