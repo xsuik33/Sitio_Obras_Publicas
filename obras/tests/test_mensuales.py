@@ -20,7 +20,7 @@ RES, SINT = reportes.ROL_RESIDENTE, reportes.ROL_SUPERINTENDENTE
 MX = ZoneInfo("America/Mexico_City")
 
 
-@override_settings(ADMIN_EMAILS=[], SITE_URL="")
+@override_settings(ADMIN_EMAILS=["admin@obras.test"], SITE_URL="")
 class BaseMensual(TestCase):
     @classmethod
     def setUpTestData(cls):

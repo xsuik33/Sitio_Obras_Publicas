@@ -13,7 +13,7 @@ from obras.models import CatalogoTipoNota, FirmaNotaBitacora, NotaBitacora, Obra
 RES, SUP, SINT = bitacora.ROL_RESIDENTE, bitacora.ROL_SUPERVISOR, bitacora.ROL_SUPERINTENDENTE
 
 
-@override_settings(ADMIN_EMAILS=[], SITE_URL="")
+@override_settings(ADMIN_EMAILS=["admin@obras.test"], SITE_URL="")
 class BaseBitacora(TestCase):
     @classmethod
     def setUpTestData(cls):

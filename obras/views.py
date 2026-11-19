@@ -26,7 +26,7 @@ from . import bitacora, documentos, estimaciones, evidencias, historial, mensual
 from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
-    ADMINISTRADOR, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion,
+    ROLES_CUENTA, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion, rol_actual,
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
@@ -115,18 +115,18 @@ def roles_obra(request, obra):
         if not usuario or not rol:
             messages.error(request, "Selecciona un usuario y un rol válidos.")
         elif accion == "agregar":
-            _, creado = UsuarioProyectoRol.objects.get_or_create(usuario=usuario, obra=obra, rol=rol)
-            if creado:
+            actual = rol_actual(usuario, obra)
+            if rol.nombre not in ROLES_CUENTA:
+                messages.error(request, f"El rol «{rol.nombre}» no se asigna en las obras.")
+            elif actual:
+                messages.error(request, f"{usuario} ya tiene el rol «{actual.nombre}» en esta obra. "
+                                        "Cada persona tiene un solo rol por obra: quítalo primero si quieres cambiarlo.")
+            else:
+                UsuarioProyectoRol.objects.create(usuario=usuario, obra=obra, rol=rol)
                 messages.success(request, f"Se asignó «{rol.nombre}» a {usuario}.")
-            else:
-                messages.info(request, f"{usuario} ya tenía el rol «{rol.nombre}».")
         elif accion == "quitar":
-            se_quita_a_si_mismo = usuario.pk == request.user.pk and rol.nombre == "Administrador"
-            if se_quita_a_si_mismo and not request.user.es_admin_panel:
-                messages.error(request, "No puedes quitarte tu propio rol de Administrador.")
-            else:
-                UsuarioProyectoRol.objects.filter(usuario=usuario, obra=obra, rol=rol).delete()
-                messages.success(request, f"Se quitó «{rol.nombre}» a {usuario}.")
+            UsuarioProyectoRol.objects.filter(usuario=usuario, obra=obra, rol=rol).delete()
+            messages.success(request, f"Se quitó «{rol.nombre}» a {usuario}.")
         return redirect("roles_obra", obra_id=obra.pk)
 
     contexto = {
@@ -134,8 +134,9 @@ def roles_obra(request, obra):
         "equipo": UsuarioProyectoRol.objects.filter(obra=obra)
         .select_related("usuario", "rol")
         .order_by("usuario__nombre", "rol__nombre"),
-        "usuarios": Usuario.objects.filter(activo=True).order_by("nombre", "apellidos"),
-        "roles": Rol.objects.order_by("nombre"),
+        "usuarios": Usuario.objects.filter(activo=True).exclude(usuarioproyectorol__obra=obra)
+        .order_by("nombre", "apellidos"),
+        "roles": Rol.objects.filter(nombre__in=ROLES_CUENTA).order_by("nombre"),
     }
     return render(request, "roles_obra.html", contexto)
 
@@ -1445,15 +1446,17 @@ def usuario_detalle(request, usuario_id):
             form_rol = AsignacionForm(request.POST, obras=obras)
             if form_rol.is_valid():
                 obra, rol = form_rol.cleaned_data["obra"], form_rol.cleaned_data["rol"]
-                _, creado = UsuarioProyectoRol.objects.get_or_create(usuario=usuario, obra=obra, rol=rol)
-                if creado:
+                actual = rol_actual(usuario, obra)
+                if actual:
+                    form_rol.add_error("obra", f"Ya tiene el rol «{actual.nombre}» en «{obra.nombre}». "
+                                               "Cada persona tiene un solo rol por obra.")
+                else:
+                    UsuarioProyectoRol.objects.create(usuario=usuario, obra=obra, rol=rol)
                     registrar_accion(
                         request.user, usuario, CHANGE, f"Rol «{rol.nombre}» asignado en la obra «{obra.nombre}»."
                     )
                     messages.success(request, f"Se asignó «{rol.nombre}» en «{obra.nombre}».")
-                else:
-                    messages.info(request, "Esa asignación ya existía.")
-                return redirect("usuario_detalle", usuario_id=usuario.pk)
+                    return redirect("usuario_detalle", usuario_id=usuario.pk)
         elif accion == "quitar_rol":
             asignacion = (
                 UsuarioProyectoRol.objects.filter(
@@ -1465,9 +1468,6 @@ def usuario_detalle(request, usuario_id):
             )
             if not asignacion:
                 messages.error(request, "Esa asignación no existe o no la administras.")
-            elif (usuario.pk == request.user.pk and asignacion.rol.nombre == ADMINISTRADOR
-                  and not request.user.es_admin_panel):
-                messages.error(request, "No puedes quitarte tu propio rol de Administrador.")
             else:
                 UsuarioProyectoRol.objects.filter(usuario=usuario, obra=asignacion.obra, rol=asignacion.rol).delete()
                 registrar_accion(

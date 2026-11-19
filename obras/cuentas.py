@@ -5,26 +5,18 @@ from django.contrib.contenttypes.models import ContentType
 from .models import Obra, Usuario, UsuarioProyectoRol
 
 ADMINISTRADOR = "Administrador"
-# Roles que se pueden elegir al crear una cuenta (el Administrador se asigna desde la ficha de la cuenta).
+# Roles que se asignan en una obra (uno por persona en cada obra). El administrador es el del sistema (ADMIN_EMAILS).
 ROLES_CUENTA = ("Superintendente Contratista", "Supervisor", "Residente", "Directivo")
 
 
 def puede_administrar_cuentas(usuario):
-    """Administrador del sistema (ADMIN_EMAILS) o con el rol Administrador en alguna obra."""
-    if not usuario.is_authenticated or not usuario.is_active:
-        return False
-    if usuario.es_admin_panel:
-        return True
-    return UsuarioProyectoRol.objects.filter(usuario=usuario, rol__nombre=ADMINISTRADOR).exists()
+    """Solo el administrador del sistema (ADMIN_EMAILS); ya no existe un administrador por obra."""
+    return bool(usuario.is_authenticated and usuario.is_active and usuario.es_admin_panel)
 
 
 def obras_administradas(usuario):
     """Obras en las que la persona puede asignar roles."""
-    if usuario.es_admin_panel:
-        return Obra.objects.all()
-    return Obra.objects.filter(
-        usuarioproyectorol__usuario=usuario, usuarioproyectorol__rol__nombre=ADMINISTRADOR
-    ).distinct()
+    return Obra.objects.all() if puede_administrar_cuentas(usuario) else Obra.objects.none()
 
 
 def registrar_accion(actor, usuario, bandera, mensaje):
@@ -41,3 +33,9 @@ def historial_de(usuario):
         .select_related("user")
         .order_by("-action_time")
     )
+
+
+def rol_actual(usuario, obra):
+    """Rol que la persona ya tiene en la obra (cada persona tiene a lo más uno por obra), o None."""
+    a = UsuarioProyectoRol.objects.filter(usuario=usuario, obra=obra).select_related("rol").first()
+    return a.rol if a else None

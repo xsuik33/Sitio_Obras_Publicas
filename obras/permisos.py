@@ -1,11 +1,10 @@
 """
 Permisos por rol y por obra.
 
-Un usuario tiene uno o más roles en cada obra (tabla usuarios_proyectos_roles).
+Un usuario tiene a lo más un rol en cada obra (tabla usuarios_proyectos_roles, índice único usuario+obra).
 
 Administradores:
-  - El rol "Administrador" de una obra tiene todos los permisos en ESA obra (puede haber varios):
-    asigna roles y corrige decisiones ya registradas.
+  - Ya no existe un rol "Administrador" dentro de cada obra; cada persona tiene un solo rol por obra.
   - Los correos de ADMIN_EMAILS son administradores de todas las obras y del panel /admin/ (donde se crean usuarios).
 
 Para cambiar lo que puede hacer cada rol, edita PERMISOS_POR_ROL.
@@ -39,7 +38,6 @@ TODOS = {VER, GESTIONAR_USUARIOS, GESTIONAR_CONTRATO, GESTIONAR_CATALOGO, CREAR_
 SOLO_POR_ROL = {CREAR_REPORTE, CREAR_NOTA, FIRMAR_NOTA}
 
 PERMISOS_POR_ROL = {
-    "Administrador": TODOS - SOLO_POR_ROL,
     "Residente": {VER, VALIDAR_ESTIMACION, VALIDAR_REPORTE, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO},
     "Supervisor": {VER, CREAR_REPORTE, GESTIONAR_PROGRAMA, VALIDAR_ESTIMACION, CREAR_NOTA, FIRMAR_NOTA, SUBIR_DOCUMENTO},
     "Superintendente Contratista": {VER, GESTIONAR_CATALOGO, CREAR_ESTIMACION, CREAR_NOTA, FIRMAR_NOTA,
@@ -64,10 +62,8 @@ def puede(usuario, obra, permiso):
 
 
 def es_administrador(usuario, obra):
-    """Administrador de la obra (rol Administrador) o del sistema (ADMIN_EMAILS)."""
-    if not usuario.is_authenticated or not usuario.is_active:
-        return False
-    return usuario.es_admin_panel or "Administrador" in roles_en(usuario, obra)
+    """Administrador del sistema (ADMIN_EMAILS). Ya no hay rol Administrador dentro de cada obra."""
+    return bool(usuario.is_authenticated and usuario.is_active and usuario.es_admin_panel)
 
 
 def obras_de(usuario):

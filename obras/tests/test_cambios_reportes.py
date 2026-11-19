@@ -18,7 +18,7 @@ MX = ZoneInfo("America/Mexico_City")
 HOY = timezone.localdate()
 
 
-@override_settings(ADMIN_EMAILS=["global@obras.test"], SITE_URL="")
+@override_settings(ADMIN_EMAILS=["global@obras.test", "admin@obras.test"], SITE_URL="")
 class Base(TestCase):
     @classmethod
     def setUpTestData(cls):

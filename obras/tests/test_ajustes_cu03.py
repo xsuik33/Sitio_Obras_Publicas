@@ -15,7 +15,7 @@ from obras.models import (
 RES, SINT = reportes.ROL_RESIDENTE, reportes.ROL_SUPERINTENDENTE
 
 
-@override_settings(ADMIN_EMAILS=[], SITE_URL="")
+@override_settings(ADMIN_EMAILS=["admin@obras.test"], SITE_URL="")
 class Base(TestCase):
     @classmethod
     def setUpTestData(cls):

@@ -406,7 +406,7 @@ class AsignacionForm(forms.Form):
     def __init__(self, *args, obras=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["obra"].queryset = (obras if obras is not None else Obra.objects.none()).order_by("nombre")
-        self.fields["rol"].queryset = Rol.objects.order_by("nombre")
+        self.fields["rol"].queryset = Rol.objects.filter(nombre__in=ROLES_CUENTA).order_by("nombre")
 
 
 # ---------------------------------------------------------------------------
