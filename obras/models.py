@@ -133,6 +133,8 @@ class Obra(models.Model):
     ubicacion = models.TextField(null=True, blank=True)
     fecha_inicio_oficial = models.DateField(null=True, blank=True)
     fecha_fin_oficial = models.DateField(null=True, blank=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     # Contador de folios de la bitácora; lo incrementa el trigger trg_nota_folio.
     ultimo_folio_bitacora = models.IntegerField(db_default=0, editable=False)
     fecha_registro = fecha_auto()

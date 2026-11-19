@@ -259,6 +259,14 @@
     {% else %}<p class="vacio-sec">Aún no hay documentos en el repositorio de la obra.</p>{% endif %}
   </div>
 
+  {# Ubicación #}
+  <div class="tarjeta">
+    <div class="titulo-sec"><h2>Ubicación</h2>{% if obra.latitud is not None %}<a href="https://www.openstreetmap.org/?mlat={{ obra.latitud|stringformat:'s' }}&amp;mlon={{ obra.longitud|stringformat:'s' }}#map=17/{{ obra.latitud|stringformat:'s' }}/{{ obra.longitud|stringformat:'s' }}" target="_blank" rel="noopener">Abrir mapa →</a>{% endif %}</div>
+    {% if obra.ubicacion %}<p class="suave">{{ obra.ubicacion }}</p>{% endif %}
+    {% if obra.latitud is not None %}{% include "_mapa.html" with lat=obra.latitud lon=obra.longitud %}
+    {% else %}<p class="vacio-sec">La obra no tiene su punto marcado en el mapa.{% if puede_contrato %} <a href="{% url 'obra_editar' obra.pk %}">Márcalo al editar la obra</a>.{% endif %}</p>{% endif %}
+  </div>
+
   {# Equipo #}
   <div class="tarjeta">
     <div class="titulo-sec"><h2>Equipo de la obra</h2>{% if puede_gestionar %}<a href="{% url 'roles_obra' obra.pk %}">Gestionar →</a>{% endif %}</div>

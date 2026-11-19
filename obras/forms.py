@@ -603,11 +603,12 @@ _FECHA = {"type": "date"}
 class ObraForm(forms.ModelForm):
     class Meta:
         model = Obra
-        fields = ("nombre", "ubicacion", "fecha_inicio_oficial", "fecha_fin_oficial")
+        fields = ("nombre", "ubicacion", "latitud", "longitud", "fecha_inicio_oficial", "fecha_fin_oficial")
         labels = {"nombre": "Nombre de la obra", "ubicacion": "Ubicación",
                   "fecha_inicio_oficial": "Fecha de inicio oficial", "fecha_fin_oficial": "Fecha de terminación oficial"}
         help_texts = {"fecha_inicio_oficial": "Con las fechas oficiales se calcula el estado de la obra y el arranque del programa."}
         widgets = {"ubicacion": forms.Textarea(attrs={"rows": 2}),
+                   "latitud": forms.HiddenInput, "longitud": forms.HiddenInput,
                    "fecha_inicio_oficial": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d"),
                    "fecha_fin_oficial": forms.DateInput(attrs=_FECHA, format="%Y-%m-%d")}
 
@@ -616,6 +617,11 @@ class ObraForm(forms.ModelForm):
         inicio, fin = datos.get("fecha_inicio_oficial"), datos.get("fecha_fin_oficial")
         if inicio and fin and fin < inicio:
             self.add_error("fecha_fin_oficial", "La terminación no puede ser anterior al inicio.")
+        lat, lon = datos.get("latitud"), datos.get("longitud")
+        if (lat is None) != (lon is None):
+            self.add_error("ubicacion", "Marca el punto en el mapa o quítalo; faltan coordenadas.")
+        elif lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            self.add_error("ubicacion", "Las coordenadas del mapa no son válidas.")
         return datos
 
 

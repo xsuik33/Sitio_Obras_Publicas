@@ -1,0 +1,58 @@
+{% comment %}
+Mapa de la ubicación de la obra (OpenStreetMap + Leaflet, sin claves de API).
+Uso: {% include "_mapa.html" with editable=True %} dentro del formulario de obra (usa los campos ocultos
+latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.longitud %} para solo mostrarlo.
+{% endcomment %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<div class="mapa-obra" id="mapa-obra" style="height:{% if editable %}320px{% else %}260px{% endif %};border-radius:10px;border:1px solid var(--borde);z-index:0"></div>
+{% if editable %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
+  <button type="button" class="secundario" id="mapa-buscar">Buscar la ubicación escrita</button>
+  <button type="button" class="secundario" id="mapa-quitar">Quitar punto</button>
+  <span class="suave" id="mapa-estado">Haz clic en el mapa para marcar dónde está la obra.</span>
+</div>
+{% endif %}
+<script>
+(function () {
+  if (!window.L) { document.getElementById('mapa-obra').textContent = 'No se pudo cargar el mapa.'; return; }
+  const editable = {{ editable|yesno:"true,false" }};
+  const campoLat = document.getElementById('id_latitud'), campoLon = document.getElementById('id_longitud');
+  let lat = parseFloat(editable ? (campoLat && campoLat.value) : '{{ lat|default_if_none:""|stringformat:"s" }}');
+  let lon = parseFloat(editable ? (campoLon && campoLon.value) : '{{ lon|default_if_none:""|stringformat:"s" }}');
+  const hay = !isNaN(lat) && !isNaN(lon);
+  const mapa = L.map('mapa-obra').setView(hay ? [lat, lon] : [19.4326, -99.1332], hay ? 16 : 11);  // CDMX por omisión
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; colaboradores de OpenStreetMap'
+  }).addTo(mapa);
+  let marca = hay ? L.marker([lat, lon]).addTo(mapa) : null;
+  if (!editable) return;
+
+  const estado = document.getElementById('mapa-estado');
+  function poner(la, lo, texto) {
+    la = Math.round(la * 1e6) / 1e6; lo = Math.round(lo * 1e6) / 1e6;
+    campoLat.value = la; campoLon.value = lo;
+    if (marca) marca.setLatLng([la, lo]); else marca = L.marker([la, lo]).addTo(mapa);
+    estado.textContent = texto || ('Punto marcado: ' + la + ', ' + lo);
+  }
+  mapa.on('click', function (e) { poner(e.latlng.lat, e.latlng.lng); });
+  document.getElementById('mapa-quitar').addEventListener('click', function () {
+    campoLat.value = ''; campoLon.value = '';
+    if (marca) { mapa.removeLayer(marca); marca = null; }
+    estado.textContent = 'Sin punto en el mapa.';
+  });
+  document.getElementById('mapa-buscar').addEventListener('click', function () {
+    const texto = (document.getElementById('id_ubicacion') || {}).value || '';
+    if (!texto.trim()) { estado.textContent = 'Escribe primero la ubicación de la obra.'; return; }
+    estado.textContent = 'Buscando…';
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q=' + encodeURIComponent(texto))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.length) { estado.textContent = 'No se encontró; marca el punto con un clic.'; return; }
+        poner(parseFloat(res[0].lat), parseFloat(res[0].lon), 'Encontrado: ' + res[0].display_name);
+        mapa.setView([res[0].lat, res[0].lon], 16);
+      })
+      .catch(function () { estado.textContent = 'No se pudo buscar; marca el punto con un clic.'; });
+  });
+})();
+</script>
