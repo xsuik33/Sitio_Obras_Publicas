@@ -1,4 +1,5 @@
 """Configuración del Sistema de Obras (Django + PostgreSQL en Supabase, despliegue en Render)."""
+import hashlib
 import os
 from pathlib import Path
 
@@ -123,9 +124,11 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# e.firma: servicio aparte (mini proyecto servicio_efirma/). Vacío = se firma en este mismo proceso.
+# e.firma del sistema: servicio aparte (mini proyecto servicio_efirma/). Vacío = se firma en este mismo proceso.
+# EFIRMA_SEMILLA define la autoridad certificadora; debe ser la misma en el sistema y en el servicio.
 EFIRMA_URL = os.environ.get("EFIRMA_URL", "")
 EFIRMA_TOKEN = os.environ.get("EFIRMA_TOKEN", "")
+EFIRMA_SEMILLA = os.environ.get("EFIRMA_SEMILLA", "") or hashlib.sha256(("efirma|" + SECRET_KEY).encode()).hexdigest()
 
 # Correo: API HTTP de Brevo (Render gratuito bloquea SMTP). Sin BREVO_API_KEY, los correos salen por consola.
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")

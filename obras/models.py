@@ -501,7 +501,6 @@ class FirmaNotaBitacora(models.Model):
     sello = models.TextField(null=True, blank=True)
     certificado = models.TextField(null=True, blank=True)
     certificado_numero = models.CharField(max_length=40, null=True, blank=True)
-    firmante_rfc = models.CharField(max_length=13, null=True, blank=True)
     firmante_nombre = models.CharField(max_length=255, null=True, blank=True)
 
     @property
@@ -618,3 +617,25 @@ class ValidacionReporteMensual(models.Model):
         db_table = "validaciones_reportes_mensuales"
         verbose_name = "Validación de reporte mensual"
         verbose_name_plural = "Validaciones de reportes mensuales"
+
+
+class EfirmaUsuario(models.Model):
+    """
+    e.firma del sistema de un usuario (db/cu10b_efirma.sql): certificado emitido por la AC del sistema (solo nombre
+    y correo) y la llave privada cifrada con el PIN del usuario. El PIN no se guarda.
+    """
+    usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, primary_key=True, related_name="efirma")
+    certificado = models.TextField()
+    llave_cifrada = models.TextField()
+    numero = models.CharField(max_length=32)
+    valido_hasta = models.DateTimeField()
+    fecha_emision = fecha_auto()
+
+    class Meta:
+        managed = False
+        db_table = "efirmas_usuarios"
+        verbose_name = "e.firma de usuario"
+        verbose_name_plural = "e.firmas de usuarios"
+
+    def __str__(self):
+        return f"e.firma {self.numero} · {self.usuario}"

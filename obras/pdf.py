@@ -252,8 +252,7 @@ def nota_bitacora_pdf(nota, estado, firmas):
         if firma.con_efirma:
             sello = "Sello VÁLIDO" if valido else "Sello NO VÁLIDO: la nota o el certificado no coinciden"
             renglones += [
-                [_p(f"e.firma de {firma.firmante_nombre or '—'} · RFC {firma.firmante_rfc or '—'} · "
-                    f"Certificado {firma.certificado_numero} · {sello}", suave), ""],
+                [_p(f"e.firma de {firma.firmante_nombre or '—'} · Certificado {firma.certificado_numero} · {sello}", suave), ""],
                 [_p("Cadena original: " + (firma.cadena_original or ""), mono), ""],
                 [_p("Sello digital: " + firma.sello, mono), ""],
             ]
@@ -271,7 +270,8 @@ def nota_bitacora_pdf(nota, estado, firmas):
         historia += [t, Spacer(1, 6)]
 
     historia += [Spacer(1, 6), _p(
-        "Los sellos se generan con la e.firma del firmante (RSA con SHA-256) sobre la cadena original de la nota. "
-        "Cualquier cambio en la nota invalida el sello. La llave privada y la contraseña no se guardan.", suave)]
+        "Los sellos se generan con la e.firma del Sistema de Obras de cada firmante (Ed25519) sobre la cadena original "
+        "de la nota, con certificados emitidos por la autoridad certificadora del sistema. Cualquier cambio en la nota "
+        "invalida el sello. El PIN de cada firmante no se guarda.", suave)]
     doc.build(historia)
     return buffer.getvalue()

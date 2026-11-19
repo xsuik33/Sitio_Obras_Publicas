@@ -10,4 +10,6 @@ services:
     healthCheckPath: /salud
     envVars:
       - key: EFIRMA_TOKEN
-        generateValue: true
+        sync: false
+      - key: EFIRMA_SEMILLA
+        sync: false

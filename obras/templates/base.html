@@ -286,6 +286,7 @@
           <span class="avatar" aria-hidden="true">{{ user.nombre|slice:":1"|upper }}{{ user.apellidos|slice:":1"|upper }}</span>
           <span class="nombre">{{ user.nombre }} {{ user.apellidos }}</span>
           <a href="{% url 'cambiar_password' %}">Mi contraseña</a>
+          <a href="{% url 'mi_efirma' %}">Mi e.firma</a>
           <button type="submit" class="enlace">Salir</button>
         </form>
         {% endif %}

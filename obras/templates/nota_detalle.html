@@ -46,7 +46,7 @@
       {% for f in historial %}
         <li><div class="quien"><span class="chip" data-e="{{ f.decision }}">{{ f.decision }}</span> {{ f.usuario_firmante }} <span class="tenue">· {{ f.rol_firmante }}</span></div>
             <div class="cuando">{{ f.fecha_firma|date:"d M Y, H:i" }}</div>
-            {% if f.con_efirma %}<div class="tenue mono" style="font-size:.78rem">e.firma · certificado {{ f.certificado_numero }}{% if f.firmante_rfc %} · RFC {{ f.firmante_rfc }}{% endif %}</div>{% endif %}
+            {% if f.con_efirma %}<div class="tenue mono" style="font-size:.78rem">e.firma · certificado {{ f.certificado_numero }}</div>{% endif %}
             {% if f.comentarios %}<div class="texto">{{ f.comentarios }}</div>{% endif %}</li>
       {% empty %}
         <li class="vacio-sec" style="padding-left:0">Todavía nadie ha firmado.</li>
@@ -55,7 +55,7 @@
       {% if puede_firmar %}
         <hr class="separador">
         <a class="boton" href="{% url 'nota_firmar' obra.pk nota.pk %}">Firmar o rechazar →</a>
-        <p class="nota-ayuda">Para firmar necesitas tu e.firma (.cer, .key y contraseña).</p>
+        <p class="nota-ayuda">Se firma con tu e.firma del sistema y tu PIN.</p>
       {% elif firma_bloqueada %}
         <p class="nota-ayuda">{% if nota.estado_firma == "Rechazada" %}La nota fue rechazada; podrás firmar cuando el autor la corrija y la reenvíe.{% else %}Ya registraste tu firma en esta nota.{% endif %}</p>
       {% endif %}

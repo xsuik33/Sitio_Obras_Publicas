@@ -16,26 +16,23 @@
     <p class="texto" style="white-space:pre-wrap">{{ nota.descripcion }}</p>
     {% if nota.nota_relacionada %}<p class="suave">Responde a la nota {{ nota.nota_relacionada.folio }}.</p>{% endif %}
     <h3 style="margin-top:16px">Cadena original</h3>
-    <p class="suave">Es lo que se sella con tu e.firma. Si la nota cambia después, el sello deja de ser válido.</p>
+    <p class="suave">Es lo que se sella con tu e.firma del sistema. Si la nota cambia después, el sello deja de ser válido.</p>
     <pre class="mono" style="white-space:pre-wrap;word-break:break-all;font-size:.8rem;background:var(--hundido);padding:10px;border-radius:8px">{{ cadena }}</pre>
   </div>
 
   <div class="tarjeta">
     <h2>Tu decisión</h2>
-    <form method="post" enctype="multipart/form-data" class="formulario" id="form-firma"
+    {% if not mi_efirma %}
+      <div class="mensaje warning">Para firmar necesitas tu e.firma. <a href="{% url 'mi_efirma' %}">Créala aquí</a> (solo te pide un PIN); para rechazar no hace falta.</div>
+    {% endif %}
+    <form method="post" class="formulario" id="form-firma"
           onsubmit="return confirm('¿Confirmas tu decisión? Ya no se podrá cambiar.');">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="mensaje error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
       <div class="campo">{{ form.rol.as_field_group }}</div>
       <div class="campo">{{ form.decision.as_field_group }}</div>
-      <fieldset id="datos-efirma" style="border:1px solid var(--borde);border-radius:10px;padding:12px 14px;margin:0 0 12px">
-        <legend class="suave" style="padding:0 6px">e.firma</legend>
-        <div class="campo">{{ form.cer.as_field_group }}</div>
-        <div class="campo">{{ form.key.as_field_group }}</div>
-        <div class="campo">{{ form.contrasena.as_field_group }}</div>
-        <p class="nota-ayuda" style="margin:0">Tu llave privada y tu contraseña solo se usan para sellar esta nota
-          {% if modo_servicio %}en el servicio de e.firma{% endif %}; no se guardan en el sistema.</p>
-      </fieldset>
+      <div class="campo" id="datos-efirma">{{ form.pin.as_field_group }}
+        {% if mi_efirma %}<p class="nota-ayuda" style="margin:4px 0 0">Firmarás con tu e.firma, certificado <span class="mono">{{ mi_efirma.numero }}</span>.</p>{% endif %}</div>
       <div class="campo">{{ form.comentarios.as_field_group }}</div>
       <div class="pie-form">
         <button type="submit">Registrar decisión</button>

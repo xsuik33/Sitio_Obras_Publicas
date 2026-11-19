@@ -306,21 +306,43 @@ class NotaBitacoraForm(forms.ModelForm):
         return texto
 
 
-class FirmaEfirmaForm(forms.Form):
-    """Firma de una nota en su propia página: para firmar se usa la e.firma (.cer, .key y contraseña)."""
-    MAX_BYTES = 64 * 1024  # un .cer o .key de la e.firma pesa unos 2 KB
+class EfirmaCrearForm(forms.Form):
+    """Crear o renovar la e.firma del sistema: el usuario elige su PIN y confirma con su contraseña."""
+    pin1 = forms.CharField(label="PIN de tu e.firma", strip=False, min_length=6,
+                           widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+                           help_text="Al menos 6 caracteres. Lo escribirás cada vez que firmes; no se guarda y no se puede recuperar.")
+    pin2 = forms.CharField(label="Repite el PIN", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    password = forms.CharField(label="Contraseña de tu cuenta", strip=False,
+                               widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+                               help_text="Para confirmar que eres tú.")
 
+    def __init__(self, *args, usuario=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario = usuario
+
+    def clean_password(self):
+        if not self.usuario.check_password(self.cleaned_data["password"]):
+            raise ValidationError("La contraseña de tu cuenta no es correcta.")
+        return self.cleaned_data["password"]
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("pin1") and datos.get("pin2") and datos["pin1"] != datos["pin2"]:
+            self.add_error("pin2", "Los PIN no coinciden.")
+        if datos.get("pin1") and datos.get("password") and datos["pin1"] == datos["password"]:
+            self.add_error("pin1", "Usa un PIN distinto a la contraseña de tu cuenta.")
+        return datos
+
+
+class FirmaEfirmaForm(forms.Form):
+    """Firma de una nota en su propia página: para firmar se escribe el PIN de la e.firma del sistema."""
     rol = forms.ChoiceField(label="Firmas como")
-    decision = forms.ChoiceField(label="Decisión", choices=[("", "— elegir —"), ("Firmada", "Firmar con e.firma"),
+    decision = forms.ChoiceField(label="Decisión", choices=[("", "— elegir —"), ("Firmada", "Firmar con mi e.firma"),
                                                             ("Rechazada", "Rechazar")])
+    pin = forms.CharField(label="PIN de tu e.firma", required=False, strip=False,
+                          widget=forms.PasswordInput(attrs={"autocomplete": "off"}))
     comentarios = forms.CharField(label="Comentarios", required=False, widget=forms.Textarea(attrs={"rows": 3}),
                                   help_text="Obligatorios si rechazas la nota.")
-    cer = forms.FileField(label="Certificado (.cer)", required=False,
-                          widget=forms.ClearableFileInput(attrs={"accept": ".cer,.crt,.pem"}))
-    key = forms.FileField(label="Llave privada (.key)", required=False,
-                          widget=forms.ClearableFileInput(attrs={"accept": ".key,.pem"}))
-    contrasena = forms.CharField(label="Contraseña de la e.firma", required=False, strip=False,
-                                 widget=forms.PasswordInput(attrs={"autocomplete": "off"}))
 
     def __init__(self, *args, roles=(), **kwargs):
         super().__init__(*args, **kwargs)
@@ -332,15 +354,8 @@ class FirmaEfirmaForm(forms.Form):
         datos["comentarios"] = (datos.get("comentarios") or "").strip()
         if datos.get("decision") == "Rechazada" and not datos["comentarios"]:
             self.add_error("comentarios", "Explica el motivo del rechazo.")
-        if datos.get("decision") == "Firmada":
-            for campo, texto in (("cer", "Sube tu certificado (.cer)."), ("key", "Sube tu llave privada (.key)."),
-                                 ("contrasena", "Escribe la contraseña de tu e.firma.")):
-                if not datos.get(campo):
-                    self.add_error(campo, texto)
-            for campo in ("cer", "key"):
-                archivo = datos.get(campo)
-                if archivo and archivo.size > self.MAX_BYTES:
-                    self.add_error(campo, "El archivo es demasiado grande para ser de la e.firma.")
+        if datos.get("decision") == "Firmada" and not datos.get("pin"):
+            self.add_error("pin", "Escribe el PIN de tu e.firma.")
         return datos
 
 

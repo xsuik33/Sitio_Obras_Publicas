@@ -1,13 +1,18 @@
 """
-Servicio de firma con e.firma (mini proyecto vinculado al Sistema de Obras).
+Servicio de e.firma del Sistema de Obras (mini proyecto vinculado a la página).
 
-Endpoints:
+Es la autoridad certificadora del sistema: emite a cada usuario su propia e.firma (no la del SAT; el certificado
+solo lleva nombre y correo) y sella con ella las notas de bitácora.
+
+Endpoints (JSON):
   GET  /salud      → {"estado": "ok"}
-  POST /firmar     → multipart: cadena, cer, key, contrasena. Devuelve el sello y los datos del certificado.
-  POST /verificar  → JSON: {cadena, sello, certificado}. Devuelve {"valido": true|false}.
+  POST /emitir     → {nombre, correo, pin}                          → certificado y llave cifrada con el PIN
+  POST /firmar     → {cadena, certificado, llave_cifrada, pin}      → sello y datos del certificado
+  POST /verificar  → {cadena, sello, certificado}                   → {"valido": true|false}
 
-Todas las peticiones (menos /salud) llevan el encabezado  Authorization: Bearer <EFIRMA_TOKEN>.
-La llave privada y la contraseña solo viven en memoria durante la petición; no se guardan ni se registran.
+Todas (menos /salud) llevan  Authorization: Bearer <EFIRMA_TOKEN>.  El PIN solo vive en memoria durante la
+petición; no se guarda ni se registra. El servicio no guarda nada: el sistema conserva el certificado y la
+llave cifrada de cada usuario.
 """
 import hmac
 import logging
@@ -24,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("servicio_efirma")
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # .cer y .key pesan unos cuantos KB
+app.config["MAX_CONTENT_LENGTH"] = 256 * 1024  # un certificado y una llave pesan menos de 2 KB
 
 
 def _autorizado():
@@ -38,19 +43,37 @@ def salud():
     return jsonify(estado="ok")
 
 
+def _json():
+    return request.get_json(silent=True) or {}
+
+
+@app.post("/emitir")
+def emitir():
+    if not _autorizado():
+        return jsonify(error="No autorizado."), 401
+    d = _json()
+    if not d.get("correo"):
+        return jsonify(error="Falta el correo del usuario."), 400
+    try:
+        resultado = efirma.emitir(d.get("nombre", ""), d["correo"], d.get("pin", ""))
+    except efirma.ErrorEfirma as e:
+        return jsonify(error=str(e)), 422
+    log.info("e.firma emitida, certificado %s", resultado["numero"])
+    return jsonify(resultado)
+
+
 @app.post("/firmar")
 def firmar():
     if not _autorizado():
         return jsonify(error="No autorizado."), 401
-    cadena = request.form.get("cadena", "")
-    cer, key = request.files.get("cer"), request.files.get("key")
-    if not cadena or not cer or not key:
-        return jsonify(error="Faltan la cadena, el .cer o el .key."), 400
+    d = _json()
+    if not d.get("cadena") or not d.get("certificado") or not d.get("llave_cifrada"):
+        return jsonify(error="Faltan la cadena, el certificado o la llave."), 400
     try:
-        resultado = efirma.firmar(cadena, cer.read(), key.read(), request.form.get("contrasena", ""))
+        resultado = efirma.firmar(d["cadena"], d["certificado"], d["llave_cifrada"], d.get("pin", ""))
     except efirma.ErrorEfirma as e:
         return jsonify(error=str(e)), 422
-    log.info("Cadena firmada con el certificado %s", resultado["numero"])
+    log.info("Cadena sellada con el certificado %s", resultado["numero"])
     return jsonify(resultado)
 
 
@@ -58,10 +81,10 @@ def firmar():
 def verificar():
     if not _autorizado():
         return jsonify(error="No autorizado."), 401
-    datos = request.get_json(silent=True) or {}
-    return jsonify(valido=efirma.verificar(datos.get("cadena", ""), datos.get("sello", ""), datos.get("certificado", "")))
+    d = _json()
+    return jsonify(valido=efirma.verificar(d.get("cadena", ""), d.get("sello", ""), d.get("certificado", "")))
 
 
 @app.errorhandler(413)
 def muy_grande(_):
-    return jsonify(error="Los archivos son demasiado grandes."), 413
+    return jsonify(error="La petición es demasiado grande."), 413

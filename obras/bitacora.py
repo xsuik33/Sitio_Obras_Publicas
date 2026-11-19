@@ -104,8 +104,7 @@ def _registrar(nota, usuario, rol, decision, comentarios=None, efirma=None):
         nota_bitacora=nota, usuario_firmante=usuario, rol_firmante=rol, decision=decision,
         comentarios=comentarios or None, fecha_firma=timezone.now(),
         cadena_original=efirma.get("cadena"), sello=efirma.get("sello"), certificado=efirma.get("certificado"),
-        certificado_numero=efirma.get("numero"), firmante_rfc=(efirma.get("rfc") or None) and efirma["rfc"][:13],
-        firmante_nombre=efirma.get("nombre"),
+        certificado_numero=efirma.get("numero"), firmante_nombre=efirma.get("nombre"),
     )
 
 

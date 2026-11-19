@@ -65,6 +65,7 @@ urlpatterns = [
     path("usuarios/nuevo/", views.usuario_nuevo, name="usuario_nuevo"),
     path("usuarios/<uuid:usuario_id>/", views.usuario_detalle, name="usuario_detalle"),
     path("cuenta/password/", views.CambiarPasswordView.as_view(), name="cambiar_password"),
+    path("cuenta/efirma/", views.mi_efirma, name="mi_efirma"),
     path("salud/", views.salud, name="salud"),
     path("admin/", admin.site.urls),
 ]

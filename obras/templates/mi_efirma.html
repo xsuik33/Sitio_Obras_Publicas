@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Mi e.firma · Sistema de Obras{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <h1>Mi e.firma</h1>
+    <p class="sub"><span>Firma electrónica del Sistema de Obras para firmar notas de bitácora</span></p>
+  </div>
+</div>
+
+<div class="cols" style="align-items:start">
+  <div class="tarjeta">
+    {% if actual %}
+      <h2>Tu e.firma está activa</h2>
+      <table>
+        <tr><th>Certificado</th><td class="mono">{{ actual.numero }}</td></tr>
+        <tr><th>Titular</th><td>{{ datos.nombre }}</td></tr>
+        <tr><th>Correo</th><td>{{ datos.correo }}</td></tr>
+        <tr><th>Emitida por</th><td>{{ datos.emisor }}</td></tr>
+        <tr><th>Creada</th><td>{{ actual.fecha_emision|date:"d M Y, H:i" }}</td></tr>
+        <tr><th>Vigente hasta</th><td>{{ actual.valido_hasta|date:"d M Y" }}</td></tr>
+      </table>
+      <p class="nota-ayuda">Si olvidaste tu PIN, renueva tu e.firma: se crea una nueva y las notas que ya firmaste conservan su sello.</p>
+    {% else %}
+      <h2>Todavía no tienes e.firma</h2>
+      <p>La necesitas para firmar notas de bitácora. Elige un PIN: el sistema te genera una llave y un certificado
+        que solo llevan tu nombre y tu correo (no es la e.firma del SAT ni usa tu RFC).</p>
+    {% endif %}
+    <h3 style="margin-top:16px">Cómo funciona</h3>
+    <p class="suave">Tu llave privada se guarda cifrada con tu PIN; el PIN no se guarda en ningún lado. Al firmar una
+      nota escribes tu PIN, la llave se abre solo en ese momento y sella la cadena original de la nota. Cualquiera
+      puede comprobar el sello en el PDF de la nota, y si la nota cambia el sello deja de ser válido.</p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>{% if actual %}Renovar mi e.firma{% else %}Crear mi e.firma{% endif %}</h2>
+    <form method="post" class="formulario"{% if actual %} onsubmit="return confirm('Se reemplazará tu e.firma actual. ¿Continuar?');"{% endif %}>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="mensaje error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      <div class="campo">{{ form.pin1.as_field_group }}</div>
+      <div class="campo">{{ form.pin2.as_field_group }}</div>
+      <div class="campo">{{ form.password.as_field_group }}</div>
+      <div class="pie-form"><button type="submit">{% if actual %}Renovar e.firma{% else %}Crear e.firma{% endif %}</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

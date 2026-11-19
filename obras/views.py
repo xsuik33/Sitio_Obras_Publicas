@@ -31,7 +31,7 @@ from .cuentas import (
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
-    BaseProgramaFormSet, FirmaEfirmaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
+    BaseProgramaFormSet, EfirmaCrearForm, FirmaEfirmaForm, NotaBitacoraForm, ProgramaForm, ReporteDiarioForm, ReporteMensualForm,
     AnticipoForm, ContratoForm, DecisionEstimacionForm, DocumentoForm, EstimacionForm, ObraForm, ValidacionForm,
 )
 from .models import (
@@ -658,16 +658,20 @@ def nota_firmar(request, obra, nota_id):
     if not roles:
         messages.error(request, "No tienes firmas pendientes en esta nota.")
         return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
-    form = FirmaEfirmaForm(request.POST or None, request.FILES or None, roles=roles)
+    mi_efirma = efirma.de(request.user)
+    form = FirmaEfirmaForm(request.POST or None, roles=roles)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         firma = None
         if d["decision"] == bitacora.FIRMADA:
-            cadena = bitacora.cadena_original(nota, d["rol"], request.user)
-            try:  # la llamada al servicio va fuera de la transacción: no bloquea la nota mientras firma
-                firma = efirma.firmar(cadena, d["cer"].read(), d["key"].read(), d["contrasena"])
-            except efirma.ErrorEfirma as e:
-                form.add_error(None, str(e))
+            if not mi_efirma:
+                form.add_error(None, "Primero crea tu e.firma en «Mi e.firma».")
+            else:
+                cadena = bitacora.cadena_original(nota, d["rol"], request.user)
+                try:  # fuera de la transacción: no bloquea la nota mientras se sella
+                    firma = efirma.firmar(cadena, mi_efirma, d["pin"])
+                except efirma.ErrorEfirma as e:
+                    form.add_error("pin" if "PIN" in str(e) else None, str(e))
         if not form.errors:
             with transaction.atomic():
                 nota = _nota(obra, nota_id, bloquear=True)  # dos personas no deciden a la vez
@@ -678,15 +682,34 @@ def nota_firmar(request, obra, nota_id):
                 else:
                     bitacora.registrar_firma(nota, request.user, d["rol"], d["decision"], d["comentarios"], firma)
                     if firma:
-                        messages.success(request, f"Nota firmada con la e.firma (certificado {firma['numero']}). "
+                        messages.success(request, f"Nota firmada con tu e.firma (certificado {firma['numero']}). "
                                                   f"Estado: {bitacora.estado_legible(nota)}.")
                     else:
                         messages.success(request, f"Nota rechazada. Estado: {bitacora.estado_legible(nota)}.")
             return redirect("nota_detalle", obra_id=obra.pk, nota_id=nota_id)
-    contexto = {"obra": obra, "nota": nota, "form": form,
-                "cadena": bitacora.cadena_original(nota, roles[0], request.user),
-                "modo_servicio": bool(settings.EFIRMA_URL)}
+    contexto = {"obra": obra, "nota": nota, "form": form, "mi_efirma": mi_efirma,
+                "cadena": bitacora.cadena_original(nota, roles[0], request.user)}
     return render(request, "nota_firmar.html", contexto)
+
+
+@login_required
+def mi_efirma(request):
+    """Crear o renovar la e.firma del sistema del usuario (certificado con nombre y correo, llave cifrada con su PIN)."""
+    actual = efirma.de(request.user)
+    form = EfirmaCrearForm(request.POST or None, usuario=request.user)
+    if request.method == "POST" and form.is_valid():
+        try:
+            nueva = efirma.emitir(request.user, form.cleaned_data["pin1"])
+        except efirma.ErrorEfirma as e:
+            form.add_error(None, str(e))
+        else:
+            registrar_accion(request.user, request.user, CHANGE,
+                             f"{'Renovó' if actual else 'Creó'} su e.firma (certificado {nueva.numero}).")
+            messages.success(request, f"Tu e.firma está lista (certificado {nueva.numero}). Úsala con tu PIN para firmar.")
+            return redirect("mi_efirma")
+    contexto = {"form": form, "actual": actual, "datos": efirma.datos(actual) if actual else None,
+                "pin_minimo": efirma.PIN_MINIMO}
+    return render(request, "mi_efirma.html", contexto)
 
 
 @requiere_permiso(VER)

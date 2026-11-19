@@ -3,7 +3,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core import mail
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -47,9 +46,8 @@ class BaseBitacora(TestCase):
         rol = rol or next(r for r in bitacora.ROLES_FIRMANTES if r in bitacora.roles_en(usuario, nota.obra))
         datos = {"rol": rol, "decision": decision, "comentarios": comentarios}
         if decision == "Firmada":
-            cer, key = efirma_prueba.efirma()
-            datos.update(cer=SimpleUploadedFile("f.cer", cer), key=SimpleUploadedFile("f.key", key),
-                         contrasena=efirma_prueba.CONTRASENA)
+            efirma_prueba.dar_efirma(usuario)
+            datos["pin"] = efirma_prueba.PIN
         self.client.post(reverse("nota_firmar", args=[nota.obra_id, nota.pk]), datos)
         nota.refresh_from_db()
         return nota
