@@ -9,6 +9,13 @@
   </div>
   {% if puede_crear %}<div class="acciones"><a class="boton" href="{% url 'reporte_nuevo' obra.pk %}">+ Nuevo reporte</a></div>{% endif %}
 </div>
+<form method="get" class="tarjeta filtros" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+  <label>Desde<br><input type="date" name="desde" value="{{ desde|date:'Y-m-d' }}"></label>
+  <label>Hasta<br><input type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}"></label>
+  <label>Estatus<br><select name="estatus"><option value="">Todos</option>{% for e in estatus_opciones %}<option value="{{ e }}"{% if e == estatus_filtro %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+  <button type="submit" class="secundario">Consultar</button>
+  {% if filtrando %}<a href="{% url 'reportes_lista' obra.pk %}">Quitar filtros</a>{% endif %}
+</form>
 <div class="tarjeta tabla-lista"><div class="tabla-scroll">
   <table>
     <thead><tr><th>Fecha</th><th>Supervisor</th><th class="num">Avance real</th><th>Estatus</th><th>Revisión</th></tr></thead>
@@ -22,7 +29,7 @@
         <td class="tenue">{{ estado }}</td>
       </tr>
     {% empty %}
-      <tr class="fila-vacia"><td colspan="5">Todavía no hay reportes diarios en esta obra.{% if puede_crear %} <a href="{% url 'reporte_nuevo' obra.pk %}">Captura el primero</a>.{% endif %}</td></tr>
+      <tr class="fila-vacia"><td colspan="5">{% if filtrando %}No hay reportes diarios en ese periodo.{% else %}Todavía no hay reportes diarios en esta obra.{% endif %}{% if puede_crear %} <a href="{% url 'reporte_nuevo' obra.pk %}">Captura el primero</a>.{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

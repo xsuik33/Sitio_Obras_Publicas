@@ -20,6 +20,7 @@
 <div class="tarjeta">
   <h2>Reportes diarios del periodo</h2>
   <p class="suave">Del {{ c.periodo.inicio }} al {{ c.periodo.corte }}.
+    {% if c.periodo.desde %}<a href="{% url 'reportes_lista' obra.pk %}?desde={{ c.periodo.desde }}&amp;hasta={{ c.periodo.hasta }}">Consultar estos reportes diarios →</a>{% endif %}
     {% if c.diarios.dias_sin_reporte %}Días sin reporte: {{ c.diarios.fechas_sin_reporte|join:", " }}.{% endif %}
     {% if c.clima %}Clima: {% for nombre, n in c.clima %}{{ nombre }} ({{ n }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
   {% if c.diarios.filas %}

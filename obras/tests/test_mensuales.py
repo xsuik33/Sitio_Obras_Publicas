@@ -235,3 +235,42 @@ class ScriptIncrementalTests(TestCase):
             cursor.execute(sql)
             cursor.execute("SELECT to_regclass('validaciones_reportes_mensuales') IS NOT NULL")
             self.assertTrue(cursor.fetchone()[0])
+
+
+
+class InicioCorteTests(BaseMensual):
+    """CU-04 (cambio): fecha de inicio de corte y consulta de los reportes diarios del periodo."""
+
+    def test_inicio_de_corte_limita_el_consolidado(self):
+        self.diario(date(2026, 10, 3), 10)
+        self.diario(date(2026, 10, 12), 20)
+        r = self.crear(fecha_inicio_corte="2026-10-10", fecha_corte="2026-10-20")
+        self.assertEqual(r.fecha_inicio_corte, date(2026, 10, 10))
+        self.assertEqual(mensuales.periodo(r), (date(2026, 10, 10), date(2026, 10, 20)))
+        c = mensuales.consolidar(r)
+        self.assertEqual([f["fecha"] for f in c["diarios"]["filas"]], ["12/10/2026"])
+        self.assertEqual((c["periodo"]["desde"], c["periodo"]["hasta"]), ("2026-10-10", "2026-10-20"))
+
+    def test_sin_inicio_de_corte_empieza_el_dia_1(self):
+        r = self.crear()
+        self.assertIsNone(r.fecha_inicio_corte)
+        self.assertEqual(mensuales.periodo(r)[0], date(2026, 10, 1))
+
+    def test_inicio_de_corte_fuera_del_mes_o_despues_del_corte(self):
+        self.client.force_login(self.supervisor)
+        url = reverse("mensual_nuevo", args=[self.obra.pk])
+        base = {"anio": 2026, "mes": 10, "resumen": "x", "accion": "enviar"}
+        r = self.client.post(url, {**base, "fecha_inicio_corte": "2026-09-28", "fecha_corte": ""})
+        self.assertContains(r, "debe caer dentro del mes reportado")
+        r = self.client.post(url, {**base, "fecha_inicio_corte": "2026-10-25", "fecha_corte": "2026-10-20"})
+        self.assertContains(r, "no puede ser posterior a la fecha de corte")
+        self.assertFalse(ReporteMensual.objects.filter(obra=self.obra).exists())
+
+    def test_consulta_de_diarios_por_periodo(self):
+        self.diario(date(2026, 10, 3), 10)
+        self.diario(date(2026, 10, 12), 20)
+        self.client.force_login(self.residente)
+        r = self.client.get(reverse("reportes_lista", args=[self.obra.pk]), {"desde": "2026-10-10", "hasta": "2026-10-31"})
+        self.assertEqual(len(r.context["filas"]), 1)
+        r = self.client.get(reverse("reportes_lista", args=[self.obra.pk]), {"desde": "mal"})
+        self.assertEqual(len(r.context["filas"]), 2)

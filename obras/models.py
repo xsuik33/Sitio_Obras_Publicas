@@ -420,6 +420,7 @@ class ReporteMensual(models.Model):
     supervisor = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     anio = models.SmallIntegerField()
     mes = models.SmallIntegerField()
+    fecha_inicio_corte = models.DateField(null=True, blank=True)  # vacía = primer día del mes
     fecha_corte = models.DateField()
     resumen = models.TextField(null=True, blank=True)
     observaciones = models.TextField(null=True, blank=True)

@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 import uuid
 from collections import defaultdict
 from decimal import Decimal
@@ -158,13 +159,33 @@ def _reporte_visible(usuario, obra, reporte_id):
     return reporte
 
 
+def _fecha_param(valor):
+    """Fecha ISO de un parámetro GET, o None si viene vacía o mal escrita."""
+    try:
+        return date.fromisoformat(valor) if valor else None
+    except ValueError:
+        return None
+
+
 @requiere_permiso(VER)
 def reportes_lista(request, obra):
     consulta = ReporteDiario.objects.filter(obra=obra).select_related("supervisor", "estatus", "obra")
     if not es_administrador(request.user, obra):
         consulta = consulta.exclude(Q(estatus__nombre=reportes.BORRADOR) & ~Q(supervisor=request.user))
+    # Consulta por periodo (también la usa el reporte mensual para enlazar sus reportes diarios).
+    desde, hasta = _fecha_param(request.GET.get("desde")), _fecha_param(request.GET.get("hasta"))
+    estatus_filtro = request.GET.get("estatus") or ""
+    if desde:
+        consulta = consulta.filter(fecha_reporte__gte=desde)
+    if hasta:
+        consulta = consulta.filter(fecha_reporte__lte=hasta)
+    if estatus_filtro:
+        consulta = consulta.filter(estatus__nombre=estatus_filtro)
     filas = [(r, reportes.estado_legible(r)) for r in consulta.order_by("-fecha_reporte")]
-    contexto = {"obra": obra, "filas": filas, "puede_crear": puede(request.user, obra, CREAR_REPORTE)}
+    contexto = {"obra": obra, "filas": filas, "puede_crear": puede(request.user, obra, CREAR_REPORTE),
+                "desde": desde, "hasta": hasta, "estatus_filtro": estatus_filtro,
+                "filtrando": bool(desde or hasta or estatus_filtro),
+                "estatus_opciones": [reportes.BORRADOR, reportes.PENDIENTE, reportes.APROBADO, reportes.RECHAZADO]}
     return render(request, "reportes_lista.html", contexto)
 
 

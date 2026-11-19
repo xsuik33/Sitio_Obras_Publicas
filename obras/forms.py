@@ -214,14 +214,18 @@ class ReporteMensualForm(forms.ModelForm):
 
     class Meta:
         model = ReporteMensual
-        fields = ("anio", "mes", "fecha_corte", "resumen", "observaciones")
+        fields = ("anio", "mes", "fecha_inicio_corte", "fecha_corte", "resumen", "observaciones")
         labels = {
-            "anio": "Año", "fecha_corte": "Fecha de corte",
+            "anio": "Año", "fecha_inicio_corte": "Fecha de inicio de corte", "fecha_corte": "Fecha de corte",
             "resumen": "Resumen del mes", "observaciones": "Observaciones",
         }
-        help_texts = {"fecha_corte": "Vacía = último día del mes. El consolidado toma los datos hasta esta fecha."}
+        help_texts = {
+            "fecha_inicio_corte": "Vacía = primer día del mes. El consolidado toma los reportes desde esta fecha.",
+            "fecha_corte": "Vacía = último día del mes. El consolidado toma los datos hasta esta fecha.",
+        }
         widgets = {
             "anio": forms.NumberInput(attrs={"min": 2000, "max": 2100}),
+            "fecha_inicio_corte": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "fecha_corte": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "resumen": forms.Textarea(attrs={"rows": 6}),
             "observaciones": forms.Textarea(attrs={"rows": 3}),
@@ -231,6 +235,7 @@ class ReporteMensualForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.obra = obra
         self.fields["fecha_corte"].required = False
+        self.fields["fecha_inicio_corte"].required = False
         self.fields["resumen"].required = True
         if not self.instance._state.adding:  # el mes no cambia una vez creado
             self.fields["anio"].disabled = self.fields["mes"].disabled = True
@@ -255,6 +260,11 @@ class ReporteMensualForm(forms.ModelForm):
         if not inicio <= corte <= ultimo:
             self.add_error("fecha_corte", "La fecha de corte debe caer dentro del mes reportado.")
         datos["fecha_corte"] = corte
+        inicio_corte = datos.get("fecha_inicio_corte")
+        if inicio_corte and not inicio <= inicio_corte <= ultimo:
+            self.add_error("fecha_inicio_corte", "La fecha de inicio de corte debe caer dentro del mes reportado.")
+        elif inicio_corte and inicio_corte > corte:
+            self.add_error("fecha_inicio_corte", "La fecha de inicio de corte no puede ser posterior a la fecha de corte.")
         repetidos = ReporteMensual.objects.filter(obra=self.obra, anio=anio, mes=mes)
         if not self.instance._state.adding:
             repetidos = repetidos.exclude(pk=self.instance.pk)

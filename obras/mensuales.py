@@ -164,7 +164,8 @@ def _dinero(valor):
 
 
 def periodo(reporte):
-    inicio = date(reporte.anio, reporte.mes, 1)
+    """Periodo del reporte: de la fecha de inicio de corte (o el día 1) a la fecha de corte."""
+    inicio = reporte.fecha_inicio_corte or date(reporte.anio, reporte.mes, 1)
     if reporte.obra.fecha_inicio_oficial and reporte.obra.fecha_inicio_oficial > inicio:
         inicio = min(reporte.obra.fecha_inicio_oficial, reporte.fecha_corte)
     return inicio, reporte.fecha_corte
@@ -245,7 +246,8 @@ def consolidar(reporte):
     estados_notas = Counter(n.estado_firma for n in notas)
 
     return {
-        "periodo": {"inicio": f"{inicio:%d/%m/%Y}", "corte": f"{corte:%d/%m/%Y}", "dias": dias},
+        "periodo": {"inicio": f"{inicio:%d/%m/%Y}", "corte": f"{corte:%d/%m/%Y}", "dias": dias,
+                    "desde": inicio.isoformat(), "hasta": corte.isoformat()},
         "diarios": {
             "total": len(diarios), "aprobados": cuenta[APROBADO], "sin_aprobar": sin_aprobar,
             "rechazados": cuenta[RECHAZADO], "dias_sin_reporte": len(sin_reporte),

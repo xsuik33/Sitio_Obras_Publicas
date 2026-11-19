@@ -6,7 +6,7 @@
     <nav class="migas" aria-label="Ruta"><a href="{% url 'mis_obras' %}">Obras</a><span aria-hidden="true">/</span><a href="{% url 'obra_detalle' obra.pk %}">{{ obra.nombre }}</a><span aria-hidden="true">/</span><a href="{% url 'mensuales_lista' obra.pk %}">Reportes mensuales</a></nav>
     <div class="eyebrow">Reporte mensual</div>
     <h1>{{ mes }} <span class="chip" data-e="{{ reporte.estatus.nombre }}">{{ reporte.estatus.nombre }}</span></h1>
-    <p class="sub"><span>Supervisor: {{ reporte.supervisor }}</span><span>Corte: {{ reporte.fecha_corte|date:"d M Y" }}</span>
+    <p class="sub"><span>Supervisor: {{ reporte.supervisor }}</span><span>Periodo: {% if reporte.fecha_inicio_corte %}{{ reporte.fecha_inicio_corte|date:"d M Y" }}{% else %}1 {{ reporte.fecha_corte|date:"M Y" }}{% endif %} – {{ reporte.fecha_corte|date:"d M Y" }}</span>
       {% if reporte.fecha_modificacion %}<span>Editado el {{ reporte.fecha_modificacion|date:"d M Y, H:i" }}</span>{% endif %}</p>
   </div>
   <div class="acciones">
