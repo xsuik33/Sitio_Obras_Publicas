@@ -32,6 +32,8 @@ if DEBUG:
 
 # Correos (separados por coma) con acceso al panel /admin/.
 ADMIN_EMAILS = [c.strip().lower() for c in os.environ.get("ADMIN_EMAILS", "").split(",") if c.strip()]
+# Cuentas de solo consulta: ven todas las obras y todos sus registros, pero no pueden modificar nada.
+CONSULTA_USUARIOS = [c.strip().lower() for c in os.environ.get("CONSULTA_USUARIOS", "").split(",") if c.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -51,6 +53,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "obras.middleware.SoloLecturaMiddleware",  # después de sesión, usuario y mensajes
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 

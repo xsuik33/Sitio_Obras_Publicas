@@ -76,8 +76,14 @@ class Usuario(AbstractBaseUser):
         return self.activo
 
     @property
+    def es_consulta(self):
+        """Cuenta de solo consulta (CONSULTA_USUARIOS): ve todo y no modifica nada."""
+        return self.activo and self.correo.lower() in settings.CONSULTA_USUARIOS
+
+    @property
     def es_admin_panel(self):
-        return self.correo.lower() in settings.ADMIN_EMAILS
+        correo = self.correo.lower()
+        return correo in settings.ADMIN_EMAILS and correo not in settings.CONSULTA_USUARIOS
 
     @property
     def is_staff(self):

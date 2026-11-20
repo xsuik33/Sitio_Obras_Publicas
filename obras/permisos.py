@@ -56,6 +56,8 @@ def roles_en(usuario, obra):
 def puede(usuario, obra, permiso):
     if not usuario.is_authenticated or not usuario.is_active:
         return False
+    if usuario.es_consulta:
+        return permiso == VER  # solo consulta: ve todas las obras, no hace nada más
     if usuario.es_admin_panel and permiso not in SOLO_POR_ROL:
         return True
     return any(permiso in PERMISOS_POR_ROL.get(rol, ()) for rol in roles_en(usuario, obra))
@@ -68,7 +70,7 @@ def es_administrador(usuario, obra):
 
 def obras_de(usuario):
     """Obras a las que el usuario tiene acceso."""
-    if usuario.es_admin_panel:
+    if usuario.es_admin_panel or usuario.es_consulta:
         return Obra.objects.all()
     return Obra.objects.filter(usuarioproyectorol__usuario=usuario).distinct()
 

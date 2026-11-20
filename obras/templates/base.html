@@ -285,8 +285,9 @@
           {% csrf_token %}
           <span class="avatar" aria-hidden="true">{{ user.nombre|slice:":1"|upper }}{{ user.apellidos|slice:":1"|upper }}</span>
           <span class="nombre">{{ user.nombre }} {{ user.apellidos }}</span>
+          {% if user.es_consulta %}<span class="chip">Solo consulta</span>{% else %}
           <a href="{% url 'cambiar_password' %}">Mi contraseña</a>
-          <a href="{% url 'mi_efirma' %}">Mi e.firma</a>
+          <a href="{% url 'mi_efirma' %}">Mi e.firma</a>{% endif %}
           <button type="submit" class="enlace">Salir</button>
         </form>
         {% endif %}
@@ -296,6 +297,7 @@
   {% endwith %}
   <main>
     {% for mensaje in messages %}<div class="mensaje {{ mensaje.tags }}" role="status">{{ mensaje }}</div>{% endfor %}
+    {% if user.is_authenticated and user.es_consulta %}<div class="mensaje info" role="note">Cuenta de <strong>solo consulta</strong>: puedes ver todas las obras y sus registros, pero no modificar nada.</div>{% endif %}
     {% block contenido %}{% endblock %}
   </main>
   <script>
