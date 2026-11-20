@@ -32,8 +32,13 @@ if DEBUG:
 
 # Correos (separados por coma) con acceso al panel /admin/.
 ADMIN_EMAILS = [c.strip().lower() for c in os.environ.get("ADMIN_EMAILS", "").split(",") if c.strip()]
-# Cuentas de solo consulta: ven todas las obras y todos sus registros, pero no pueden modificar nada.
+# Acceso de solo consulta: con este usuario y contraseña se entra sin tener cuenta; ve todas las obras y sus
+# registros, pero no puede modificar nada. CONSULTA_USUARIO vacío lo desactiva.
+CONSULTA_USUARIO = os.environ.get("CONSULTA_USUARIO", "admin").strip().lower()
+CONSULTA_PASSWORD = os.environ.get("CONSULTA_PASSWORD", "admin")
 CONSULTA_USUARIOS = [c.strip().lower() for c in os.environ.get("CONSULTA_USUARIOS", "").split(",") if c.strip()]
+if CONSULTA_USUARIO:
+    CONSULTA_USUARIOS.append(CONSULTA_USUARIO)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -90,6 +95,10 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "obras.Usuario"  # tabla `usuarios`
+AUTHENTICATION_BACKENDS = [
+    "obras.autenticacion.ConsultaBackend",  # admin / admin → solo consulta, sin crear cuenta
+    "django.contrib.auth.backends.ModelBackend",
+]
 TEST_RUNNER = "obras.pruebas_bd.RunnerPostgres"  # carga db/esquema_obras.sql en la base de prueba
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "mis_obras"
