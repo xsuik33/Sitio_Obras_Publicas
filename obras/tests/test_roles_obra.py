@@ -60,3 +60,50 @@ class RolesObraTests(TestCase):
         UsuarioProyectoRol.objects.create(usuario=self.ana, obra=self.obra, rol=self.sup)
         with self.assertRaises(IntegrityError), transaction.atomic():
             UsuarioProyectoRol.objects.create(usuario=self.ana, obra=self.obra, rol=self.res)
+
+
+@override_settings(ADMIN_EMAILS=["admin@obras.test"], SITE_URL="")
+class UnaPersonaPorRolTests(RolesObraTests):
+    """Cada rol lo tiene una sola persona en cada obra."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.beto = Usuario.objects.create_user("beto@obras.test", "Clave-segura-123", nombre="Beto", apellidos="Prueba")
+
+    def test_no_dos_residentes_en_la_misma_obra(self):
+        self.asignar(self.ana, self.res)
+        r = self.asignar(self.beto, self.res)
+        self.assertContains(r, "ya lo tiene Ana Prueba en esta obra")
+        self.assertEqual(UsuarioProyectoRol.objects.filter(obra=self.obra, rol=self.res).count(), 1)
+
+    def test_el_mismo_rol_en_otra_obra_si(self):
+        self.asignar(self.ana, self.res)
+        self.asignar(self.beto, self.res, obra=self.otra)
+        self.assertEqual(UsuarioProyectoRol.objects.filter(rol=self.res).count(), 2)
+
+    def test_el_rol_ocupado_sale_deshabilitado(self):
+        self.asignar(self.ana, self.res)
+        r = self.client.get(reverse("roles_obra", args=[self.obra.pk]))
+        self.assertContains(r, "disabled>Residente — ya lo tiene Ana Prueba")
+
+    def test_desde_la_ficha_tampoco(self):
+        UsuarioProyectoRol.objects.create(usuario=self.ana, obra=self.obra, rol=self.res)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("usuario_detalle", args=[self.beto.pk]),
+                             {"accion": "agregar_rol", "obra": self.obra.pk, "rol": self.res.pk})
+        self.assertContains(r, "Cada rol lo tiene una sola persona por obra")
+
+    def test_al_crear_la_cuenta_tampoco(self):
+        UsuarioProyectoRol.objects.create(usuario=self.ana, obra=self.obra, rol=self.res)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("usuario_nuevo"), {
+            "nombre": "Carla", "apellidos": "Prueba", "correo": "carla@obras.test", "rol": self.res.pk,
+            "obras": [self.obra.pk], "password1": "Clave-segura-123", "password2": "Clave-segura-123"})
+        self.assertContains(r, "ya hay alguien con el rol «Residente»")
+        self.assertFalse(Usuario.objects.filter(correo="carla@obras.test").exists())
+
+    def test_la_base_impide_dos_personas_en_el_mismo_rol(self):
+        UsuarioProyectoRol.objects.create(usuario=self.ana, obra=self.obra, rol=self.res)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            UsuarioProyectoRol.objects.create(usuario=self.beto, obra=self.obra, rol=self.res)

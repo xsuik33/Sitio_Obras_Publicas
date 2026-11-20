@@ -39,3 +39,12 @@ def rol_actual(usuario, obra):
     """Rol que la persona ya tiene en la obra (cada persona tiene a lo más uno por obra), o None."""
     a = UsuarioProyectoRol.objects.filter(usuario=usuario, obra=obra).select_related("rol").first()
     return a.rol if a else None
+
+
+def ocupante(obra, rol, excepto=None):
+    """Persona que ya tiene ese rol en la obra (cada rol lo tiene a lo más una persona por obra), o None."""
+    q = UsuarioProyectoRol.objects.filter(obra=obra, rol=rol).select_related("usuario")
+    if excepto is not None:
+        q = q.exclude(usuario=excepto)
+    a = q.first()
+    return a.usuario if a else None

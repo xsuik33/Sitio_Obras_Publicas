@@ -13,7 +13,7 @@ from .cuentas import ROLES_CUENTA
 from .mensuales import MESES
 from .models import (
     Anticipo, CatalogoEstatusValidacion, CatalogoTipoNota, Contrato, Estimacion, NotaBitacora, Obra, ReporteDiario,
-    ReporteMensual, Rol, Usuario,
+    ReporteMensual, Rol, Usuario, UsuarioProyectoRol,
 )
 
 
@@ -425,6 +425,12 @@ class CuentaNuevaForm(forms.Form):
     def clean(self):
         datos = super().clean()
         _validar_passwords(self)
+        rol, obras = datos.get("rol"), datos.get("obras") or []
+        if rol:
+            ocupadas = [o.nombre for o in obras if UsuarioProyectoRol.objects.filter(obra=o, rol=rol).exists()]
+            if ocupadas:
+                self.add_error("obras", f"En {', '.join(ocupadas)} ya hay alguien con el rol «{rol.nombre}». "
+                                        "Cada rol lo tiene una sola persona por obra.")
         return datos
 
 

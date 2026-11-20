@@ -27,7 +27,7 @@ from . import bitacora, documentos, efirma, estimaciones, evidencias, historial,
 from . import consulta as expedientes
 from .almacenamiento import ErrorAlmacenamiento
 from .cuentas import (
-    ROLES_CUENTA, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion, rol_actual,
+    ROLES_CUENTA, historial_de, obras_administradas, puede_administrar_cuentas, registrar_accion, rol_actual, ocupante,
 )
 from .forms import (
     AsignacionForm, BaseConceptoFormSet, ConceptoForm, CuentaEdicionForm, CuentaNuevaForm, CuentaPasswordForm,
@@ -107,6 +107,12 @@ def obra_detalle(request, obra):
     return render(request, "obra_detalle.html", contexto)
 
 
+def _roles_con_ocupante(obra):
+    """[(rol, persona que ya lo tiene o None)] para el formulario de «Gestionar equipo»."""
+    ocupados = {a.rol_id: a.usuario for a in UsuarioProyectoRol.objects.filter(obra=obra).select_related("usuario")}
+    return [(r, ocupados.get(r.pk)) for r in Rol.objects.filter(nombre__in=ROLES_CUENTA).order_by("nombre")]
+
+
 @requiere_permiso(GESTIONAR_USUARIOS)
 def roles_obra(request, obra):
     if request.method == "POST":
@@ -122,6 +128,9 @@ def roles_obra(request, obra):
             elif actual:
                 messages.error(request, f"{usuario} ya tiene el rol «{actual.nombre}» en esta obra. "
                                         "Cada persona tiene un solo rol por obra: quítalo primero si quieres cambiarlo.")
+            elif (quien := ocupante(obra, rol)):
+                messages.error(request, f"El rol «{rol.nombre}» ya lo tiene {quien} en esta obra. "
+                                        "Cada rol lo tiene una sola persona por obra: quítaselo primero.")
             else:
                 UsuarioProyectoRol.objects.create(usuario=usuario, obra=obra, rol=rol)
                 messages.success(request, f"Se asignó «{rol.nombre}» a {usuario}.")
@@ -138,6 +147,7 @@ def roles_obra(request, obra):
         "usuarios": Usuario.objects.filter(activo=True).exclude(usuarioproyectorol__obra=obra)
         .order_by("nombre", "apellidos"),
         "roles": Rol.objects.filter(nombre__in=ROLES_CUENTA).order_by("nombre"),
+        "roles_opciones": _roles_con_ocupante(obra),
     }
     return render(request, "roles_obra.html", contexto)
 
@@ -1519,9 +1529,13 @@ def usuario_detalle(request, usuario_id):
             if form_rol.is_valid():
                 obra, rol = form_rol.cleaned_data["obra"], form_rol.cleaned_data["rol"]
                 actual = rol_actual(usuario, obra)
+                quien = ocupante(obra, rol)
                 if actual:
                     form_rol.add_error("obra", f"Ya tiene el rol «{actual.nombre}» en «{obra.nombre}». "
                                                "Cada persona tiene un solo rol por obra.")
+                elif quien:
+                    form_rol.add_error("rol", f"El rol «{rol.nombre}» ya lo tiene {quien} en «{obra.nombre}». "
+                                              "Cada rol lo tiene una sola persona por obra.")
                 else:
                     UsuarioProyectoRol.objects.create(usuario=usuario, obra=obra, rol=rol)
                     registrar_accion(

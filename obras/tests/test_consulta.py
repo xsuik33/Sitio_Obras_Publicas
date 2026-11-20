@@ -31,7 +31,7 @@ class BaseConsulta(TestCase):
         cls.ajena = Obra.objects.create(nombre="Puente Ajeno")
         cls.directivo = cls._usuario("directivo", "Directivo", cls.puente, cls.escuela, cls.clinica)
         cls.supervisor = cls._usuario("supervisor", "Supervisor", cls.puente)
-        cls.otro_sup = cls._usuario("otro", "Supervisor", cls.puente)
+        cls.otro_sup = cls._usuario("otro", "Supervisor", cls.escuela)  # un supervisor por obra
         cls.superint = cls._usuario("superint", reportes.ROL_SUPERINTENDENTE, cls.puente)
         cls.contrato = Contrato.objects.create(obra=cls.puente, numero_contrato="LP-2026-014", contratista="Constructora Alfa",
                                                monto_total_contratado=Decimal("1000000"))

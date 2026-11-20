@@ -48,7 +48,7 @@
       <p><label for="r-rol">Rol</label>
         <select id="r-rol" name="rol_id" required>
           <option value="">Elige un rol</option>
-          {% for r in roles %}<option value="{{ r.pk }}">{{ r.nombre }}</option>{% endfor %}
+          {% for r, quien in roles_opciones %}<option value="{{ r.pk }}"{% if quien %} disabled{% endif %}>{{ r.nombre }}{% if quien %} — ya lo tiene {{ quien }}{% endif %}</option>{% endfor %}
         </select></p>
       <div class="pie-form"><button type="submit">Asignar rol</button></div>
     </form>

@@ -24,7 +24,9 @@ class Base(TestCase):
     def setUpTestData(cls):
         cls.obra = Obra.objects.create(nombre="Puente Norte", fecha_inicio_oficial=HOY - timedelta(days=60))
         cls.supervisor = cls._usuario("supervisor", "Supervisor")
-        cls.otro_supervisor = cls._usuario("otro", "Supervisor")
+        # Cada rol lo tiene una sola persona por obra: el otro supervisor es de otra obra.
+        cls.obra_vecina = Obra.objects.create(nombre="Puente Vecino")
+        cls.otro_supervisor = cls._usuario("otro", "Supervisor", obra=cls.obra_vecina)
         cls.residente = cls._usuario("residente", reportes.ROL_RESIDENTE)
         cls.admin = cls._usuario("admin", "Administrador")
         cls.directivo = cls._usuario("directivo", "Directivo")
@@ -33,9 +35,9 @@ class Base(TestCase):
         )
 
     @classmethod
-    def _usuario(cls, nombre, rol):
+    def _usuario(cls, nombre, rol, obra=None):
         u = Usuario.objects.create_user(f"{nombre}@obras.test", "Clave-segura-123", nombre=nombre.title(), apellidos="Prueba")
-        UsuarioProyectoRol.objects.create(usuario=u, obra=cls.obra, rol=Rol.objects.get(nombre=rol))
+        UsuarioProyectoRol.objects.create(usuario=u, obra=obra or cls.obra, rol=Rol.objects.get(nombre=rol))
         return u
 
     def datos(self, **cambios):
