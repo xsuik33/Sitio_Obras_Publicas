@@ -1,5 +1,5 @@
 {% comment %}
-Mapa de la ubicación de la obra (OpenStreetMap + Leaflet, sin claves de API).
+Mapa de la ubicación de la obra (Leaflet con mosaicos de CARTO/OpenStreetMap, sin claves de API).
 Uso: {% include "_mapa.html" with editable=True %} dentro del formulario de obra (usa los campos ocultos
 latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.longitud %} para solo mostrarlo.
 {% endcomment %}
@@ -22,8 +22,11 @@ latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.long
   let lon = parseFloat(editable ? (campoLon && campoLon.value) : '{{ lon|default_if_none:""|stringformat:"s" }}');
   const hay = !isNaN(lat) && !isNaN(lon);
   const mapa = L.map('mapa-obra').setView(hay ? [lat, lon] : [19.4326, -99.1332], hay ? 16 : 11);  // CDMX por omisión
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; colaboradores de OpenStreetMap'
+  // Mosaicos de CARTO (gratuitos, sin clave, con datos de OpenStreetMap). Los servidores de mosaicos piden saber
+  // desde qué sitio se usan, y Django por omisión no manda el Referer a otros dominios: se envía solo el origen.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20, subdomains: 'abcd', referrerPolicy: 'strict-origin-when-cross-origin',
+    attribution: '&copy; colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(mapa);
   let marca = hay ? L.marker([lat, lon]).addTo(mapa) : null;
   if (!editable) return;
@@ -45,7 +48,8 @@ latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.long
     const texto = (document.getElementById('id_ubicacion') || {}).value || '';
     if (!texto.trim()) { estado.textContent = 'Escribe primero la ubicación de la obra.'; return; }
     estado.textContent = 'Buscando…';
-    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q=' + encodeURIComponent(texto))
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q=' + encodeURIComponent(texto),
+          {referrerPolicy: 'strict-origin-when-cross-origin'})
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res.length) { estado.textContent = 'No se encontró; marca el punto con un clic.'; return; }
