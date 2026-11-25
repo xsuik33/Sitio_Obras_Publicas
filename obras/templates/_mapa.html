@@ -1,5 +1,5 @@
 {% comment %}
-Mapa de la ubicación de la obra (Leaflet con mosaicos de CARTO/OpenStreetMap, sin claves de API).
+Mapa de la ubicación de la obra (Leaflet con mosaicos de OpenStreetMap y respaldo de Esri, sin claves de API).
 Uso: {% include "_mapa.html" with editable=True %} dentro del formulario de obra (usa los campos ocultos
 latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.longitud %} para solo mostrarlo.
 {% endcomment %}
@@ -22,12 +22,20 @@ latitud/longitud), o {% include "_mapa.html" with lat=obra.latitud lon=obra.long
   let lon = parseFloat(editable ? (campoLon && campoLon.value) : '{{ lon|default_if_none:""|stringformat:"s" }}');
   const hay = !isNaN(lat) && !isNaN(lon);
   const mapa = L.map('mapa-obra').setView(hay ? [lat, lon] : [19.4326, -99.1332], hay ? 16 : 11);  // CDMX por omisión
-  // Mosaicos de CARTO (gratuitos, sin clave, con datos de OpenStreetMap). Los servidores de mosaicos piden saber
-  // desde qué sitio se usan, y Django por omisión no manda el Referer a otros dominios: se envía solo el origen.
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 20, subdomains: 'abcd', referrerPolicy: 'strict-origin-when-cross-origin',
-    attribution: '&copy; colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // Mosaicos de OpenStreetMap (sin clave). Sus servidores exigen saber desde qué sitio se usan, y Django por
+  // omisión no manda el Referer a otros dominios: se envía solo el origen. Si fallan, se cambia solo a los de Esri.
+  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin',
+    attribution: '&copy; colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(mapa);
+  let fallas = 0;
+  osm.on('tileerror', function () {
+    if (++fallas !== 3) return;
+    mapa.removeLayer(osm);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Mosaicos &copy; Esri &mdash; Esri, HERE, Garmin, &copy; colaboradores de OpenStreetMap'
+    }).addTo(mapa);
+  });
   let marca = hay ? L.marker([lat, lon]).addTo(mapa) : null;
   if (!editable) return;
 
